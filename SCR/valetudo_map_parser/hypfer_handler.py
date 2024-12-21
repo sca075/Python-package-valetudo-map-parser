@@ -12,10 +12,7 @@ import logging
 import os.path
 
 from PIL import Image, ImageOps
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.storage import STORAGE_DIR
 
-from custom_components.mqtt_vacuum_camera.const import CAMERA_STORAGE
 from ..config.types import (
     CalibrationPoints,
     ChargerPosition,
@@ -26,7 +23,7 @@ from ..config.types import (
     RoomsProperties,
     TrimCropData,
 )
-from custom_components.mqtt_vacuum_camera.utils.colors_man import color_grey
+from ..config.colors import SupportedColor, DefaultColors
 from ..config.drawable import Drawable
 from custom_components.mqtt_vacuum_camera.utils.files_operations import (
     async_load_file,
@@ -48,14 +45,10 @@ class MapImageHandler(object):
     """Map Image Handler Class.
     This class is used to handle the image data and the drawing of the map."""
 
-    def __init__(self, shared_data, hass: HomeAssistant):
+    def __init__(self, shared_data):
         """Initialize the Map Image Handler."""
-        self.hass = hass
         self.shared = shared_data  # camera shared data
         self.file_name = shared_data.file_name  # file name of the vacuum.
-        self.path_to_data = self.hass.config.path(
-            STORAGE_DIR, CAMERA_STORAGE, f"auto_crop_{self.file_name}.json"
-        )  # path to the data
         self.auto_crop = None  # auto crop data to be calculate once.
         self.calibration_data = None  # camera shared data.
         self.charger_pos = None  # vacuum data charger position.
@@ -187,7 +180,7 @@ class MapImageHandler(object):
     async def async_auto_trim_and_zoom_image(
         self,
         image_array: NumpyArray,
-        detect_colour: Color = color_grey,
+        detect_colour: Color = DefaultColors.COLORS[SupportedColor.PREDICTED_PATH],
         margin_size: int = 0,
         rotate: int = 0,
         zoom: bool = False,

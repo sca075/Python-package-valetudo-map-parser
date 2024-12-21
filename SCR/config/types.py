@@ -1,6 +1,6 @@
 """
 This module contains type aliases for the project.
-Version 2024.08.0b0
+Version 0.0.1
 """
 
 import asyncio
@@ -12,9 +12,9 @@ from typing import Any, Dict, Tuple, Union
 from PIL import Image
 import numpy as np
 
-from .const import DEFAULT_ROOMS
+DEFAULT_ROOMS = 1
 
-_LOGGER = logging.getLogger(__name__)
+MY_LOGGER = logging.getLogger(__name__)
 
 Color = Union[Tuple[int, int, int], Tuple[int, int, int, int]]
 Colors = Dict[str, Color]
