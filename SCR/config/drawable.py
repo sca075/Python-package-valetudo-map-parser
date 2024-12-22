@@ -28,7 +28,7 @@ class Drawable:
 
     @staticmethod
     async def create_empty_image(
-            width: int, height: int, background_color: Color
+        width: int, height: int, background_color: Color
     ) -> NumpyArray:
         """Create the empty background image numpy array."""
         """ Background color is specified as RGBA tuple. """
@@ -37,7 +37,7 @@ class Drawable:
 
     @staticmethod
     async def from_json_to_image(
-            layer: NumpyArray, pixels: Union[dict, list], pixel_size: int, color: Color
+        layer: NumpyArray, pixels: Union[dict, list], pixel_size: int, color: Color
     ) -> NumpyArray:
         """Drawing the layers (rooms) from the vacuum json data."""
         image_array = layer
@@ -48,14 +48,14 @@ class Drawable:
             # Draw pixels
             for i in range(z):
                 image_array[
-                row : row + pixel_size,
-                col + i * pixel_size : col + (i + 1) * pixel_size,
+                    row : row + pixel_size,
+                    col + i * pixel_size : col + (i + 1) * pixel_size,
                 ] = color
         return image_array
 
     @staticmethod
     async def battery_charger(
-            layers: NumpyArray, x: int, y: int, color: Color
+        layers: NumpyArray, x: int, y: int, color: Color
     ) -> NumpyArray:
         """Draw the battery charger on the input layer."""
         charger_width = 10
@@ -71,7 +71,7 @@ class Drawable:
 
     @staticmethod
     async def go_to_flag(
-            layer: NumpyArray, center: Point, rotation_angle: int, flag_color: Color
+        layer: NumpyArray, center: Point, rotation_angle: int, flag_color: Color
     ) -> NumpyArray:
         """
         It is draw a flag on centered at specified coordinates on
@@ -174,13 +174,13 @@ class Drawable:
 
     @staticmethod
     def _line(
-            layer: NumpyArray,
-            x1: int,
-            y1: int,
-            x2: int,
-            y2: int,
-            color: Color,
-            width: int = 3,
+        layer: NumpyArray,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
+        color: Color,
+        width: int = 3,
     ) -> NumpyArray:
         """
         Draw a line on a NumPy array (layer) from point A to B.
@@ -228,7 +228,7 @@ class Drawable:
 
     @staticmethod
     async def draw_virtual_walls(
-            layer: NumpyArray, virtual_walls, color: Color
+        layer: NumpyArray, virtual_walls, color: Color
     ) -> NumpyArray:
         """
         Draw virtual walls on the input layer.
@@ -283,12 +283,12 @@ class Drawable:
 
     @staticmethod
     def _filled_circle(
-            image: NumpyArray,
-            center: Point,
-            radius: int,
-            color: Color,
-            outline_color: Color = None,
-            outline_width: int = 0,
+        image: NumpyArray,
+        center: Point,
+        radius: int,
+        color: Color,
+        outline_color: Color = None,
+        outline_width: int = 0,
     ) -> NumpyArray:
         """
         Draw a filled circle on the image using NumPy.
@@ -309,7 +309,7 @@ class Drawable:
         if outline_width > 0:
             # Create a mask for the outer circle
             outer_circle = (rr - x) ** 2 + (cc - y) ** 2 <= (
-                    radius + outline_width
+                radius + outline_width
             ) ** 2
             # Create a mask for the outline by subtracting the inner circle mask from the outer circle mask
             outline_mask = outer_circle & ~circle
@@ -320,7 +320,7 @@ class Drawable:
 
     @staticmethod
     def _ellipse(
-            image: NumpyArray, center: Point, radius: int, color: Color
+        image: NumpyArray, center: Point, radius: int, color: Color
     ) -> NumpyArray:
         """
         Draw an ellipse on the image using NumPy.
@@ -337,11 +337,11 @@ class Drawable:
 
     @staticmethod
     def _polygon_outline(
-            arr: NumpyArray,
-            points,
-            width: int,
-            outline_color: Color,
-            fill_color: Color = None,
+        arr: NumpyArray,
+        points,
+        width: int,
+        outline_color: Color,
+        fill_color: Color = None,
     ) -> NumpyArray:
         """
         Draw the outline of a filled polygon on the array using _line.
@@ -397,12 +397,12 @@ class Drawable:
 
     @staticmethod
     async def robot(
-            layers: NumpyArray,
-            x: int,
-            y: int,
-            angle: float,
-            fill: Color,
-            robot_state: str | None = None,
+        layers: NumpyArray,
+        x: int,
+        y: int,
+        angle: float,
+        fill: Color,
+        robot_state: str | None = None,
     ) -> NumpyArray:
         """
         We Draw the robot with in a smaller array
@@ -469,7 +469,7 @@ class Drawable:
 
     @staticmethod
     def overlay_robot(
-            background_image: NumpyArray, robot_image: NumpyArray, x: int, y: int
+        background_image: NumpyArray, robot_image: NumpyArray, x: int, y: int
     ) -> NumpyArray:
         """
         Overlay the robot image on the background image at the specified coordinates.
@@ -497,7 +497,7 @@ class Drawable:
 
     @staticmethod
     def draw_obstacles(
-            image: NumpyArray, obstacle_info_list, color: Color
+        image: NumpyArray, obstacle_info_list, color: Color
     ) -> NumpyArray:
         """
         Draw filled circles for obstacles on the image.
@@ -521,12 +521,12 @@ class Drawable:
 
     @staticmethod
     def status_text(
-            image: PilPNG,
-            size: int,
-            color: Color,
-            status: list[str],
-            path_font: str,
-            position: bool,
+        image: PilPNG,
+        size: int,
+        color: Color,
+        status: list[str],
+        path_font: str,
+        position: bool,
     ) -> None:
         """Draw the Status Test on the image."""
         # Load a fonts

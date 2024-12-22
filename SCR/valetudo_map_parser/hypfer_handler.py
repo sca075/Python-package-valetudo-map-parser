@@ -223,7 +223,9 @@ class MapImageHandler(object):
                 self.auto_crop = TrimCropData(
                     self.trim_left, self.trim_up, self.trim_right, self.trim_down
                 ).to_list()
-                await self._async_save_auto_crop_data()  # Save the crop data to the disk
+                await (
+                    self._async_save_auto_crop_data()
+                )  # Save the crop data to the disk
                 self.auto_crop_offset()
             # If it is needed to zoom the image.
             trimmed = await self.imu.async_check_if_zoom_is_on(
@@ -263,9 +265,12 @@ class MapImageHandler(object):
                     compressed_pixels = layer.get("compressedPixels", [])
                     pixels = self.data.sublist(compressed_pixels, 3)
                     # Calculate x and y min/max from compressed pixels
-                    x_min, y_min, x_max, y_max = (
-                        await self.data.async_get_rooms_coordinates(pixels, pixel_size)
-                    )
+                    (
+                        x_min,
+                        y_min,
+                        x_max,
+                        y_max,
+                    ) = await self.data.async_get_rooms_coordinates(pixels, pixel_size)
                     corners = [
                         (x_min, y_min),
                         (x_max, y_min),
@@ -330,9 +335,11 @@ class MapImageHandler(object):
                 # Check entity data.
                 entity_dict = await self.imd.async_get_entity_data(m_json)
                 # Update the Robot position.
-                robot_pos, robot_position, robot_position_angle = (
-                    await self.imd.async_get_robot_position(entity_dict)
-                )
+                (
+                    robot_pos,
+                    robot_position,
+                    robot_position_angle,
+                ) = await self.imd.async_get_robot_position(entity_dict)
 
                 # Get the pixels size and layers from the JSON data
                 pixel_size = int(m_json["pixelSize"])
@@ -455,10 +462,11 @@ class MapImageHandler(object):
                         new_width = pil_img.width
                         new_height = int(pil_img.width / new_aspect_ratio)
                     resized = ImageOps.pad(pil_img, (new_width, new_height))
-                    self.crop_img_size[0], self.crop_img_size[1] = (
-                        await self.async_map_coordinates_offset(
-                            wsf, hsf, new_width, new_height
-                        )
+                    (
+                        self.crop_img_size[0],
+                        self.crop_img_size[1],
+                    ) = await self.async_map_coordinates_offset(
+                        wsf, hsf, new_width, new_height
                     )
                     _LOGGER.debug(
                         f"{self.file_name}: Image Aspect Ratio ({wsf}, {hsf}): {new_width}x{new_height}"
