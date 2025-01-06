@@ -5,7 +5,7 @@ description = "A Python library to parse Valetudo map data returning a PIL Image
 authors = ["Sandro Cantarella <gsca075@gmail.com>"]
 license = "Apache-2.0"
 readme = "README.md"
-packages = [{include = "SCR", from = "scr"}]
+packages = [{include = "*", from = "SCR"}]
 
 
 [tool.poetry.urls]
