@@ -21,7 +21,7 @@ from ..config.types import (
 )
 from ..config.auto_crop import AutoCrop
 from ..config.drawable import Drawable
-from ..config.shared import CameraSharedManager
+from ..config.shared import CameraShared
 from .map_data import ImageData
 from .images_utils import (
     ImageUtils as ImUtils,
@@ -34,19 +34,11 @@ from ..config.colors import ColorsManagment, SupportedColor
 _LOGGER = logging.getLogger(__name__)
 
 
-class TrimError(Exception):
-    """Exception raised for errors in the trim process."""
-
-    def __init__(self, message, image):
-        super().__init__(message)
-        self.image = image
-
-
-class MapImageHandler(object):
+class HypferMapImageHandler(object):
     """Map Image Handler Class.
     This class is used to handle the image data and the drawing of the map."""
 
-    def __init__(self, shared_data, file_name: str = "vacuum"):
+    def __init__(self, shared_data: CameraShared):
         """Initialize the Map Image Handler."""
         self.shared = shared_data  # camera shared data
         self.file_name = self.shared.file_name  # file name of the vacuum.
@@ -87,6 +79,7 @@ class MapImageHandler(object):
         self.imu = ImUtils(self)
         self.ac = AutoCrop(self)
         self.colors_manager = ColorsManagment({})
+        self.rooms_colors = self.colors_manager.get_rooms_colors()
         self.color_grey = (128, 128, 128, 255)
 
     async def async_extract_room_properties(self, json_data):
@@ -158,8 +151,7 @@ class MapImageHandler(object):
         color_move = self.colors_manager.get_colour(SupportedColor.PATH)
         color_background = self.colors_manager.get_colour(SupportedColor.MAP_BACKGROUND)
         color_zone_clean = self.colors_manager.get_colour(SupportedColor.ZONE_CLEAN)
-
-        self.shared.rooms_colors = self.colors_manager.rooms_colors
+        # Check if the JSON data is not None else process the image.
         try:
             if m_json is not None:
                 _LOGGER.debug(f"{self.file_name}: Creating Image.")

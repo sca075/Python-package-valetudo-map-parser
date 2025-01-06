@@ -59,7 +59,7 @@ class ImageDraw:
         for compressed_pixels in compressed_pixels_list:
             pixels = self.img_h.data.sublist(compressed_pixels, 3)
             if layer_type == "segment" or layer_type == "floor":
-                room_color = self.img_h.shared.rooms_colors[room_id]
+                room_color = self.img_h.rooms_colors[room_id]
                 try:
                     if layer_type == "segment":
                         # Check if the room is active and set a modified color
