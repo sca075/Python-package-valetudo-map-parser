@@ -17,9 +17,7 @@ packages = [{include = "SCR"}]
 [tool.poetry.dependencies]
 python = ">=3.12"
 numpy = ">=1.26.4"
-Pillow = ">=10.3.0"#
-python = "^3.12"
-
+Pillow = ">=10.3.0"
 
 [tool.poetry.dev-dependencies]
 black = "*"
