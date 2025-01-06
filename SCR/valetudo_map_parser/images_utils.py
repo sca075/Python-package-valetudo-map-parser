@@ -119,7 +119,7 @@ class ImageUtils:
         return vacuum_points
 
     def set_image_offset_ratio_1_1(
-            self, width: int, height: int, rand256: bool = False
+        self, width: int, height: int, rand256: bool = False
     ) -> None:
         """Set the image offset ratio to 1:1."""
         """async_map_coordinates_offset"""
@@ -146,7 +146,7 @@ class ImageUtils:
         )
 
     def set_image_offset_ratio_2_1(
-            self, width: int, height: int, rand256: bool = False
+        self, width: int, height: int, rand256: bool = False
     ) -> None:
         """Set the image offset ratio to 2:1."""
         """async_map_coordinates_offset"""
@@ -173,7 +173,7 @@ class ImageUtils:
         )
 
     def set_image_offset_ratio_3_2(
-            self, width: int, height: int, rand256: bool = False
+        self, width: int, height: int, rand256: bool = False
     ) -> None:
         """Set the image offset ratio to 3:2."""
         """async_map_coordinates_offset"""
@@ -184,12 +184,12 @@ class ImageUtils:
             if rotation == 0 or rotation == 180:
                 self.img.offset_y = width - self.img.crop_img_size[0]
                 self.img.offset_x = ((height - self.img.crop_img_size[1]) // 2) - (
-                        self.img.crop_img_size[1] // 10
+                    self.img.crop_img_size[1] // 10
                 )
             elif rotation == 90 or rotation == 270:
                 self.img.offset_y = (self.img.crop_img_size[0] - width) // 2
                 self.img.offset_x = (self.img.crop_img_size[1] - height) + (
-                        (height // 10) // 2
+                    (height // 10) // 2
                 )
         else:
             if rotation == 0 or rotation == 180:
@@ -205,7 +205,7 @@ class ImageUtils:
         )
 
     def set_image_offset_ratio_5_4(
-            self, width: int, height: int, rand256: bool = False
+        self, width: int, height: int, rand256: bool = False
     ) -> None:
         """Set the image offset ratio to 5:4."""
         """async_map_coordinates_offset"""
@@ -214,15 +214,15 @@ class ImageUtils:
         if not rand256:
             if rotation == 0 or rotation == 180:
                 self.img.offset_x = ((width - self.img.crop_img_size[0]) // 2) - (
-                        self.img.crop_img_size[0] // 2
+                    self.img.crop_img_size[0] // 2
                 )
                 self.img.offset_y = (self.img.crop_img_size[1] - height) - (
-                        self.img.crop_img_size[1] // 2
+                    self.img.crop_img_size[1] // 2
                 )
             elif rotation == 90 or rotation == 270:
                 self.img.offset_y = ((self.img.crop_img_size[0] - width) // 2) - 10
                 self.img.offset_x = (self.img.crop_img_size[1] - height) + (
-                        height // 10
+                    height // 10
                 )
         else:
             if rotation == 0 or rotation == 180:
@@ -238,7 +238,7 @@ class ImageUtils:
         )
 
     def set_image_offset_ratio_9_16(
-            self, width: int, height: int, rand256: bool = False
+        self, width: int, height: int, rand256: bool = False
     ) -> None:
         """Set the image offset ratio to 9:16."""
         """async_map_coordinates_offset"""
@@ -265,7 +265,7 @@ class ImageUtils:
         )
 
     def set_image_offset_ratio_16_9(
-            self, width: int, height: int, rand256: bool = False
+        self, width: int, height: int, rand256: bool = False
     ) -> None:
         """Set the image offset ratio to 16:9."""
         """async_map_coordinates_offset"""
@@ -335,11 +335,11 @@ class ImageUtils:
 
 
 async def resize_to_aspect_ratio(
-        pil_img: Image,
-        ref_width: int,
-        ref_height: int,
-        aspect_ratio: str = None,
-        async_map_coordinates_offset=None,
+    pil_img: Image,
+    ref_width: int,
+    ref_height: int,
+    aspect_ratio: str = None,
+    async_map_coordinates_offset=None,
 ) -> tuple:
     """
     Resize the image to match the given aspect ratio, maintaining the camera's aspect ratio.

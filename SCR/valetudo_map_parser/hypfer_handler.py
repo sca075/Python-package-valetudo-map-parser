@@ -26,11 +26,13 @@ from .map_data import ImageData
 from .images_utils import (
     ImageUtils as ImUtils,
 )
-from hypfer_draw import (
+from .hypfer_draw import (
     ImageDraw as ImDraw,
 )
+from ..config.colors import ColorsManagment, SupportedColor
 
 _LOGGER = logging.getLogger(__name__)
+
 
 class TrimError(Exception):
     """Exception raised for errors in the trim process."""
@@ -40,14 +42,13 @@ class TrimError(Exception):
         self.image = image
 
 
-
 class MapImageHandler(object):
     """Map Image Handler Class.
     This class is used to handle the image data and the drawing of the map."""
 
-    def __init__(self, file_name: str = "vacuum"):
+    def __init__(self, shared_data, file_name: str = "vacuum"):
         """Initialize the Map Image Handler."""
-        self.shared = CameraSharedManager.get_instance(file_name)  # camera shared data
+        self.shared = shared_data  # camera shared data
         self.file_name = self.shared.file_name  # file name of the vacuum.
         self.auto_crop = None  # auto crop data to be calculate once.
         self.calibration_data = None  # camera shared data.
@@ -85,6 +86,8 @@ class MapImageHandler(object):
         self.imd = ImDraw(self)
         self.imu = ImUtils(self)
         self.ac = AutoCrop(self)
+        self.colors_manager = ColorsManagment({})
+        self.color_grey = (128, 128, 128, 255)
 
     async def async_extract_room_properties(self, json_data):
         """Extract room properties from the JSON data."""
@@ -137,8 +140,8 @@ class MapImageHandler(object):
 
     # noinspection PyUnresolvedReferences,PyUnboundLocalVariable
     async def async_get_image_from_json(
-            self,
-            m_json: json | None,
+        self,
+        m_json: json | None,
     ) -> Image.Image | None:
         """Get the image from the JSON data.
         It uses the ImageDraw class to draw some of the elements of the image.
@@ -147,11 +150,19 @@ class MapImageHandler(object):
         @return Image.Image: The image to display.
         """
         # Initialize the colors.
-        colors: Colors = {
-            name: self.shared.user_colors[idx] for idx, name in enumerate(COLORS)
-        }
+        color_wall = self.colors_manager.get_colour(SupportedColor.WALLS)
+        color_no_go = self.colors_manager.get_colour(SupportedColor.NO_GO)
+        color_go_to = self.colors_manager.get_colour(SupportedColor.GO_TO)
+        color_robot = self.colors_manager.get_colour(SupportedColor.ROBOT)
+        color_charger = self.colors_manager.get_colour(SupportedColor.CHARGER)
+        color_move = self.colors_manager.get_colour(SupportedColor.PATH)
+        color_background = self.colors_manager.get_colour(SupportedColor.MAP_BACKGROUND)
+        color_zone_clean = self.colors_manager.get_colour(SupportedColor.ZONE_CLEAN)
+
+        self.shared.rooms_colors = self.colors_manager.rooms_colors
         try:
             if m_json is not None:
+                _LOGGER.debug(f"{self.file_name}: Creating Image.")
                 # buffer json data
                 self.json_data = m_json
                 # Get the image size from the JSON data
@@ -181,29 +192,30 @@ class MapImageHandler(object):
                     self.img_hash = new_frame_hash
                     # empty image
                     img_np_array = await self.draw.create_empty_image(
-                        size_x, size_y, colors["background"]
+                        size_x, size_y, color_background
                     )
-                    # overlapping layers
+                    # overlapping layers and segments
                     for layer_type, compressed_pixels_list in layers.items():
                         room_id, img_np_array = await self.imd.async_draw_base_layer(
                             img_np_array,
                             compressed_pixels_list,
                             layer_type,
-                            colors["wall"],
-                            colors["zone_clean"],
+                            color_wall,
+                            color_zone_clean,
                             pixel_size,
                         )
                     # Draw the virtual walls if any.
                     img_np_array = await self.imd.async_draw_virtual_walls(
-                        m_json, img_np_array, colors["no_go"]
+                        m_json, img_np_array, color_no_go
                     )
+                    _LOGGER.debug(f"{self.file_name}: {img_np_array}")
                     # Draw charger.
                     img_np_array = await self.imd.async_draw_charger(
-                        img_np_array, entity_dict, colors["charger"]
+                        img_np_array, entity_dict, color_charger
                     )
                     # Draw obstacles if any.
                     img_np_array = await self.imd.async_draw_obstacle(
-                        img_np_array, entity_dict, colors["no_go"]
+                        img_np_array, entity_dict, color_no_go
                     )
                     # Robot and rooms position
                     if (room_id > 0) and not self.room_propriety:
@@ -222,7 +234,7 @@ class MapImageHandler(object):
                 self.shared.frame_number = self.frame_number
                 self.frame_number += 1
                 if (self.frame_number >= self.max_frames) or (
-                        new_frame_hash != self.img_hash
+                    new_frame_hash != self.img_hash
                 ):
                     self.frame_number = 0
                 _LOGGER.debug(
@@ -233,15 +245,15 @@ class MapImageHandler(object):
                 # All below will be drawn at each frame.
                 # Draw zones if any.
                 img_np_array = await self.imd.async_draw_zones(
-                    m_json, img_np_array, colors["zone_clean"], colors["no_go"]
+                    m_json, img_np_array, color_zone_clean, color_no_go
                 )
                 # Draw the go_to target flag.
                 img_np_array = await self.imd.draw_go_to_flag(
-                    img_np_array, entity_dict, colors["go_to"]
+                    img_np_array, entity_dict, color_go_to
                 )
                 # Draw path prediction and paths.
                 img_np_array = await self.imd.async_draw_paths(
-                    img_np_array, m_json, colors["move"], color_grey
+                    img_np_array, m_json, color_move, self.color_grey
                 )
                 # Check if the robot is docked.
                 if self.shared.vacuum_state == "docked":
@@ -255,18 +267,19 @@ class MapImageHandler(object):
                         x=robot_position[0],
                         y=robot_position[1],
                         angle=robot_position_angle,
-                        fill=colors["robot"],
+                        fill=color_robot,
                         robot_state=self.shared.vacuum_state,
                     )
                 # Resize the image
                 img_np_array = await self.ac.async_auto_trim_and_zoom_image(
                     img_np_array,
-                    colors["background"],
+                    color_background,
                     int(self.shared.margins),
                     int(self.shared.image_rotate),
                     self.zooming,
                 )
             # If the image is None return None and log the error.
+            _LOGGER.debug(f"{self.file_name}: {img_np_array}")
             if img_np_array is None:
                 _LOGGER.warning(f"{self.file_name}: Image array is None.")
                 return None
@@ -276,11 +289,11 @@ class MapImageHandler(object):
                 del img_np_array
             # reduce the image size if the zoomed image is bigger then the original.
             if (
-                    self.shared.image_auto_zoom
-                    and self.shared.vacuum_state == "cleaning"
-                    and self.zooming
-                    and self.shared.image_zoom_lock_ratio
-                    or self.shared.image_aspect_ratio != "None"
+                self.shared.image_auto_zoom
+                and self.shared.vacuum_state == "cleaning"
+                and self.zooming
+                and self.shared.image_zoom_lock_ratio
+                or self.shared.image_aspect_ratio != "None"
             ):
                 width = self.shared.image_ref_width
                 height = self.shared.image_ref_height
@@ -367,7 +380,7 @@ class MapImageHandler(object):
         return calibration_data
 
     async def async_map_coordinates_offset(
-            self, wsf: int, hsf: int, width: int, height: int
+        self, wsf: int, hsf: int, width: int, height: int
     ) -> tuple[int, int]:
         """
         Offset the coordinates to the map.
