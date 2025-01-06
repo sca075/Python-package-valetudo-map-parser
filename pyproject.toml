@@ -2,7 +2,7 @@
 name = "valetudo-map-parser"
 version = "0.1.0"
 description = "A Python library to parse Valetudo map data returning a PIL Image object"
-authors = ["@sca075"]
+authors = ["Sandro Cantarella gsca075@gmail.com"]
 license = "Apache-2.0"
 readme = "README.md"
 packages = [{include = "SCR"}]
