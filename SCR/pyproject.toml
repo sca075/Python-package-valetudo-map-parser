@@ -7,10 +7,58 @@ license = "Apache-2.0"
 readme = "README.md"
 packages = [{include = "SCR"}]
 
+
+[tool.poetry.urls]
+"Homepage" = "https://github.com/sca075/Python-package-valetudo-map-parser"
+"Repository" = "https://github.com/sca075/Python-package-valetudo-map-parser"
+"Bug Tracker" = "https://github.com/sca075/Python-package-valetudo-map-parser/issues"
+"Changelog" = "https://github.com/sca075/Python-package-valetudo-map-parser/releases"
+
 [tool.poetry.dependencies]
 python = ">=3.12"
 numpy = ">=1.26.4"
-Pillow = ">=10.3.0"
+Pillow = ">=10.3.0"#
+python = "^3.12"
+
+
+[tool.poetry.dev-dependencies]
+black = "*"
+mypy = "*"
+ruff = "*"
+isort = "*"
+pylint = "*"
+types-Pillow = "*"
+
+[tool.black]
+line-length = 120
+
+[tool.isort]
+profile = "black"
+line_length = 120
+
+[tool.mypy]
+platform = "linux"
+
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+no_implicit_reexport = true
+strict_optional = true
+warn_incomplete_stub = true
+warn_no_return = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[tool.pylint]
+disable = ["C0103", "C0116", "R0902", "R0903", "R0913", "R0914", "W0640"]
+max-line-length = 120
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
