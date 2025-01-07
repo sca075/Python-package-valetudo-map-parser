@@ -37,4 +37,4 @@ jobs:
         run: poetry install --no-interaction
 
       - name: Run ${{ matrix.id }} checks
-        run: poetry run ${{ matrix.id }} src
+        run: poetry run ${{ matrix.id }} SCR
