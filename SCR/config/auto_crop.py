@@ -4,13 +4,11 @@ Version: 2024.10.0"""
 from __future__ import annotations
 
 import logging
-# import os
 
 import numpy as np
 from numpy import rot90
 
 from .types import Color, NumpyArray, TrimCropData
-from .colors import SupportedColor, ColorsManagment
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -25,6 +25,7 @@ from ..config.shared import CameraShared
 from .map_data import ImageData
 from .images_utils import (
     ImageUtils as ImUtils,
+    resize_to_aspect_ratio,
 )
 from .hypfer_draw import (
     ImageDraw as ImDraw,
