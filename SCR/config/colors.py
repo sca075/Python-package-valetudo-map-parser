@@ -81,7 +81,8 @@ class DefaultColors:
     @classmethod
     def get_rgba(cls, key: str, alpha: float) -> Color:
         rgb = cls.COLORS_RGB.get(key, (0, 0, 0))
-        return (*rgb, int(alpha))
+        r, g, b = rgb  # Explicitly unpack the RGB values
+        return r, g, b, int(alpha)
 
 
 class ColorsManagment:
@@ -161,7 +162,8 @@ class ColorsManagment:
             try:
                 return self.rooms_colors[room_index]
             except (IndexError, KeyError):
-                _LOGGER.warning(f"Room index {room_index} not found, using default.")
+                _LOGGER.warning("Room index %s not found, using default.",
+                                room_index)
                 return DefaultColors.DEFAULT_ROOM_COLORS[f"color_room_{room_index}"]
 
         # Handle general map element colors
@@ -169,9 +171,10 @@ class ColorsManagment:
             index = list(SupportedColor).index(supported_color)
             return self.user_colors[index]
         except (IndexError, KeyError, ValueError):
+
             _LOGGER.warning(
-                f"Color for {supported_color} not found. Returning default."
+                "Color for %s not found. Returning default.", supported_color
             )
             return DefaultColors.get_rgba(
-                supported_color, [0, 0, 0, 255]
+                supported_color, 255
             )  # Transparent fallback

@@ -41,7 +41,7 @@ from .types import Colors
 _LOGGER = logging.getLogger(__name__)
 
 
-class CameraShared(object):
+class CameraShared:
     """
     CameraShared class to keep the data between the classes.
     Implements a kind of Thread Safe data shared area.
@@ -153,7 +153,7 @@ class CameraShared(object):
         }
 
         for key, value in shared_attrs.items():
-            if value is not None and value != {}:
+            if value is not None:
                 attrs[key] = value
 
         return attrs
@@ -225,15 +225,15 @@ class CameraSharedManager:
             )
 
         except TypeError as ex:
-            _LOGGER.error(f"Shared data can't be initialized due to a TypeError! {ex}")
+            _LOGGER.error("Shared data can't be initialized due to a TypeError! %s",
+                          ex)
         except AttributeError as ex:
+            _LOGGER.error("Shared data can't be initialized due to an AttributeError! %s",
+                          ex)
+        except RuntimeError as ex:
             _LOGGER.error(
-                f"Shared data can't be initialized due to an AttributeError! Possibly _shared is not properly initialized: {ex}"
-            )
-        except Exception as ex:
-            _LOGGER.error(
-                f"An unexpected error occurred while initializing shared data: {ex}"
-            )
+                "An unexpected error occurred while initializing shared data %s:",
+                ex)
 
     def get_instance(self):
         """Get the shared instance."""

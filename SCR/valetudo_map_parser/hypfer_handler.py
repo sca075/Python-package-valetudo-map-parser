@@ -35,7 +35,7 @@ from ..config.colors import ColorsManagment, SupportedColor
 _LOGGER = logging.getLogger(__name__)
 
 
-class HypferMapImageHandler(object):
+class HypferMapImageHandler:
     """Map Image Handler Class.
     This class is used to handle the image data and the drawing of the map."""
 
@@ -126,9 +126,9 @@ class HypferMapImageHandler(object):
                         "y": ((y_min + y_max) // 2),
                     }
         if room_properties:
-            _LOGGER.debug(f"{self.file_name}: Rooms data extracted!")
+            _LOGGER.debug("%s: Rooms data extracted!", self.file_name)
         else:
-            _LOGGER.debug(f"{self.file_name}: Rooms data not available!")
+            _LOGGER.debug("%s: Rooms data not available!", self.file_name)
             self.rooms_pos = None
         return room_properties
 
@@ -161,7 +161,7 @@ class HypferMapImageHandler(object):
         # Check if the JSON data is not None else process the image.
         try:
             if m_json is not None:
-                _LOGGER.debug(f"{self.file_name}: Creating Image.")
+                _LOGGER.debug("%s: Creating Image.", self.file_name)
                 # buffer json data
                 self.json_data = m_json
                 # Get the image size from the JSON data
@@ -207,7 +207,6 @@ class HypferMapImageHandler(object):
                     img_np_array = await self.imd.async_draw_virtual_walls(
                         m_json, img_np_array, colors["color_no_go"]
                     )
-                    _LOGGER.debug(f"{self.file_name}: {img_np_array}")
                     # Draw charger.
                     img_np_array = await self.imd.async_draw_charger(
                         img_np_array, entity_dict, colors["color_charger"]
@@ -227,7 +226,7 @@ class HypferMapImageHandler(object):
                                 robot_y=(robot_position[1]),
                                 angle=robot_position_angle,
                             )
-                    _LOGGER.info(f"{self.file_name}: Completed base Layers")
+                    _LOGGER.info("%s: Completed base Layers", self.file_name)
                     # Copy the new array in base layer.
                     self.img_base_layer = await self.imd.async_copy_array(img_np_array)
                 self.shared.frame_number = self.frame_number
@@ -237,7 +236,10 @@ class HypferMapImageHandler(object):
                 ):
                     self.frame_number = 0
                 _LOGGER.debug(
-                    f"{self.file_name}: {self.json_id} at Frame Number: {self.frame_number}"
+                    "%s: %s at Frame Number: %s",
+                    self.file_name,
+                    str(self.json_id),
+                    str(self.frame_number),
                 )
                 # Copy the base layer to the new image.
                 img_np_array = await self.imd.async_copy_array(self.img_base_layer)
@@ -278,9 +280,8 @@ class HypferMapImageHandler(object):
                     self.zooming,
                 )
             # If the image is None return None and log the error.
-            _LOGGER.debug(f"{self.file_name}: {img_np_array}")
             if img_np_array is None:
-                _LOGGER.warning(f"{self.file_name}: Image array is None.")
+                _LOGGER.warning("%s: Image array is None.", self.file_name)
                 return None
 
             # Convert the numpy array to a PIL image
@@ -307,12 +308,12 @@ class HypferMapImageHandler(object):
                     self.async_map_coordinates_offset,
                 )
                 return resized_image
-            else:
-                _LOGGER.debug(f"{self.file_name}: Frame Completed.")
-                return pil_img
+            _LOGGER.debug("%s: Frame Completed.", self.file_name)
+            return pil_img
         except (RuntimeError, RuntimeWarning) as e:
             _LOGGER.warning(
-                f"{self.file_name}: Error {e} during image creation.",
+                "%s: Error %s during image creation.",
+                self.file_name, str(e),
                 exc_info=True,
             )
             return None
@@ -343,12 +344,12 @@ class HypferMapImageHandler(object):
         if self.room_propriety:
             return self.room_propriety
         if self.json_data:
-            _LOGGER.debug(f"\nChecking {self.file_name} Rooms data..")
+            _LOGGER.debug("Checking %s Rooms data..", self.file_name)
             self.room_propriety = await self.async_extract_room_properties(
                 self.json_data
             )
             if self.room_propriety:
-                _LOGGER.debug(f"\nGot {self.file_name} Rooms Attributes.")
+                _LOGGER.debug("Got %s Rooms Attributes.", self.file_name)
         return self.room_propriety
 
     def get_calibration_data(self) -> CalibrationPoints:
@@ -356,7 +357,7 @@ class HypferMapImageHandler(object):
         this will create the attribute calibration points."""
         calibration_data = []
         rotation_angle = self.shared.image_rotate
-        _LOGGER.info(f"Getting {self.file_name} Calibrations points.")
+        _LOGGER.info("Getting %s Calibrations points.", self.file_name)
 
         # Define the map points (fixed)
         map_points = [

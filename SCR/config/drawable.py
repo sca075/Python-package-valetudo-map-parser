@@ -30,8 +30,8 @@ class Drawable:
     async def create_empty_image(
         width: int, height: int, background_color: Color
     ) -> NumpyArray:
-        """Create the empty background image numpy array."""
-        """ Background color is specified as RGBA tuple. """
+        """Create the empty background image numpy array.
+        Background color is specified as RGBA tuple. """
         image_array = np.full((height, width, 4), background_color, dtype=np.uint8)
         return image_array
 
@@ -346,7 +346,7 @@ class Drawable:
         """
         Draw the outline of a filled polygon on the array using _line.
         """
-        for i in range(len(points)):
+        for i, point in enumerate(points):
             # Get the current and next points to draw a line between them
             current_point = points[i]
             next_point = points[(i + 1) % len(points)]  # Wrap around to the first point
@@ -391,7 +391,7 @@ class Drawable:
             # Draw ellipses (dots)
             for y in range(min_y, max_y, dot_spacing):
                 for x in range(min_x, max_x, dot_spacing):
-                    for i in range(dot_radius):
+                    for _ in range(dot_radius):
                         layers = Drawable._ellipse(layers, (x, y), dot_radius, color)
         return layers
 

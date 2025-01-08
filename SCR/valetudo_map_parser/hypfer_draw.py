@@ -91,10 +91,12 @@ class ImageDraw:
             room_id = (room_id + 1) % 16  # Cycle room_id back to 0 after 15
 
         except IndexError as e:
-            _LOGGER.warning(f"{self.file_name} Image Draw Error: {e}")
-            _LOGGER.debug(
-                f"{self.file_name} Active Zones: {self.img_h.active_zones} and Room ID: {room_id}"
-            )
+            _LOGGER.warning("%s: Image Draw Error: %s",
+                            self.file_name, str(e))
+        _LOGGER.debug(
+            "%s Active Zones: %s and Room ID: %s",
+            self.file_name, str(self.img_h.active_zones), str(room_id)
+        )
 
         return img_np_array, room_id
 
@@ -120,7 +122,7 @@ class ImageDraw:
         try:
             obstacle_data = entity_dict.get("obstacle")
         except KeyError:
-            _LOGGER.info(f"{self.file_name} No obstacle found.")
+            _LOGGER.info("%s No obstacle found.", self.file_name)
         else:
             obstacle_positions = []
             if obstacle_data:
@@ -153,7 +155,8 @@ class ImageDraw:
         try:
             charger_pos = entity_dict.get("charger_location")
         except KeyError:
-            _LOGGER.warning(f"{self.file_name}: No charger position found.")
+            _LOGGER.warning("%s: No charger position found.",
+                            self.file_name)
         else:
             if charger_pos:
                 charger_pos = charger_pos[0]["points"]
@@ -172,7 +175,8 @@ class ImageDraw:
         try:
             json_id = my_json["metaData"]["nonce"]
         except (ValueError, KeyError) as e:
-            _LOGGER.debug(f"{self.file_name}: No JsonID provided: {e}")
+            _LOGGER.debug("%s: No JsonID provided: %s",
+                          self.file_name, str(e))
             json_id = None
         return json_id
 
@@ -189,7 +193,7 @@ class ImageDraw:
         except (ValueError, KeyError):
             zone_clean = None
         else:
-            _LOGGER.info(f"{self.file_name}: Got zones.")
+            _LOGGER.info("%s: Got zones.", self.file_name)
         if zone_clean:
             try:
                 zones_active = zone_clean.get("active_zone")
@@ -229,7 +233,7 @@ class ImageDraw:
         except (ValueError, KeyError):
             virtual_walls = None
         else:
-            _LOGGER.info(f"{self.file_name}: Got virtual walls.")
+            _LOGGER.info("%s: Got virtual walls.", self.file_name)
         if virtual_walls:
             np_array = await self.img_h.draw.draw_virtual_walls(
                 np_array, virtual_walls, color_no_go
@@ -253,7 +257,7 @@ class ImageDraw:
             predicted_path = paths_data.get("predicted_path", [])
             path_pixels = paths_data.get("path", [])
         except KeyError as e:
-            _LOGGER.warning(f"{self.file_name}: Error extracting paths data: {str(e)}")
+            _LOGGER.warning("%s: Error extracting paths data:", str(e))
 
         if predicted_path:
             predicted_path = predicted_path[0]["points"]
@@ -282,7 +286,7 @@ class ImageDraw:
         except (ValueError, KeyError):
             entity_dict = None
         else:
-            _LOGGER.info(f"{self.file_name}: Got the points in the json.")
+            _LOGGER.info("%s: Got the points in the json.", self.file_name)
         return entity_dict
 
     @staticmethod
@@ -365,13 +369,16 @@ class ImageDraw:
                         "in_room": self.img_h.robot_in_room["room"],
                     }
                     _LOGGER.debug(
-                        f"{self.file_name} is in {self.img_h.robot_in_room['room']}"
+                        "%s is in %s room.",
+                        self.file_name,
+                        self.img_h.robot_in_room['room']
                     )
                     del room, corners, robot_x, robot_y  # free memory.
                     return temp
             del room, corners  # free memory.
             _LOGGER.debug(
-                f"{self.file_name} not located within Camera Rooms coordinates."
+                "%s not located within Camera Rooms coordinates.",
+                self.file_name,
             )
             self.img_h.robot_in_room = last_room
             self.img_h.zooming = False
@@ -392,7 +399,7 @@ class ImageDraw:
         try:
             robot_pos = entity_dict.get("robot_position")
         except KeyError:
-            _LOGGER.warning(f"{self.file_name} No robot position found.")
+            _LOGGER.warning("%s No robot position found.", self.file_name)
             return None, None, None
         finally:
             if robot_pos:

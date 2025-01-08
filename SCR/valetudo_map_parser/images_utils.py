@@ -136,11 +136,8 @@ class ImageUtils:
             elif rotation in [90, 270]:
                 self.img.offset_y = (self.img.crop_img_size[0] - width) // 2
                 self.img.offset_x = self.img.crop_img_size[1] - height
-
-        _LOGGER.debug(
-            f"{self.file_name} Image Coordinates: "
-            f"Offset X: {self.img.offset_x} Offset Y: {self.img.offset_y}"
-        )
+        _LOGGER.debug("%s Image Coordinates Offsets (x,y): %s. %s",
+                      self.file_name, self.img.offset_x, self.img.offset_y)
 
     def set_image_offset_ratio_2_1(
         self, width: int, height: int, rand256: bool = False
@@ -163,10 +160,8 @@ class ImageUtils:
                 self.img.offset_x = width - self.img.crop_img_size[0]
                 self.img.offset_y = height - self.img.crop_img_size[1]
 
-        _LOGGER.debug(
-            f"{self.file_name} Image Coordinates: "
-            f"Offset X: {self.img.offset_x} Offset Y: {self.img.offset_y}"
-        )
+        _LOGGER.debug("%s Image Coordinates Offsets (x,y): %s. %s",
+                      self.file_name, self.img.offset_x, self.img.offset_y)
 
     def set_image_offset_ratio_3_2(
         self, width: int, height: int, rand256: bool = False
@@ -194,10 +189,8 @@ class ImageUtils:
                 self.img.offset_y = (self.img.crop_img_size[0] - width) // 2
                 self.img.offset_x = self.img.crop_img_size[1] - height
 
-        _LOGGER.debug(
-            f"{self.file_name} Image Coordinates: "
-            f"Offset X: {self.img.offset_x} Offset Y: {self.img.offset_y}"
-        )
+        _LOGGER.debug("%s Image Coordinates Offsets (x,y): %s. %s",
+                      self.file_name, self.img.offset_x, self.img.offset_y)
 
     def set_image_offset_ratio_5_4(
         self, width: int, height: int, rand256: bool = False
@@ -226,10 +219,8 @@ class ImageUtils:
                 self.img.offset_y = (self.img.crop_img_size[0] - width) // 2
                 self.img.offset_x = self.img.crop_img_size[1] - height
 
-        _LOGGER.debug(
-            f"{self.file_name} Image Coordinates: "
-            f"Offset X: {self.img.offset_x} Offset Y: {self.img.offset_y}"
-        )
+        _LOGGER.debug("%s Image Coordinates Offsets (x,y): %s. %s",
+                      self.file_name, self.img.offset_x, self.img.offset_y)
 
     def set_image_offset_ratio_9_16(
         self, width: int, height: int, rand256: bool = False
@@ -252,10 +243,8 @@ class ImageUtils:
                 self.img.offset_x = width - self.img.crop_img_size[0]
                 self.img.offset_y = height - self.img.crop_img_size[1]
 
-        _LOGGER.debug(
-            f"{self.file_name} Image Coordinates: "
-            f"Offset X: {self.img.offset_x} Offset Y: {self.img.offset_y}"
-        )
+        _LOGGER.debug("%s Image Coordinates Offsets (x,y): %s. %s",
+                      self.file_name, self.img.offset_x, self.img.offset_y)
 
     def set_image_offset_ratio_16_9(
         self, width: int, height: int, rand256: bool = False
@@ -278,10 +267,8 @@ class ImageUtils:
                 self.img.offset_x = width - self.img.crop_img_size[0]
                 self.img.offset_y = height - self.img.crop_img_size[1]
 
-        _LOGGER.debug(
-            f"{self.file_name} Image Coordinates at 16:9: "
-            f"Offset X: {self.img.offset_x} Offset Y: {self.img.offset_y}"
-        )
+        _LOGGER.debug("%s Image Coordinates Offsets (x,y): %s. %s",
+                      self.file_name, self.img.offset_x, self.img.offset_y)
 
     async def async_zone_propriety(self, zones_data) -> dict:
         """Get the zone propiety"""
@@ -301,7 +288,7 @@ class ImageUtils:
                 }
                 id_count += 1
             if id_count > 1:
-                _LOGGER.debug(f"{self.file_name}: Zones Properties updated.")
+                _LOGGER.debug("%s: Zones Properties updated.", self.file_name)
         return zone_properties
 
     async def async_points_propriety(self, points_data) -> dict:
@@ -322,7 +309,7 @@ class ImageUtils:
                 }
                 id_count += 1
             if id_count > 1:
-                _LOGGER.debug(f"{self.file_name}: Point Properties updated.")
+                _LOGGER.debug("%s: Point Properties updated.", self.file_name)
         return point_properties
 
 
@@ -378,9 +365,10 @@ async def resize_to_aspect_ratio(
             return resized_img, crop_img_size
 
         except Exception as e:
+            _LOGGER.debug("Error resizing image with aspect ratio: %s. %s", aspect_ratio, e)
             raise ValueError(
-                f"Error resizing image with aspect ratio {aspect_ratio}: {e}"
-            )
+                "Error resizing image with aspect ratio"
+            ) from e
 
     # If no aspect ratio is provided, return the original image and default crop size
     return pil_img, crop_img_size
