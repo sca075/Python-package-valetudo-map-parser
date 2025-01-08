@@ -314,10 +314,10 @@ class ImageUtils:
 
 
 async def resize_to_aspect_ratio(
-    pil_img: Image,
+    pil_img: Image.Image,
     ref_width: int,
     ref_height: int,
-    aspect_ratio: str = None,
+    aspect_ratio: str="None",
     async_map_coordinates_offset=None,
 ) -> tuple:
     """
@@ -327,7 +327,7 @@ async def resize_to_aspect_ratio(
         pil_img (PIL.Image): The input image to resize.
         ref_width (int): The reference width for the image.
         ref_height (int): The reference height for the image.
-        aspect_ratio (str): Aspect ratio in the format "width,height" or None for default.
+        aspect_ratio (str): Aspect ratio in the format "width,height" or "None" for default.
         async_map_coordinates_offset (callable): Async function to compute coordinate offsets.
 
     Returns:

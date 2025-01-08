@@ -80,6 +80,9 @@ class RoomStore:
     _instance = None
     _lock = asyncio.Lock()
 
+    def __init__(self):
+        self.vacuums_data = {}
+
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(RoomStore, cls).__new__(cls)
@@ -116,6 +119,9 @@ class UserLanguageStore:
     _instance = None
     _lock = asyncio.Lock()
     _initialized = False
+
+    def __init__(self):
+        self.user_languages = {}
 
     def __new__(cls):
         if cls._instance is None:
@@ -161,6 +167,10 @@ class SnapshotStore:
 
     _instance = None
     _lock = asyncio.Lock()
+
+    def __init__(self):
+        self.snapshot_save_data = {}
+        self.vacuum_json_data = {}
 
     def __new__(cls):
         if cls._instance is None:

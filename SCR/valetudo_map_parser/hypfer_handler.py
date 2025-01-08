@@ -12,16 +12,16 @@ import logging
 
 from PIL import Image
 
-from ..config.types import (
+from .config.types import (
     CalibrationPoints,
     ChargerPosition,
     ImageSize,
     RobotPosition,
     RoomsProperties,
 )
-from ..config.auto_crop import AutoCrop
-from ..config.drawable import Drawable
-from ..config.shared import CameraShared
+from .config.auto_crop import AutoCrop
+from .config.drawable import Drawable
+from SCR.valetudo_map_parser.config.shared import CameraShared
 from .map_data import ImageData
 from .images_utils import (
     ImageUtils as ImUtils,
@@ -30,7 +30,7 @@ from .images_utils import (
 from .hypfer_draw import (
     ImageDraw as ImDraw,
 )
-from ..config.colors import ColorsManagment, SupportedColor
+from .config.colors import ColorsManagment, SupportedColor
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -185,7 +185,7 @@ class HypferMapImageHandler:
 
                 # Get the pixels size and layers from the JSON data
                 pixel_size = int(m_json["pixelSize"])
-                layers, active = self.data.find_layers(m_json["layers"])
+                layers, active = self.data.find_layers(m_json["layers"], {},[])
                 new_frame_hash = await self.imd.calculate_array_hash(layers, active)
                 if self.frame_number == 0:
                     self.img_hash = new_frame_hash

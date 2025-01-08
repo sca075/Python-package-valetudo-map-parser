@@ -88,7 +88,7 @@ class DefaultColors:
 class ColorsManagment:
     """Manages user-defined and default colors for map elements."""
 
-    def __init__(self, device_info: dict = None):
+    def __init__(self, device_info: dict) -> None:
         """
         Initialize ColorsManagment with optional device_info from Home Assistant.
         :param device_info: Dictionary containing user-defined RGB colors and alpha values.
@@ -164,7 +164,9 @@ class ColorsManagment:
             except (IndexError, KeyError):
                 _LOGGER.warning("Room index %s not found, using default.",
                                 room_index)
-                return DefaultColors.DEFAULT_ROOM_COLORS[f"color_room_{room_index}"]
+                r, g, b = DefaultColors.DEFAULT_ROOM_COLORS[f"color_room_{room_index}"]
+                a = DefaultColors.DEFAULT_ALPHA[f"alpha_room_{room_index}"]
+                return r, g, b, int(a)
 
         # Handle general map element colors
         try:

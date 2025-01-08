@@ -10,7 +10,7 @@ import hashlib
 import json
 import logging
 
-from ..config.types import (
+from .config.types import (
     Color,
     JsonType,
     NumpyArray,

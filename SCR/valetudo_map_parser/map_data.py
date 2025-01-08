@@ -8,9 +8,10 @@ Version: v2024.08.0
 
 from __future__ import annotations
 
+from typing import Any
 import numpy as np
 
-from ..config.types import (
+from .config.types import (
     Colors,
     ImageSize,
     JsonType,
@@ -71,13 +72,11 @@ class ImageData:
 
     @staticmethod
     def find_layers(
-        json_obj: JsonType, layer_dict: dict = None, active_list: list = None
+        json_obj: JsonType, layer_dict: dict, active_list: list
     ) -> tuple[dict, list]:
         """Find the layers in the json object."""
-        if layer_dict is None:
-            layer_dict = {}
-        if active_list is None:
-            active_list = []
+        layer_dict = {} if layer_dict is None else layer_dict
+        active_list = [] if active_list is None else active_list
         if isinstance(json_obj, dict):
             if "__class" in json_obj and json_obj["__class"] == "MapLayer":
                 layer_type = json_obj.get("type")
@@ -459,7 +458,7 @@ class ImageData:
             pos_top: int,
             pos_left: int,
             out_lines: bool = False
-    )-> list:
+    )-> tuple or list:
         """Get the segments data from the json."""
 
         img = ImageData.get_rrm_image(json_data)
