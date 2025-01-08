@@ -21,7 +21,7 @@ from .config.types import (
 )
 from .config.auto_crop import AutoCrop
 from .config.drawable import Drawable
-from SCR.valetudo_map_parser.config.shared import CameraShared
+from .config.shared import CameraShared
 from .map_data import ImageData
 from .images_utils import (
     ImageUtils as ImUtils,
