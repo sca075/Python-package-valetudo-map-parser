@@ -453,12 +453,12 @@ class ImageData:
     @staticmethod
     async def async_get_rrm_segments(
         json_data: JsonType,
-            size_x: int,
-            size_y: int,
-            pos_top: int,
-            pos_left: int,
-            out_lines: bool = False
-    )-> tuple or list:
+        size_x: int,
+        size_y: int,
+        pos_top: int,
+        pos_left: int,
+        out_lines: bool = False,
+    ) -> tuple or list:
         """Get the segments data from the json."""
 
         img = ImageData.get_rrm_image(json_data)

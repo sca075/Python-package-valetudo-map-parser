@@ -162,8 +162,7 @@ class ColorsManagment:
             try:
                 return self.rooms_colors[room_index]
             except (IndexError, KeyError):
-                _LOGGER.warning("Room index %s not found, using default.",
-                                room_index)
+                _LOGGER.warning("Room index %s not found, using default.", room_index)
                 r, g, b = DefaultColors.DEFAULT_ROOM_COLORS[f"color_room_{room_index}"]
                 a = DefaultColors.DEFAULT_ALPHA[f"alpha_room_{room_index}"]
                 return r, g, b, int(a)
@@ -173,10 +172,7 @@ class ColorsManagment:
             index = list(SupportedColor).index(supported_color)
             return self.user_colors[index]
         except (IndexError, KeyError, ValueError):
-
             _LOGGER.warning(
                 "Color for %s not found. Returning default.", supported_color
             )
-            return DefaultColors.get_rgba(
-                supported_color, 255
-            )  # Transparent fallback
+            return DefaultColors.get_rgba(supported_color, 255)  # Transparent fallback

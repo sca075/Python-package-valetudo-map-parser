@@ -136,8 +136,12 @@ class ImageUtils:
             elif rotation in [90, 270]:
                 self.img.offset_y = (self.img.crop_img_size[0] - width) // 2
                 self.img.offset_x = self.img.crop_img_size[1] - height
-        _LOGGER.debug("%s Image Coordinates Offsets (x,y): %s. %s",
-                      self.file_name, self.img.offset_x, self.img.offset_y)
+        _LOGGER.debug(
+            "%s Image Coordinates Offsets (x,y): %s. %s",
+            self.file_name,
+            self.img.offset_x,
+            self.img.offset_y,
+        )
 
     def set_image_offset_ratio_2_1(
         self, width: int, height: int, rand256: bool = False
@@ -160,8 +164,12 @@ class ImageUtils:
                 self.img.offset_x = width - self.img.crop_img_size[0]
                 self.img.offset_y = height - self.img.crop_img_size[1]
 
-        _LOGGER.debug("%s Image Coordinates Offsets (x,y): %s. %s",
-                      self.file_name, self.img.offset_x, self.img.offset_y)
+        _LOGGER.debug(
+            "%s Image Coordinates Offsets (x,y): %s. %s",
+            self.file_name,
+            self.img.offset_x,
+            self.img.offset_y,
+        )
 
     def set_image_offset_ratio_3_2(
         self, width: int, height: int, rand256: bool = False
@@ -189,8 +197,12 @@ class ImageUtils:
                 self.img.offset_y = (self.img.crop_img_size[0] - width) // 2
                 self.img.offset_x = self.img.crop_img_size[1] - height
 
-        _LOGGER.debug("%s Image Coordinates Offsets (x,y): %s. %s",
-                      self.file_name, self.img.offset_x, self.img.offset_y)
+        _LOGGER.debug(
+            "%s Image Coordinates Offsets (x,y): %s. %s",
+            self.file_name,
+            self.img.offset_x,
+            self.img.offset_y,
+        )
 
     def set_image_offset_ratio_5_4(
         self, width: int, height: int, rand256: bool = False
@@ -219,8 +231,12 @@ class ImageUtils:
                 self.img.offset_y = (self.img.crop_img_size[0] - width) // 2
                 self.img.offset_x = self.img.crop_img_size[1] - height
 
-        _LOGGER.debug("%s Image Coordinates Offsets (x,y): %s. %s",
-                      self.file_name, self.img.offset_x, self.img.offset_y)
+        _LOGGER.debug(
+            "%s Image Coordinates Offsets (x,y): %s. %s",
+            self.file_name,
+            self.img.offset_x,
+            self.img.offset_y,
+        )
 
     def set_image_offset_ratio_9_16(
         self, width: int, height: int, rand256: bool = False
@@ -243,8 +259,12 @@ class ImageUtils:
                 self.img.offset_x = width - self.img.crop_img_size[0]
                 self.img.offset_y = height - self.img.crop_img_size[1]
 
-        _LOGGER.debug("%s Image Coordinates Offsets (x,y): %s. %s",
-                      self.file_name, self.img.offset_x, self.img.offset_y)
+        _LOGGER.debug(
+            "%s Image Coordinates Offsets (x,y): %s. %s",
+            self.file_name,
+            self.img.offset_x,
+            self.img.offset_y,
+        )
 
     def set_image_offset_ratio_16_9(
         self, width: int, height: int, rand256: bool = False
@@ -267,8 +287,12 @@ class ImageUtils:
                 self.img.offset_x = width - self.img.crop_img_size[0]
                 self.img.offset_y = height - self.img.crop_img_size[1]
 
-        _LOGGER.debug("%s Image Coordinates Offsets (x,y): %s. %s",
-                      self.file_name, self.img.offset_x, self.img.offset_y)
+        _LOGGER.debug(
+            "%s Image Coordinates Offsets (x,y): %s. %s",
+            self.file_name,
+            self.img.offset_x,
+            self.img.offset_y,
+        )
 
     async def async_zone_propriety(self, zones_data) -> dict:
         """Get the zone propiety"""
@@ -317,7 +341,7 @@ async def resize_to_aspect_ratio(
     pil_img: Image.Image,
     ref_width: int,
     ref_height: int,
-    aspect_ratio: str="None",
+    aspect_ratio: str = "None",
     async_map_coordinates_offset=None,
 ) -> tuple:
     """
@@ -365,10 +389,10 @@ async def resize_to_aspect_ratio(
             return resized_img, crop_img_size
 
         except Exception as e:
-            _LOGGER.debug("Error resizing image with aspect ratio: %s. %s", aspect_ratio, e)
-            raise ValueError(
-                "Error resizing image with aspect ratio"
-            ) from e
+            _LOGGER.debug(
+                "Error resizing image with aspect ratio: %s. %s", aspect_ratio, e
+            )
+            raise ValueError("Error resizing image with aspect ratio") from e
 
     # If no aspect ratio is provided, return the original image and default crop size
     return pil_img, crop_img_size

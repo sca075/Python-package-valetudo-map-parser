@@ -141,8 +141,12 @@ class HypferMapImageHandler:
             "color_robot": self.colors_manager.get_colour(SupportedColor.ROBOT),
             "color_charger": self.colors_manager.get_colour(SupportedColor.CHARGER),
             "color_move": self.colors_manager.get_colour(SupportedColor.PATH),
-            "color_background": self.colors_manager.get_colour(SupportedColor.MAP_BACKGROUND),
-            "color_zone_clean": self.colors_manager.get_colour(SupportedColor.ZONE_CLEAN),
+            "color_background": self.colors_manager.get_colour(
+                SupportedColor.MAP_BACKGROUND
+            ),
+            "color_zone_clean": self.colors_manager.get_colour(
+                SupportedColor.ZONE_CLEAN
+            ),
         }
 
     # noinspection PyUnresolvedReferences,PyUnboundLocalVariable
@@ -185,7 +189,7 @@ class HypferMapImageHandler:
 
                 # Get the pixels size and layers from the JSON data
                 pixel_size = int(m_json["pixelSize"])
-                layers, active = self.data.find_layers(m_json["layers"], {},[])
+                layers, active = self.data.find_layers(m_json["layers"], {}, [])
                 new_frame_hash = await self.imd.calculate_array_hash(layers, active)
                 if self.frame_number == 0:
                     self.img_hash = new_frame_hash
@@ -246,7 +250,10 @@ class HypferMapImageHandler:
                 # All below will be drawn at each frame.
                 # Draw zones if any.
                 img_np_array = await self.imd.async_draw_zones(
-                    m_json, img_np_array, colors["color_zone_clean"], colors["color_no_go"]
+                    m_json,
+                    img_np_array,
+                    colors["color_zone_clean"],
+                    colors["color_no_go"],
                 )
                 # Draw the go_to target flag.
                 img_np_array = await self.imd.draw_go_to_flag(
@@ -313,7 +320,8 @@ class HypferMapImageHandler:
         except (RuntimeError, RuntimeWarning) as e:
             _LOGGER.warning(
                 "%s: Error %s during image creation.",
-                self.file_name, str(e),
+                self.file_name,
+                str(e),
                 exc_info=True,
             )
             return None

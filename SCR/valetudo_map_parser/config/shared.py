@@ -225,15 +225,15 @@ class CameraSharedManager:
             )
 
         except TypeError as ex:
-            _LOGGER.error("Shared data can't be initialized due to a TypeError! %s",
-                          ex)
+            _LOGGER.error("Shared data can't be initialized due to a TypeError! %s", ex)
         except AttributeError as ex:
-            _LOGGER.error("Shared data can't be initialized due to an AttributeError! %s",
-                          ex)
+            _LOGGER.error(
+                "Shared data can't be initialized due to an AttributeError! %s", ex
+            )
         except RuntimeError as ex:
             _LOGGER.error(
-                "An unexpected error occurred while initializing shared data %s:",
-                ex)
+                "An unexpected error occurred while initializing shared data %s:", ex
+            )
 
     def get_instance(self):
         """Get the shared instance."""

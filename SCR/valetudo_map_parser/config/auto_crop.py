@@ -125,8 +125,14 @@ class AutoCrop:
         min_y, min_x, _ = NumpyArray.min(nonzero_coords, axis=0)
         max_y, max_x, _ = NumpyArray.max(nonzero_coords, axis=0)
         del nonzero_coords
-        _LOGGER.debug("%s: Found trims max and min values (y,x) (%s, %s) (%s, %s)...",
-                      self.file_name, int(max_y), int(max_x), int(min_y), int(min_x))
+        _LOGGER.debug(
+            "%s: Found trims max and min values (y,x) (%s, %s) (%s, %s)...",
+            self.file_name,
+            int(max_y),
+            int(max_x),
+            int(min_y),
+            int(min_x),
+        )
         return min_y, min_x, max_x, max_y
 
     async def async_check_if_zoom_is_on(
@@ -144,8 +150,11 @@ class AutoCrop:
             and self.imh.shared.image_auto_zoom
         ):
             # Zoom the image based on the robot's position.
-            _LOGGER.debug("%s: Zooming the image on room %s.",
-                          self.file_name, self.imh.robot_in_room["room"])
+            _LOGGER.debug(
+                "%s: Zooming the image on room %s.",
+                self.file_name,
+                self.imh.robot_in_room["room"],
+            )
             if rand256:
                 trim_left = round(self.imh.robot_in_room["right"] / 10) - margin_size
                 trim_right = round(self.imh.robot_in_room["left"] / 10) + margin_size
@@ -210,8 +219,7 @@ class AutoCrop:
         try:
             await self._init_auto_crop()
             if self.imh.auto_crop is None:
-                _LOGGER.debug("%s: Calculating auto trim box",
-                              self.file_name)
+                _LOGGER.debug("%s: Calculating auto trim box", self.file_name)
                 # Find the coordinates of the first occurrence of a non-background color
                 min_y, min_x, max_x, max_y = await self.async_image_margins(
                     image_array, detect_colour
@@ -259,14 +267,22 @@ class AutoCrop:
             # Rotate the cropped image based on the given angle
             rotated = await self.async_rotate_the_image(trimmed, rotate)
             del trimmed  # Free memory.
-            _LOGGER.debug("%s: Auto Trim Box data: %s",
-                          self.file_name, self.imh.crop_area)
+            _LOGGER.debug(
+                "%s: Auto Trim Box data: %s", self.file_name, self.imh.crop_area
+            )
             self.imh.crop_img_size = [rotated.shape[1], rotated.shape[0]]
-            _LOGGER.debug("%s: Auto Trimmed image size: %s",
-                          self.file_name, self.imh.crop_img_size)
+            _LOGGER.debug(
+                "%s: Auto Trimmed image size: %s",
+                self.file_name,
+                self.imh.crop_img_size,
+            )
 
         except RuntimeError as e:
-            _LOGGER.warning("%s: Error %s during auto trim and zoom.",
-                            self.file_name, e, exc_info=True)
+            _LOGGER.warning(
+                "%s: Error %s during auto trim and zoom.",
+                self.file_name,
+                e,
+                exc_info=True,
+            )
             return None
         return rotated

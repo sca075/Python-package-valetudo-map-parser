@@ -31,7 +31,7 @@ class Drawable:
         width: int, height: int, background_color: Color
     ) -> NumpyArray:
         """Create the empty background image numpy array.
-        Background color is specified as RGBA tuple. """
+        Background color is specified as RGBA tuple."""
         image_array = np.full((height, width, 4), background_color, dtype=np.uint8)
         return image_array
 

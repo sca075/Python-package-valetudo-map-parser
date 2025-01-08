@@ -91,11 +91,12 @@ class ImageDraw:
             room_id = (room_id + 1) % 16  # Cycle room_id back to 0 after 15
 
         except IndexError as e:
-            _LOGGER.warning("%s: Image Draw Error: %s",
-                            self.file_name, str(e))
+            _LOGGER.warning("%s: Image Draw Error: %s", self.file_name, str(e))
         _LOGGER.debug(
             "%s Active Zones: %s and Room ID: %s",
-            self.file_name, str(self.img_h.active_zones), str(room_id)
+            self.file_name,
+            str(self.img_h.active_zones),
+            str(room_id),
         )
 
         return img_np_array, room_id
@@ -155,8 +156,7 @@ class ImageDraw:
         try:
             charger_pos = entity_dict.get("charger_location")
         except KeyError:
-            _LOGGER.warning("%s: No charger position found.",
-                            self.file_name)
+            _LOGGER.warning("%s: No charger position found.", self.file_name)
         else:
             if charger_pos:
                 charger_pos = charger_pos[0]["points"]
@@ -175,8 +175,7 @@ class ImageDraw:
         try:
             json_id = my_json["metaData"]["nonce"]
         except (ValueError, KeyError) as e:
-            _LOGGER.debug("%s: No JsonID provided: %s",
-                          self.file_name, str(e))
+            _LOGGER.debug("%s: No JsonID provided: %s", self.file_name, str(e))
             json_id = None
         return json_id
 
@@ -371,7 +370,7 @@ class ImageDraw:
                     _LOGGER.debug(
                         "%s is in %s room.",
                         self.file_name,
-                        self.img_h.robot_in_room['room']
+                        self.img_h.robot_in_room["room"],
                     )
                     del room, corners, robot_x, robot_y  # free memory.
                     return temp
