@@ -29,6 +29,7 @@ NumpyArray = np.ndarray
 Point = Tuple[int, int]
 
 
+# pylint: disable=no-member
 @dataclass
 class TrimCropData:
     """Dataclass for trim and crop data."""
@@ -72,6 +73,7 @@ class TrimCropData:
         )
 
 
+# pylint: disable=no-member
 class RoomStore:
     """Store the room data for the vacuum."""
 
@@ -107,6 +109,7 @@ class RoomStore:
             return count
 
 
+# pylint: disable=no-member
 class UserLanguageStore:
     """Store the user language data."""
 
@@ -152,6 +155,7 @@ class UserLanguageStore:
                 cls._initialized = True
 
 
+# pylint: disable=no-member
 class SnapshotStore:
     """Store the snapshot data."""
 

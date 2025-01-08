@@ -14,9 +14,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class ImageUtils:
-    """Image Utils Class for Valetudo Hypfer Image Handler."""
-
-    """It is used to simplify the ImageHandler class."""
+    """Image Utils Class for Valetudo Hypfer Image Handler.
+    It is used to simplify the ImageHandler class."""
 
     def __init__(self, image_handler):
         self.img = image_handler
@@ -25,8 +24,7 @@ class ImageUtils:
     def get_vacuum_points(self, rotation_angle: int) -> list[dict[str, int]]:
         """Calculate the calibration points based on the rotation angle."""
 
-        """get_calibration_data"""
-
+        # get_calibration_data
         vacuum_points = [
             {
                 "x": self.img.crop_area[0] + self.img.offset_x,
@@ -122,21 +120,20 @@ class ImageUtils:
         self, width: int, height: int, rand256: bool = False
     ) -> None:
         """Set the image offset ratio to 1:1."""
-        """async_map_coordinates_offset"""
 
         rotation = self.img.shared.image_rotate
         if not rand256:
-            if rotation == 0 or rotation == 180:
+            if rotation in [0, 180]:
                 self.img.offset_y = self.img.crop_img_size[0] - width
                 self.img.offset_x = (height - self.img.crop_img_size[1]) // 2
-            elif rotation == 90 or rotation == 270:
+            elif rotation in [90, 270]:
                 self.img.offset_y = width - self.img.crop_img_size[0]
                 self.img.offset_x = (self.img.crop_img_size[1] - height) // 2
         else:
-            if rotation == 0 or rotation == 180:
+            if rotation in [0, 180]:
                 self.img.offset_x = (width - self.img.crop_img_size[0]) // 2
                 self.img.offset_y = height - self.img.crop_img_size[1]
-            elif rotation == 90 or rotation == 270:
+            elif rotation in [90, 270]:
                 self.img.offset_y = (self.img.crop_img_size[0] - width) // 2
                 self.img.offset_x = self.img.crop_img_size[1] - height
 
@@ -149,21 +146,20 @@ class ImageUtils:
         self, width: int, height: int, rand256: bool = False
     ) -> None:
         """Set the image offset ratio to 2:1."""
-        """async_map_coordinates_offset"""
 
         rotation = self.img.shared.image_rotate
         if not rand256:
-            if rotation == 0 or rotation == 180:
+            if rotation in [0, 180]:
                 self.img.offset_y = width - self.img.crop_img_size[0]
                 self.img.offset_x = height - self.img.crop_img_size[1]
-            elif rotation == 90 or rotation == 270:
+            elif rotation in [90, 270]:
                 self.img.offset_x = width - self.img.crop_img_size[0]
                 self.img.offset_y = height - self.img.crop_img_size[1]
         else:
-            if rotation == 0 or rotation == 180:
+            if rotation in [0, 180]:
                 self.img.offset_y = width - self.img.crop_img_size[0]
                 self.img.offset_x = height - self.img.crop_img_size[1]
-            elif rotation == 90 or rotation == 270:
+            elif rotation in [90, 270]:
                 self.img.offset_x = width - self.img.crop_img_size[0]
                 self.img.offset_y = height - self.img.crop_img_size[1]
 
@@ -176,26 +172,25 @@ class ImageUtils:
         self, width: int, height: int, rand256: bool = False
     ) -> None:
         """Set the image offset ratio to 3:2."""
-        """async_map_coordinates_offset"""
 
         rotation = self.img.shared.image_rotate
 
         if not rand256:
-            if rotation == 0 or rotation == 180:
+            if rotation in [0, 180]:
                 self.img.offset_y = width - self.img.crop_img_size[0]
                 self.img.offset_x = ((height - self.img.crop_img_size[1]) // 2) - (
                     self.img.crop_img_size[1] // 10
                 )
-            elif rotation == 90 or rotation == 270:
+            elif rotation in [90, 270]:
                 self.img.offset_y = (self.img.crop_img_size[0] - width) // 2
                 self.img.offset_x = (self.img.crop_img_size[1] - height) + (
                     (height // 10) // 2
                 )
         else:
-            if rotation == 0 or rotation == 180:
+            if rotation in [0, 180]:
                 self.img.offset_x = (width - self.img.crop_img_size[0]) // 2
                 self.img.offset_y = height - self.img.crop_img_size[1]
-            elif rotation == 90 or rotation == 270:
+            elif rotation in [90, 270]:
                 self.img.offset_y = (self.img.crop_img_size[0] - width) // 2
                 self.img.offset_x = self.img.crop_img_size[1] - height
 
@@ -208,27 +203,26 @@ class ImageUtils:
         self, width: int, height: int, rand256: bool = False
     ) -> None:
         """Set the image offset ratio to 5:4."""
-        """async_map_coordinates_offset"""
 
         rotation = self.img.shared.image_rotate
         if not rand256:
-            if rotation == 0 or rotation == 180:
+            if rotation in [0, 180]:
                 self.img.offset_x = ((width - self.img.crop_img_size[0]) // 2) - (
                     self.img.crop_img_size[0] // 2
                 )
                 self.img.offset_y = (self.img.crop_img_size[1] - height) - (
                     self.img.crop_img_size[1] // 2
                 )
-            elif rotation == 90 or rotation == 270:
+            elif rotation in [90, 270]:
                 self.img.offset_y = ((self.img.crop_img_size[0] - width) // 2) - 10
                 self.img.offset_x = (self.img.crop_img_size[1] - height) + (
                     height // 10
                 )
         else:
-            if rotation == 0 or rotation == 180:
+            if rotation in [0, 180]:
                 self.img.offset_y = (width - self.img.crop_img_size[0]) // 2
                 self.img.offset_x = self.img.crop_img_size[1] - height
-            elif rotation == 90 or rotation == 270:
+            elif rotation in [90, 270]:
                 self.img.offset_y = (self.img.crop_img_size[0] - width) // 2
                 self.img.offset_x = self.img.crop_img_size[1] - height
 
@@ -241,21 +235,20 @@ class ImageUtils:
         self, width: int, height: int, rand256: bool = False
     ) -> None:
         """Set the image offset ratio to 9:16."""
-        """async_map_coordinates_offset"""
 
         rotation = self.img.shared.image_rotate
         if not rand256:
-            if rotation == 0 or rotation == 180:
+            if rotation in [0, 180]:
                 self.img.offset_y = width - self.img.crop_img_size[0]
                 self.img.offset_x = height - self.img.crop_img_size[1]
-            elif rotation == 90 or rotation == 270:
+            elif rotation in [90, 270]:
                 self.img.offset_x = (width - self.img.crop_img_size[0]) + (height // 10)
                 self.img.offset_y = height - self.img.crop_img_size[1]
         else:
-            if rotation == 0 or rotation == 180:
+            if rotation in [0, 180]:
                 self.img.offset_y = width - self.img.crop_img_size[0]
                 self.img.offset_x = height - self.img.crop_img_size[1]
-            elif rotation == 90 or rotation == 270:
+            elif rotation in [90, 270]:
                 self.img.offset_x = width - self.img.crop_img_size[0]
                 self.img.offset_y = height - self.img.crop_img_size[1]
 
@@ -268,21 +261,20 @@ class ImageUtils:
         self, width: int, height: int, rand256: bool = False
     ) -> None:
         """Set the image offset ratio to 16:9."""
-        """async_map_coordinates_offset"""
 
         rotation = self.img.shared.image_rotate
         if not rand256:
-            if rotation == 0 or rotation == 180:
+            if rotation in [0, 180]:
                 self.img.offset_y = width - self.img.crop_img_size[0]
                 self.img.offset_x = height - self.img.crop_img_size[1]
-            elif rotation == 90 or rotation == 270:
+            elif rotation in [90, 270]:
                 self.img.offset_x = width - self.img.crop_img_size[0]
                 self.img.offset_y = height - self.img.crop_img_size[1]
         else:
-            if rotation == 0 or rotation == 180:
+            if rotation in [0, 180]:
                 self.img.offset_y = width - self.img.crop_img_size[0]
                 self.img.offset_x = height - self.img.crop_img_size[1]
-            elif rotation == 90 or rotation == 270:
+            elif rotation in [90, 270]:
                 self.img.offset_x = width - self.img.crop_img_size[0]
                 self.img.offset_y = height - self.img.crop_img_size[1]
 

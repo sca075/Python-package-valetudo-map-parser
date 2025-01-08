@@ -83,7 +83,7 @@ class HypferMapImageHandler(object):
         self.rooms_colors = self.colors_manager.get_rooms_colors()
         self.color_grey = (128, 128, 128, 255)
 
-    async def async_extract_room_properties(self, json_data):
+    async def async_extract_room_properties(self, json_data) -> RoomsProperties:
         """Extract room properties from the JSON data."""
 
         room_properties = {}
@@ -125,12 +125,25 @@ class HypferMapImageHandler(object):
                         "x": ((x_min + x_max) // 2),
                         "y": ((y_min + y_max) // 2),
                     }
-        if room_properties != {}:
+        if room_properties:
             _LOGGER.debug(f"{self.file_name}: Rooms data extracted!")
         else:
             _LOGGER.debug(f"{self.file_name}: Rooms data not available!")
             self.rooms_pos = None
         return room_properties
+
+    async def _async_initialize_colors(self):
+        """Initialize and return all required colors."""
+        return {
+            "color_wall": self.colors_manager.get_colour(SupportedColor.WALLS),
+            "color_no_go": self.colors_manager.get_colour(SupportedColor.NO_GO),
+            "color_go_to": self.colors_manager.get_colour(SupportedColor.GO_TO),
+            "color_robot": self.colors_manager.get_colour(SupportedColor.ROBOT),
+            "color_charger": self.colors_manager.get_colour(SupportedColor.CHARGER),
+            "color_move": self.colors_manager.get_colour(SupportedColor.PATH),
+            "color_background": self.colors_manager.get_colour(SupportedColor.MAP_BACKGROUND),
+            "color_zone_clean": self.colors_manager.get_colour(SupportedColor.ZONE_CLEAN),
+        }
 
     # noinspection PyUnresolvedReferences,PyUnboundLocalVariable
     async def async_get_image_from_json(
@@ -144,14 +157,7 @@ class HypferMapImageHandler(object):
         @return Image.Image: The image to display.
         """
         # Initialize the colors.
-        color_wall = self.colors_manager.get_colour(SupportedColor.WALLS)
-        color_no_go = self.colors_manager.get_colour(SupportedColor.NO_GO)
-        color_go_to = self.colors_manager.get_colour(SupportedColor.GO_TO)
-        color_robot = self.colors_manager.get_colour(SupportedColor.ROBOT)
-        color_charger = self.colors_manager.get_colour(SupportedColor.CHARGER)
-        color_move = self.colors_manager.get_colour(SupportedColor.PATH)
-        color_background = self.colors_manager.get_colour(SupportedColor.MAP_BACKGROUND)
-        color_zone_clean = self.colors_manager.get_colour(SupportedColor.ZONE_CLEAN)
+        colors = await self._async_initialize_colors()
         # Check if the JSON data is not None else process the image.
         try:
             if m_json is not None:
@@ -185,7 +191,7 @@ class HypferMapImageHandler(object):
                     self.img_hash = new_frame_hash
                     # empty image
                     img_np_array = await self.draw.create_empty_image(
-                        size_x, size_y, color_background
+                        size_x, size_y, colors["color_background"]
                     )
                     # overlapping layers and segments
                     for layer_type, compressed_pixels_list in layers.items():
@@ -193,22 +199,22 @@ class HypferMapImageHandler(object):
                             img_np_array,
                             compressed_pixels_list,
                             layer_type,
-                            color_wall,
-                            color_zone_clean,
+                            colors["color_wall"],
+                            colors["color_zone_clean"],
                             pixel_size,
                         )
                     # Draw the virtual walls if any.
                     img_np_array = await self.imd.async_draw_virtual_walls(
-                        m_json, img_np_array, color_no_go
+                        m_json, img_np_array, colors["color_no_go"]
                     )
                     _LOGGER.debug(f"{self.file_name}: {img_np_array}")
                     # Draw charger.
                     img_np_array = await self.imd.async_draw_charger(
-                        img_np_array, entity_dict, color_charger
+                        img_np_array, entity_dict, colors["color_charger"]
                     )
                     # Draw obstacles if any.
                     img_np_array = await self.imd.async_draw_obstacle(
-                        img_np_array, entity_dict, color_no_go
+                        img_np_array, entity_dict, colors["color_no_go"]
                     )
                     # Robot and rooms position
                     if (room_id > 0) and not self.room_propriety:
@@ -238,15 +244,15 @@ class HypferMapImageHandler(object):
                 # All below will be drawn at each frame.
                 # Draw zones if any.
                 img_np_array = await self.imd.async_draw_zones(
-                    m_json, img_np_array, color_zone_clean, color_no_go
+                    m_json, img_np_array, colors["color_zone_clean"], colors["color_no_go"]
                 )
                 # Draw the go_to target flag.
                 img_np_array = await self.imd.draw_go_to_flag(
-                    img_np_array, entity_dict, color_go_to
+                    img_np_array, entity_dict, colors["color_go_to"]
                 )
                 # Draw path prediction and paths.
                 img_np_array = await self.imd.async_draw_paths(
-                    img_np_array, m_json, color_move, self.color_grey
+                    img_np_array, m_json, colors["color_move"], self.color_grey
                 )
                 # Check if the robot is docked.
                 if self.shared.vacuum_state == "docked":
@@ -260,13 +266,13 @@ class HypferMapImageHandler(object):
                         x=robot_position[0],
                         y=robot_position[1],
                         angle=robot_position_angle,
-                        fill=color_robot,
+                        fill=colors["color_robot"],
                         robot_state=self.shared.vacuum_state,
                     )
                 # Resize the image
                 img_np_array = await self.ac.async_auto_trim_and_zoom_image(
                     img_np_array,
-                    color_background,
+                    colors["color_background"],
                     int(self.shared.margins),
                     int(self.shared.image_rotate),
                     self.zooming,
@@ -276,10 +282,10 @@ class HypferMapImageHandler(object):
             if img_np_array is None:
                 _LOGGER.warning(f"{self.file_name}: Image array is None.")
                 return None
-            else:
-                # Convert the numpy array to a PIL image
-                pil_img = Image.fromarray(img_np_array, mode="RGBA")
-                del img_np_array
+
+            # Convert the numpy array to a PIL image
+            pil_img = Image.fromarray(img_np_array, mode="RGBA")
+            del img_np_array
             # reduce the image size if the zoomed image is bigger then the original.
             if (
                 self.shared.image_auto_zoom

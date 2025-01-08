@@ -21,9 +21,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class ImageDraw:
-    """Class to handle the image creation."""
-
-    """It Draws each elements of the images, like the walls, zones, paths, etc."""
+    """Class to handle the image creation.
+    It Draws each element of the images, like the walls, zones, paths, etc."""
 
     def __init__(self, image_handler):
         self.img_h = image_handler
@@ -41,9 +40,7 @@ class ImageDraw:
                 self.img_h.shared.image_rotate,
                 color_go_to,
             )
-            return np_array
-        else:
-            return np_array
+        return np_array
 
     async def async_draw_base_layer(
         self,
@@ -56,42 +53,65 @@ class ImageDraw:
     ):
         """Draw the base layer of the map."""
         room_id = 0
+
         for compressed_pixels in compressed_pixels_list:
             pixels = self.img_h.data.sublist(compressed_pixels, 3)
-            if layer_type == "segment" or layer_type == "floor":
-                room_color = self.img_h.rooms_colors[room_id]
-                try:
-                    if layer_type == "segment":
-                        # Check if the room is active and set a modified color
-                        if self.img_h.active_zones and (
-                            room_id in range(len(self.img_h.active_zones))
-                        ):
-                            if self.img_h.active_zones[room_id] == 1:
-                                room_color = (
-                                    ((2 * room_color[0]) + color_zone_clean[0]) // 3,
-                                    ((2 * room_color[1]) + color_zone_clean[1]) // 3,
-                                    ((2 * room_color[2]) + color_zone_clean[2]) // 3,
-                                    ((2 * room_color[3]) + color_zone_clean[3]) // 3,
-                                )
-                except IndexError as e:
-                    _LOGGER.warning(f"{self.file_name} Image Draw Error: {e}")
-                    _LOGGER.debug(
-                        f"{self.file_name} Active Zones: {self.img_h.active_zones} and Room ID: {room_id}"
-                    )
-                finally:
-                    img_np_array = await self.img_h.draw.from_json_to_image(
-                        img_np_array, pixels, pixel_size, room_color
-                    )
-                    if room_id < 15:
-                        room_id += 1
-                    else:
-                        room_id = 0
+
+            if layer_type in ["segment", "floor"]:
+                img_np_array, room_id = await self._process_room_layer(
+                    img_np_array,
+                    pixels,
+                    layer_type,
+                    room_id,
+                    pixel_size,
+                    color_zone_clean,
+                )
             elif layer_type == "wall":
-                # Drawing walls.
-                img_np_array = await self.img_h.draw.from_json_to_image(
+                img_np_array = await self._process_wall_layer(
                     img_np_array, pixels, pixel_size, color_wall
                 )
+
         return room_id, img_np_array
+
+    async def _process_room_layer(
+        self, img_np_array, pixels, layer_type, room_id, pixel_size, color_zone_clean
+    ):
+        """Process a room layer (segment or floor)."""
+        room_color = self.img_h.rooms_colors[room_id]
+
+        try:
+            if layer_type == "segment":
+                room_color = self._get_active_room_color(
+                    room_id, room_color, color_zone_clean
+                )
+
+            img_np_array = await self.img_h.draw.from_json_to_image(
+                img_np_array, pixels, pixel_size, room_color
+            )
+            room_id = (room_id + 1) % 16  # Cycle room_id back to 0 after 15
+
+        except IndexError as e:
+            _LOGGER.warning(f"{self.file_name} Image Draw Error: {e}")
+            _LOGGER.debug(
+                f"{self.file_name} Active Zones: {self.img_h.active_zones} and Room ID: {room_id}"
+            )
+
+        return img_np_array, room_id
+
+    def _get_active_room_color(self, room_id, room_color, color_zone_clean):
+        """Adjust the room color if the room is active."""
+        if self.img_h.active_zones and room_id < len(self.img_h.active_zones):
+            if self.img_h.active_zones[room_id] == 1:
+                return tuple(
+                    ((2 * room_color[i]) + color_zone_clean[i]) // 3 for i in range(4)
+                )
+        return room_color
+
+    async def _process_wall_layer(self, img_np_array, pixels, pixel_size, color_wall):
+        """Process a wall layer."""
+        return await self.img_h.draw.from_json_to_image(
+            img_np_array, pixels, pixel_size, color_wall
+        )
 
     async def async_draw_obstacle(
         self, np_array: NumpyArray, entity_dict: dict, color_no_go: Color
@@ -121,13 +141,7 @@ class ImageDraw:
                 self.img_h.draw.draw_obstacles(
                     np_array, obstacle_positions, color_no_go
                 )
-                _LOGGER.debug(
-                    f"{self.file_name} All obstacle positions: %s",
-                    obstacle_positions,
-                )
-                return np_array
-            else:
-                return np_array
+            return np_array
 
     async def async_draw_charger(
         self,
@@ -151,8 +165,7 @@ class ImageDraw:
                     np_array, charger_pos[0], charger_pos[1], color_charger
                 )
                 return np_array
-            else:
-                return np_array
+            return np_array
 
     async def async_get_json_id(self, my_json: JsonType) -> str | None:
         """Return the JSON ID from the image."""
@@ -191,22 +204,21 @@ class ImageDraw:
             except KeyError:
                 no_go_zones = None
 
+            if no_go_zones:
+                np_array = await self.img_h.draw.zones(
+                    np_array, no_go_zones, color_no_go
+                )
+
             try:
                 no_mop_zones = zone_clean.get("no_mop_area")
             except KeyError:
                 no_mop_zones = None
 
-            if no_go_zones:
-                np_array = await self.img_h.draw.zones(
-                    np_array, no_go_zones, color_no_go
-                )
             if no_mop_zones:
                 np_array = await self.img_h.draw.zones(
                     np_array, no_mop_zones, color_no_go
                 )
-            return np_array
-        else:
-            return np_array
+        return np_array
 
     async def async_draw_virtual_walls(
         self, m_json: JsonType, np_array: NumpyArray, color_no_go: Color
@@ -222,9 +234,7 @@ class ImageDraw:
             np_array = await self.img_h.draw.draw_virtual_walls(
                 np_array, virtual_walls, color_no_go
             )
-            return np_array
-        else:
-            return np_array
+        return np_array
 
     async def async_draw_paths(
         self,
@@ -244,14 +254,14 @@ class ImageDraw:
             path_pixels = paths_data.get("path", [])
         except KeyError as e:
             _LOGGER.warning(f"{self.file_name}: Error extracting paths data: {str(e)}")
-        finally:
-            if predicted_path:
-                predicted_path = predicted_path[0]["points"]
-                predicted_path = self.img_h.data.sublist(predicted_path, 2)
-                predicted_pat2 = self.img_h.data.sublist_join(predicted_path, 2)
-                np_array = await self.img_h.draw.lines(
-                    np_array, predicted_pat2, 2, color_gray
-                )
+
+        if predicted_path:
+            predicted_path = predicted_path[0]["points"]
+            predicted_path = self.img_h.data.sublist(predicted_path, 2)
+            predicted_pat2 = self.img_h.data.sublist_join(predicted_path, 2)
+            np_array = await self.img_h.draw.lines(
+                np_array, predicted_pat2, 2, color_gray
+            )
         if path_pixels:
             for path in path_pixels:
                 # Get the points from the current path and extend multiple paths.
@@ -263,9 +273,7 @@ class ImageDraw:
                 np_array = await self.img_h.draw.lines(
                     np_array, self.img_h.shared.map_new_path, 5, color_move
                 )
-            return np_array
-        else:
-            return np_array
+        return np_array
 
     async def async_get_entity_data(self, m_json: JsonType) -> dict or None:
         """Get the entity data from the JSON data."""

@@ -86,9 +86,6 @@ class ImageData:
                     if layer_type not in layer_dict:
                         layer_dict[layer_type] = []
                     layer_dict[layer_type].append(json_obj.get("compressedPixels", []))
-                # Hopefully will not brake anything.
-                # if layer_type == "floor":
-                #    active_list.append("floor")
                 if layer_type == "segment":
                     active_list.append(int(active_type["active"]))
 
@@ -207,13 +204,12 @@ class ImageData:
                     ((min_y * pixel_size) * 10),
                 ),
             )
-        else:
-            return (
-                min_x * pixel_size,
-                min_y * pixel_size,
-                max_x * pixel_size,
-                max_y * pixel_size,
-            )
+        return (
+            min_x * pixel_size,
+            min_y * pixel_size,
+            max_x * pixel_size,
+            max_y * pixel_size,
+        )
 
     # Added below in order to support Valetudo Re.
     # This functions read directly the data from the json created
@@ -232,7 +228,7 @@ class ImageData:
         compressed_pixels = []
 
         tot_pixels = 0
-        current_x, current_y, count = None, None, 0
+        current_x, current_y, count = None, None, 0  # pylint: disable=unused-variable
         for index in pixel_data:
             x = (index % image_width) + image_left
             y = ((image_height - 1) - (index // image_width)) + image_top
@@ -254,7 +250,7 @@ class ImageData:
         max_x = -float("inf")
         max_y = -float("inf")
 
-        for x, y, count in coord_array:
+        for x, y, _ in coord_array:
             max_x = max(max_x, x)
             max_y = max(max_y, y)
 
@@ -287,8 +283,7 @@ class ImageData:
         """Get the image data from the json."""
         if isinstance(json_data, tuple):
             return {}
-        else:
-            return json_data.get("image", {})
+        return json_data.get("image", {})
 
     @staticmethod
     def get_rrm_path(json_data: JsonType) -> JsonType:
@@ -303,10 +298,9 @@ class ImageData:
             points = predicted_path["points"]
         except KeyError:
             return None
-        else:
-            predicted_path = ImageData.sublist_join(
-                ImageData.rrm_valetudo_path_array(points), 2
-            )
+        predicted_path = ImageData.sublist_join(
+            ImageData.rrm_valetudo_path_array(points), 2
+        )
         return predicted_path
 
     @staticmethod
@@ -326,10 +320,7 @@ class ImageData:
         Return the calculated angle and original angle.
         """
         angle_c = round(json_data.get("robot_angle", 0))
-        if angle_c < 0:
-            angle = (360 - angle_c) + 80
-        else:
-            angle = (180 - angle_c) - 80
+        angle = (360 - angle_c + 80) if angle_c < 0 else (180 - angle_c - 80)
         return angle % 360, json_data.get("robot_angle", 0)
 
     @staticmethod
@@ -339,12 +330,11 @@ class ImageData:
             path_data = json_data.get("goto_target", {})
         except KeyError:
             return None
-        else:
-            if path_data != []:
-                path_data = ImageData.rrm_coordinates_to_valetudo(path_data)
-                return path_data
-            else:
-                return None
+
+        if path_data and path_data != []:
+            path_data = ImageData.rrm_coordinates_to_valetudo(path_data)
+            return path_data
+        return None
 
     @staticmethod
     def get_rrm_currently_cleaned_zones(json_data: JsonType) -> dict:
@@ -436,12 +426,11 @@ class ImageData:
         """Get the image size from the json."""
         if isinstance(json_data, tuple):
             return 0, 0
-        else:
-            image = ImageData.get_rrm_image(json_data)
-            if image == {}:
-                return 0, 0
-            dimensions = image.get("dimensions", {})
-            return dimensions.get("width", 0), dimensions.get("height", 0)
+        image = ImageData.get_rrm_image(json_data)
+        if image == {}:
+            return 0, 0
+        dimensions = image.get("dimensions", {})
+        return dimensions.get("width", 0), dimensions.get("height", 0)
 
     @staticmethod
     def get_rrm_image_position(json_data: JsonType) -> tuple:
@@ -464,8 +453,13 @@ class ImageData:
 
     @staticmethod
     async def async_get_rrm_segments(
-        json_data, size_x, size_y, pos_top, pos_left, out_lines: bool = False
-    ):
+        json_data: JsonType,
+            size_x: int,
+            size_y: int,
+            pos_top: int,
+            pos_left: int,
+            out_lines: bool = False
+    )-> list:
         """Get the segments data from the json."""
 
         img = ImageData.get_rrm_image(json_data)
@@ -494,10 +488,8 @@ class ImageData:
         if count_seg > 0:
             if out_lines:
                 return segments, outlines
-            else:
-                return segments
-        else:
-            return []
+            return segments
+        return []
 
     @staticmethod
     def get_rrm_segments_ids(json_data: JsonType) -> list or None:
