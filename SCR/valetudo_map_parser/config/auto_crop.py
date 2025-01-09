@@ -71,18 +71,18 @@ class AutoCrop:
         return trimmed_width, trimmed_height
 
     async def _async_auto_crop_data(self, tdata=None):
-        """Load the auto crop data from the disk."""
-
-        if not self.imh.auto_crop:
-            trims_data = TrimCropData.from_dict(dict(tdata)).to_list()
-            (
-                self.imh.trim_left,
-                self.imh.trim_up,
-                self.imh.trim_right,
-                self.imh.trim_down,
-            ) = trims_data
-            self._calculate_trimmed_dimensions()
-            return trims_data
+        """Load the auto crop data from the Camera config."""
+        # todo: implement this method but from config data
+        # if not self.imh.auto_crop:
+        #     trims_data = TrimCropData.from_dict(dict(tdata)).to_list()
+        #     (
+        #         self.imh.trim_left,
+        #         self.imh.trim_up,
+        #         self.imh.trim_right,
+        #         self.imh.trim_down,
+        #     ) = trims_data
+        #     self._calculate_trimmed_dimensions()
+        #     return trims_data
         return None
 
     def auto_crop_offset(self):

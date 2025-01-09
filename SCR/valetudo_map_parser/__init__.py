@@ -1,6 +1,5 @@
 """Valetudo map parser.
-   Version: 0.1.4"""
-
+Version: 0.1.4"""
 
 from .hypfer_handler import HypferMapImageHandler
 from .config.shared import CameraShared, CameraSharedManager

@@ -66,10 +66,10 @@ class HypferMapImageHandler:
         self.max_frames = 1024
         self.zooming = False  # zooming the image.
         self.svg_wait = False  # SVG image creation wait.
-        self.trim_down = None  # memory stored trims calculated once.
-        self.trim_left = None  # memory stored trims calculated once.
-        self.trim_right = None  # memory stored trims calculated once.
-        self.trim_up = None  # memory stored trims calculated once.
+        self.trim_down = 0  # memory stored trims calculated once.
+        self.trim_left = 0  # memory stored trims calculated once.
+        self.trim_right = 0  # memory stored trims calculated once.
+        self.trim_up = 0  # memory stored trims calculated once.
         self.offset_top = self.shared.offset_top  # offset top
         self.offset_bottom = self.shared.offset_down  # offset bottom
         self.offset_left = self.shared.offset_left  # offset left

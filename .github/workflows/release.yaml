@@ -40,7 +40,6 @@ jobs:
           echo "Checking project structure..."
           tree SCR  # Optional: Display structure for debugging
           touch SCR/__init__.py  # Ensure SCR is treated as a package
-          find SCR -type d -exec sh -c '[ -f {}/__init__.py ] || touch {}/__init__.py' \;
 
       # Step 7: Build the Package
       - name: Build package
