@@ -12,7 +12,7 @@ import logging
 
 from .config.types import Color, JsonType, NumpyArray
 from .config.drawable import Drawable
-from map_data import ImageData
+from .map_data import ImageData
 
 _LOGGER = logging.getLogger(__name__)
 

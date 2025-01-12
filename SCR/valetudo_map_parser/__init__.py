@@ -1,5 +1,5 @@
 """Valetudo map parser.
-Version: 0.1.7"""
+Version: 0.1.8"""
 
 from .hypfer_handler import HypferMapImageHandler
 from .rand25_handler import ReImageHandler
