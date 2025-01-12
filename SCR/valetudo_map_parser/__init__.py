@@ -1,7 +1,9 @@
 """Valetudo map parser.
-Version: 0.1.4"""
+Version: 0.1.6"""
 
 from .hypfer_handler import HypferMapImageHandler
+from .rand25_handler import ReImageHandler
+from .config.rand25_parser import RRMapParser
 from .config.shared import CameraShared, CameraSharedManager
 from .config.colors import ColorsManagment
 from .config.drawable import Drawable
@@ -16,6 +18,7 @@ from .config.types import (
 
 __all__ = [
     "HypferMapImageHandler",
+    "ReImageHandler",
     "CameraShared",
     "CameraSharedManager",
     "ColorsManagment",

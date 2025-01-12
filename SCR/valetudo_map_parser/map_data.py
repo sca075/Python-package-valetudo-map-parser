@@ -3,12 +3,11 @@ Collections of Json and List routines
 ImageData is part of the Image_Handler
 used functions to search data in the json
 provided for the creation of the new camera frame
-Version: v2024.08.0
+Version: v0.1.6
 """
 
 from __future__ import annotations
 
-from typing import Any
 import numpy as np
 
 from .config.types import (
@@ -186,7 +185,7 @@ class ImageData:
             if rand:
                 x, y, _ = entry  # Extract x and y coordinates
                 max_x = max(max_x, x)  # Update max x coordinate
-                max_y = max(max_y, y)  # Update max y coordinate
+                max_y = max(max_y, y + pixel_size)  # Update max y coordinate
                 min_x = min(min_x, x)  # Update min x coordinate
                 min_y = min(min_y, y)  # Update min y coordinate
             else:
@@ -227,7 +226,7 @@ class ImageData:
         compressed_pixels = []
 
         tot_pixels = 0
-        current_x, current_y, count = None, None, 0  # pylint: disable=unused-variable
+        current_x, current_y, count = None, None, 0
         for index in pixel_data:
             x = (index % image_width) + image_left
             y = ((image_height - 1) - (index // image_width)) + image_top
