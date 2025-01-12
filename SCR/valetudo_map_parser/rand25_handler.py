@@ -15,9 +15,9 @@ from PIL import Image, ImageOps
 from .config.types import COLORS, DEFAULT_IMAGE_SIZE, DEFAULT_PIXEL_SIZE
 from .config.types import Colors, JsonType, PilPNG, RobotPosition, RoomsProperties
 from .config.auto_crop import AutoCrop
-from images_utils import ImageUtils as ImUtils
-from map_data import ImageData
-from reimg_draw import ImageDraw
+from .images_utils import ImageUtils as ImUtils
+from .map_data import ImageData
+from .reimg_draw import ImageDraw
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -1,7 +1,7 @@
 """
 Image Utils Class for Valetudo Hypfer Image Handling.
 This class is used to simplify the ImageHandler class.
-Version: 0.1.0
+Version: 0.1.6
 """
 
 from __future__ import annotations
