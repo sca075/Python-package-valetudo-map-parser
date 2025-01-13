@@ -207,7 +207,7 @@ class ReImageHandler:
     async def _setup_robot_and_image(
         self, m_json, size_x, size_y, colors, destinations
     ):
-        robot_position, robot_position_angle = await self.imd.async_get_robot_position(
+        _, robot_position, robot_position_angle = await self.imd.async_get_robot_position(
             m_json
         )
         if self.frame_number == 0:
