@@ -70,7 +70,7 @@ class AutoCrop:
             )
         return trimmed_width, trimmed_height
 
-    async def _async_auto_crop_data(self, tdata=None):
+    async def _async_auto_crop_data(self): #, tdata=None
         """Load the auto crop data from the Camera config."""
         # todo: implement this method but from config data
         # if not self.imh.auto_crop:

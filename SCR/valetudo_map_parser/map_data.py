@@ -209,10 +209,11 @@ class ImageData:
             max_y * pixel_size,
         )
 
-    # Added below in order to support Valetudo Re.
-    # This functions read directly the data from the json created
-    # from the parser for Valetudo Re. They allow to use the
-    # functions to draw the image without changes on the drawing class.
+
+class RandImageData:
+    """This functions read directly the data from the json created
+    from the parser for Valetudo Re. They allow to use the
+    functions to draw the image without changes on the drawing class."""
 
     @staticmethod
     def from_rrm_to_compressed_pixels(
@@ -297,7 +298,7 @@ class ImageData:
         except KeyError:
             return None
         predicted_path = ImageData.sublist_join(
-            ImageData.rrm_valetudo_path_array(points), 2
+            RandImageData.rrm_valetudo_path_array(points), 2
         )
         return predicted_path
 
@@ -330,7 +331,7 @@ class ImageData:
             return None
 
         if path_data and path_data != []:
-            path_data = ImageData.rrm_coordinates_to_valetudo(path_data)
+            path_data = RandImageData.rrm_coordinates_to_valetudo(path_data)
             return path_data
         return None
 
@@ -338,14 +339,14 @@ class ImageData:
     def get_rrm_currently_cleaned_zones(json_data: JsonType) -> dict:
         """Get the currently cleaned zones from the json."""
         re_zones = json_data.get("currently_cleaned_zones", [])
-        formatted_zones = ImageData.rrm_valetudo_format_zone(re_zones)
+        formatted_zones = RandImageData.rrm_valetudo_format_zone(re_zones)
         return formatted_zones
 
     @staticmethod
     def get_rrm_forbidden_zones(json_data: JsonType) -> dict:
         """Get the forbidden zones from the json."""
         re_zones = json_data.get("forbidden_zones", [])
-        formatted_zones = ImageData.rrm_valetudo_format_zone(re_zones)
+        formatted_zones = RandImageData.rrm_valetudo_format_zone(re_zones)
         return formatted_zones
 
     @staticmethod
@@ -406,7 +407,7 @@ class ImageData:
             tmp_data = json_data.get("virtual_walls", [])
         except KeyError:
             return None
-        virtual_walls = ImageData.rrm_valetudo_lines(tmp_data)
+        virtual_walls = RandImageData.rrm_valetudo_lines(tmp_data)
         return virtual_walls
 
     @staticmethod
@@ -424,7 +425,7 @@ class ImageData:
         """Get the image size from the json."""
         if isinstance(json_data, tuple):
             return 0, 0
-        image = ImageData.get_rrm_image(json_data)
+        image = RandImageData.get_rrm_image(json_data)
         if image == {}:
             return 0, 0
         dimensions = image.get("dimensions", {})
@@ -433,20 +434,20 @@ class ImageData:
     @staticmethod
     def get_rrm_image_position(json_data: JsonType) -> tuple:
         """Get the image position from the json."""
-        image = ImageData.get_rrm_image(json_data)
+        image = RandImageData.get_rrm_image(json_data)
         position = image.get("position", {})
         return position.get("top", 0), position.get("left", 0)
 
     @staticmethod
     def get_rrm_floor(json_data: JsonType) -> list:
         """Get the floor data from the json."""
-        img = ImageData.get_rrm_image(json_data)
+        img = RandImageData.get_rrm_image(json_data)
         return img.get("pixels", {}).get("floor", [])
 
     @staticmethod
     def get_rrm_walls(json_data: JsonType) -> list:
         """Get the walls data from the json."""
-        img = ImageData.get_rrm_image(json_data)
+        img = RandImageData.get_rrm_image(json_data)
         return img.get("pixels", {}).get("walls", [])
 
     @staticmethod
@@ -460,7 +461,7 @@ class ImageData:
     ) -> tuple or list:
         """Get the segments data from the json."""
 
-        img = ImageData.get_rrm_image(json_data)
+        img = RandImageData.get_rrm_image(json_data)
         seg_data = img.get("segments", {})
         seg_ids = seg_data.get("id")
         segments = []
@@ -469,7 +470,7 @@ class ImageData:
         for id_seg in seg_ids:
             tmp_data = seg_data.get("pixels_seg_" + str(id_seg))
             segments.append(
-                ImageData.from_rrm_to_compressed_pixels(
+                RandImageData.from_rrm_to_compressed_pixels(
                     tmp_data,
                     image_width=size_x,
                     image_height=size_y,
@@ -493,7 +494,7 @@ class ImageData:
     def get_rrm_segments_ids(json_data: JsonType) -> list or None:
         """Get the segments ids from the json."""
         try:
-            img = ImageData.get_rrm_image(json_data)
+            img = RandImageData.get_rrm_image(json_data)
             seg_ids = img.get("segments", {}).get("id", [])
         except KeyError:
             return None

@@ -2,7 +2,7 @@
 Image Handler Module for Valetudo Re Vacuums.
 It returns the PIL PNG image frame relative to the Map Data extrapolated from the vacuum json.
 It also returns calibration, rooms data to the card and other images information to the camera.
-Version: v2024.12.0
+Version: 0.1.9
 """
 
 from __future__ import annotations
@@ -11,19 +11,19 @@ import logging
 import uuid
 
 from PIL import Image, ImageOps
-
+from typing import Any
 from .config.types import COLORS, DEFAULT_IMAGE_SIZE, DEFAULT_PIXEL_SIZE
 from .config.types import Colors, JsonType, PilPNG, RobotPosition, RoomsProperties
 from .config.auto_crop import AutoCrop
 from .images_utils import ImageUtils as ImUtils
-from .map_data import ImageData
+from .map_data import RandImageData
 from .reimg_draw import ImageDraw
 
 _LOGGER = logging.getLogger(__name__)
 
 
 # noinspection PyTypeChecker
-class ReImageHandler(object):
+class ReImageHandler:
     """
     Image Handler for Valetudo Re Vacuums.
     """
@@ -35,8 +35,8 @@ class ReImageHandler(object):
         self.calibration_data = None  # Calibration data
         self.charger_pos = None  # Charger position
         self.crop_area = None  # Crop area
-        self.crop_img_size = None  # Crop image size
-        self.data = ImageData  # Image Data
+        self.crop_img_size = []  # Crop image size
+        self.data = RandImageData  # Image Data
         self.frame_number = 0  # Image Frame number
         self.max_frames = 1024
         self.go_to = None  # Go to position data
@@ -72,15 +72,15 @@ class ReImageHandler(object):
         self, json_data: JsonType, destinations: JsonType
     ) -> RoomsProperties:
         """Extract the room properties."""
-        unsorted_id = ImageData.get_rrm_segments_ids(json_data)
-        size_x, size_y = ImageData.get_rrm_image_size(json_data)
-        top, left = ImageData.get_rrm_image_position(json_data)
+        unsorted_id = RandImageData.get_rrm_segments_ids(json_data)
+        size_x, size_y = RandImageData.get_rrm_image_size(json_data)
+        top, left = RandImageData.get_rrm_image_position(json_data)
         try:
             if not self.segment_data or not self.outlines:
                 (
                     self.segment_data,
                     self.outlines,
-                ) = await ImageData.async_get_rrm_segments(
+                ) = await RandImageData.async_get_rrm_segments(
                     json_data, size_x, size_y, top, left, True
                 )
             dest_json = destinations
@@ -126,23 +126,23 @@ class ReImageHandler(object):
                 zone_properties = await self.imu.async_zone_propriety(zones_data)
                 # get the points data
                 point_properties = await self.imu.async_points_propriety(points_data)
-
-                if room_properties != {}:
-                    if zone_properties != {}:
-                        _LOGGER.debug("Rooms and Zones, data extracted!")
-                    else:
-                        _LOGGER.debug("Rooms, data extracted!")
-                elif zone_properties != {}:
-                    _LOGGER.debug("Zones, data extracted!")
+                if room_properties or zone_properties:
+                    extracted_data = [
+                        f"{len(room_properties)} Rooms" if room_properties else None,
+                        f"{len(zone_properties)} Zones" if zone_properties else None,
+                    ]
+                    extracted_data = ", ".join(filter(None, extracted_data))
+                    _LOGGER.debug("Extracted data: %s", extracted_data)
                 else:
                     self.rooms_pos = None
                     _LOGGER.debug(
-                        f"{self.file_name}: Rooms and Zones data not available!"
+                        "%s: Rooms and Zones data not available!", self.file_name
                     )
                 return room_properties, zone_properties, point_properties
-        except Exception as e:
+        except RuntimeError as e:
             _LOGGER.debug(
-                f"No rooms Data or Error in extract_room_properties: {e}",
+                "No rooms Data or Error in extract_room_properties: %s",
+                e,
                 exc_info=True,
             )
             return None, None, None
@@ -160,154 +160,164 @@ class ReImageHandler(object):
 
         try:
             if (m_json is not None) and (not isinstance(m_json, tuple)):
-                _LOGGER.info(f"{self.file_name}: Composing the image for the camera.")
-                # buffer json data
+                _LOGGER.info("%s: Composing the image for the camera.", self.file_name)
                 self.json_data = m_json
-                # get the image size
                 size_x, size_y = self.data.get_rrm_image_size(m_json)
-                ##########################
                 self.img_size = DEFAULT_IMAGE_SIZE
-                ###########################
                 self.json_id = str(uuid.uuid4())  # image id
-                _LOGGER.info(f"Vacuum Data ID: {self.json_id}")
-                # get the robot position
+                _LOGGER.info("Vacuum Data ID: %s", self.json_id)
+
                 (
-                    robot_pos,
+                    img_np_array,
                     robot_position,
                     robot_position_angle,
-                ) = await self.imd.async_get_robot_position(m_json)
-                if self.frame_number == 0:
-                    room_id, img_np_array = await self.imd.async_draw_base_layer(
-                        m_json,
-                        size_x,
-                        size_y,
-                        colors["wall"],
-                        colors["zone_clean"],
-                        colors["background"],
-                        DEFAULT_PIXEL_SIZE,
-                    )
-                    _LOGGER.info(f"{self.file_name}: Completed base Layers")
-                    if (room_id > 0) and not self.room_propriety:
-                        self.room_propriety = await self.get_rooms_attributes(
-                            destinations
-                        )
-                        if self.rooms_pos:
-                            self.robot_pos = await self.async_get_robot_in_room(
-                                (robot_position[0] * 10),
-                                (robot_position[1] * 10),
-                                robot_position_angle,
-                            )
-                    self.img_base_layer = await self.imd.async_copy_array(img_np_array)
+                ) = await self._setup_robot_and_image(
+                    m_json, size_x, size_y, colors, destinations
+                )
 
-                # If there is a zone clean we draw it now.
+                # Increment frame number
                 self.frame_number += 1
                 img_np_array = await self.imd.async_copy_array(self.img_base_layer)
-                _LOGGER.debug(f"{self.file_name}: Frame number {self.frame_number}")
+                _LOGGER.debug(
+                    "%s: Frame number %s", self.file_name, str(self.frame_number)
+                )
                 if self.frame_number > 5:
                     self.frame_number = 0
-                # All below will be drawn each time
-                # charger
-                img_np_array, self.charger_pos = await self.imd.async_draw_charger(
-                    img_np_array, m_json, colors["charger"]
+
+                # Draw map elements
+                img_np_array = await self._draw_map_elements(
+                    img_np_array, m_json, colors, robot_position, robot_position_angle
                 )
-                # zone clean
-                img_np_array = await self.imd.async_draw_zones(
-                    m_json, img_np_array, colors["zone_clean"]
-                )
-                # virtual walls
-                img_np_array = await self.imd.async_draw_virtual_restrictions(
-                    m_json, img_np_array, colors["no_go"]
-                )
-                # draw path
-                img_np_array = await self.imd.async_draw_path(
-                    img_np_array, m_json, colors["move"]
-                )
-                # go to flag and predicted path
-                await self.imd.async_draw_go_to_flag(
-                    img_np_array, m_json, colors["go_to"]
-                )
-                # draw the robot
-                img_np_array = await self.imd.async_draw_robot_on_map(
-                    img_np_array, robot_position, robot_position_angle, colors["robot"]
-                )
-                _LOGGER.debug(
-                    f"{self.file_name}:"
-                    f" Auto cropping the image with rotation {int(self.shared.image_rotate)}"
-                )
-                img_np_array = await self.ac.async_auto_trim_and_zoom_image(
-                    img_np_array,
-                    colors["background"],
-                    int(self.shared.margins),
-                    int(self.shared.image_rotate),
-                    self.zooming,
-                    rand256=True,
-                )
+
+                # Final adjustments
                 pil_img = Image.fromarray(img_np_array, mode="RGBA")
                 del img_np_array  # free memory
-                # reduce the image size if the zoomed image is bigger then the original.
-                if (
-                    self.shared.image_auto_zoom
-                    and self.shared.vacuum_state == "cleaning"
-                    and self.zooming
-                    and self.shared.image_zoom_lock_ratio
-                    or self.shared.image_aspect_ratio != "None"
-                ):
-                    width = self.shared.image_ref_width
-                    height = self.shared.image_ref_height
-                    if self.shared.image_aspect_ratio != "None":
-                        wsf, hsf = [
-                            int(x) for x in self.shared.image_aspect_ratio.split(",")
-                        ]
-                        _LOGGER.debug(f"Aspect Ratio: {wsf}, {hsf}")
-                        if wsf == 0 or hsf == 0:
-                            return pil_img
-                        new_aspect_ratio = wsf / hsf
-                        aspect_ratio = width / height
-                        if aspect_ratio > new_aspect_ratio:
-                            new_width = int(pil_img.height * new_aspect_ratio)
-                            new_height = pil_img.height
-                        else:
-                            new_width = pil_img.width
-                            new_height = int(pil_img.width / new_aspect_ratio)
 
-                        resized = ImageOps.pad(pil_img, (new_width, new_height))
-                        (
-                            self.crop_img_size[0],
-                            self.crop_img_size[1],
-                        ) = await self.async_map_coordinates_offset(
-                            wsf, hsf, new_width, new_height
-                        )
-                        _LOGGER.debug(
-                            f"{self.file_name}: Image Aspect Ratio ({wsf}, {hsf}): {new_width}x{new_height}"
-                        )
-                        _LOGGER.debug(f"{self.file_name}: Frame Completed.")
-                        return resized
-                    else:
-                        _LOGGER.debug(f"{self.file_name}: Frame Completed.")
-                        return ImageOps.pad(pil_img, (width, height))
-                else:
-                    _LOGGER.debug(f"{self.file_name}: Frame Completed.")
-                    return pil_img
+                return await self._finalize_image(pil_img)
+
         except (RuntimeError, RuntimeWarning) as e:
             _LOGGER.warning(
-                f"{self.file_name}: Error {e} during image creation.",
+                "%s: Runtime Error %s during image creation.",
+                self.file_name,
+                str(e),
                 exc_info=True,
             )
             return None
+
+    async def _setup_robot_and_image(
+        self, m_json, size_x, size_y, colors, destinations
+    ):
+        robot_position, robot_position_angle = await self.imd.async_get_robot_position(
+            m_json
+        )
+        if self.frame_number == 0:
+            room_id, img_np_array = await self.imd.async_draw_base_layer(
+                m_json,
+                size_x,
+                size_y,
+                colors["wall"],
+                colors["zone_clean"],
+                colors["background"],
+                DEFAULT_PIXEL_SIZE,
+            )
+            _LOGGER.info("%s: Completed base Layers", self.file_name)
+            if (room_id > 0) and not self.room_propriety:
+                self.room_propriety = await self.get_rooms_attributes(destinations)
+                if self.rooms_pos:
+                    self.robot_pos = await self.async_get_robot_in_room(
+                        (robot_position[0] * 10),
+                        (robot_position[1] * 10),
+                        robot_position_angle,
+                    )
+            self.img_base_layer = await self.imd.async_copy_array(img_np_array)
+        return self.img_base_layer, robot_position, robot_position_angle
+
+    async def _draw_map_elements(
+        self, img_np_array, m_json, colors, robot_position, robot_position_angle
+    ):
+        img_np_array, self.charger_pos = await self.imd.async_draw_charger(
+            img_np_array, m_json, colors["charger"]
+        )
+        img_np_array = await self.imd.async_draw_zones(
+            m_json, img_np_array, colors["zone_clean"]
+        )
+        img_np_array = await self.imd.async_draw_virtual_restrictions(
+            m_json, img_np_array, colors["no_go"]
+        )
+        img_np_array = await self.imd.async_draw_path(
+            img_np_array, m_json, colors["move"]
+        )
+        await self.imd.async_draw_go_to_flag(img_np_array, m_json, colors["go_to"])
+        img_np_array = await self.imd.async_draw_robot_on_map(
+            img_np_array, robot_position, robot_position_angle, colors["robot"]
+        )
+        img_np_array = await self.ac.async_auto_trim_and_zoom_image(
+            img_np_array,
+            colors["background"],
+            int(self.shared.margins),
+            int(self.shared.image_rotate),
+            self.zooming,
+            rand256=True,
+        )
+        return img_np_array
+
+    async def _finalize_image(self, pil_img):
+        if (
+            self.shared.image_auto_zoom
+            and self.shared.vacuum_state == "cleaning"
+            and self.zooming
+            and self.shared.image_zoom_lock_ratio
+            or self.shared.image_aspect_ratio != "None"
+        ):
+            width = self.shared.image_ref_width
+            height = self.shared.image_ref_height
+            if self.shared.image_aspect_ratio != "None":
+                wsf, hsf = [int(x) for x in self.shared.image_aspect_ratio.split(",")]
+                _LOGGER.debug("Aspect Ratio: %s, %s", str(wsf), str(hsf))
+                if wsf == 0 or hsf == 0:
+                    return pil_img
+                new_aspect_ratio = wsf / hsf
+                aspect_ratio = width / height
+                if aspect_ratio > new_aspect_ratio:
+                    new_width = int(pil_img.height * new_aspect_ratio)
+                    new_height = pil_img.height
+                else:
+                    new_width = pil_img.width
+                    new_height = int(pil_img.width / new_aspect_ratio)
+
+                resized = ImageOps.pad(pil_img, (new_width, new_height))
+                (
+                    self.crop_img_size[0],
+                    self.crop_img_size[1],
+                ) = await self.async_map_coordinates_offset(
+                    wsf, hsf, new_width, new_height
+                )
+                _LOGGER.debug(
+                    "%s: Image Aspect Ratio: %s, %s",
+                    self.file_name,
+                    str(wsf),
+                    str(hsf),
+                )
+                _LOGGER.debug("%s: Resized Frame Completed.", self.file_name)
+                return resized
+            _LOGGER.debug("%s: Padded Frame Completed.", self.file_name)
+            return ImageOps.pad(pil_img, (width, height))
+        _LOGGER.debug("%s: Frame Completed.", self.file_name)
+        return pil_img
 
     def get_frame_number(self) -> int:
         """Return the frame number."""
         return self.frame_number
 
-    def get_robot_position(self) -> any:
+    def get_robot_position(self) -> Any:
         """Return the robot position."""
         return self.robot_pos
 
-    def get_charger_position(self) -> any:
+    def get_charger_position(self) -> Any:
         """Return the charger position."""
         return self.charger_pos
 
-    def get_img_size(self) -> any:
+    def get_img_size(self) -> Any:
         """Return the image size."""
         return self.img_size
 
@@ -336,15 +346,13 @@ class ReImageHandler(object):
         """Get the robot position and return in what room is."""
 
         def _check_robot_position(x: int, y: int) -> bool:
-            x_in_room = (self.robot_in_room["left"] >= x) and (
-                self.robot_in_room["right"] <= x
+            # Check if the robot coordinates are inside the room's corners
+            return (
+                self.robot_in_room["left"] >= x >= self.robot_in_room["right"]
+                and self.robot_in_room["up"] >= y >= self.robot_in_room["down"]
             )
-            y_in_room = (self.robot_in_room["up"] >= y) and (
-                self.robot_in_room["down"] <= y
-            )
-            return x_in_room and y_in_room
 
-        # Check if the robot coordinates are inside the room's
+        # If the robot coordinates are inside the room's
         if self.robot_in_room and _check_robot_position(robot_x, robot_y):
             temp = {
                 "x": robot_x,
@@ -360,7 +368,7 @@ class ReImageHandler(object):
                 self.zooming = bool(self.active_zones[self.robot_in_room["id"]])
             return temp
         # else we need to search and use the async method
-        _LOGGER.debug(f"{self.file_name} changed room.. searching..")
+        _LOGGER.debug("%s Changed room.. searching..", self.file_name)
         room_count = -1
         last_room = None
         if self.rooms_pos:
@@ -386,13 +394,13 @@ class ReImageHandler(object):
                         "in_room": self.robot_in_room["room"],
                     }
                     _LOGGER.debug(
-                        f"{self.file_name} is in {self.robot_in_room['room']}"
+                        "%s is in %s", self.file_name, self.robot_in_room["room"]
                     )
                     del room, corners, robot_x, robot_y  # free memory.
                     return temp
             del room, corners  # free memory.
             _LOGGER.debug(
-                f"{self.file_name}: Not located within Camera Rooms coordinates."
+                "%s: Not located within Camera Rooms coordinates.", self.file_name
             )
             self.zooming = False
             self.robot_in_room = last_room
@@ -404,12 +412,14 @@ class ReImageHandler(object):
             }
             return temp
 
-    def get_calibration_data(self, rotation_angle: int = 0) -> any:
+    def get_calibration_data(self, rotation_angle: int = 0) -> Any:
         """Return the map calibration data."""
-        if not self.calibration_data:
+        if not self.calibration_data and self.crop_img_size:
             self.calibration_data = []
             _LOGGER.info(
-                f"{self.file_name}: Getting Calibrations points {self.crop_area}"
+                "%s: Getting Calibrations points %s",
+                self.file_name,
+                str(self.crop_area),
             )
 
             # Define the map points (fixed)

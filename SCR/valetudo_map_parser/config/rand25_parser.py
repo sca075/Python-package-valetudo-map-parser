@@ -162,7 +162,7 @@ class RRMapParser:
                 )
                 if segment_type == 0:
                     continue
-                elif segment_type == 1 and pixels:
+                if segment_type == 1 and pixels:
                     parameters["pixels"]["walls"].append(i)
                 else:
                     s = (
@@ -257,7 +257,7 @@ class RRMapParser:
 
     @callback
     def parse_rrm_data(
-        self, map_buf: bytes, pixels: bool = False
+            self, map_buf: bytes, pixels: bool = False
     ) -> Optional[Dict[str, Any]]:
         """Parse the complete map data."""
         if not self.parse(map_buf).get("map_index"):
@@ -266,6 +266,18 @@ class RRMapParser:
         parsed_map_data = {}
         blocks = self.parse_block(map_buf, 0x14, None, pixels)
 
+        self._parse_image_data(parsed_map_data, blocks)
+        self._parse_charger_data(parsed_map_data, blocks)
+        self._parse_robot_data(parsed_map_data, blocks)
+        self._parse_zones_data(parsed_map_data, blocks)
+        self._parse_virtual_walls_data(parsed_map_data, blocks)
+        self._parse_misc_data(parsed_map_data, blocks)
+
+        return parsed_map_data
+
+    @staticmethod
+    def _parse_image_data(parsed_map_data: Dict[str, Any], blocks: Dict[int, Any]):
+        """Parse image-related data."""
         if RRMapParser.Types.IMAGE.value in blocks:
             parsed_map_data["image"] = blocks[RRMapParser.Types.IMAGE.value]
             for item in [
@@ -290,28 +302,27 @@ class RRMapParser:
                                 - parsed_map_data[item["path"]]["points"][-2][0],
                             )
                         )
+
+    @staticmethod
+    def _parse_charger_data(parsed_map_data: Dict[str, Any], blocks: Dict[int, Any]):
+        """Parse charger location data."""
         if RRMapParser.Types.CHARGER_LOCATION.value in blocks:
             charger = blocks[RRMapParser.Types.CHARGER_LOCATION.value]["position"]
-            # Assume no transformation needed here
             parsed_map_data["charger"] = charger
 
+    @staticmethod
+    def _parse_robot_data(parsed_map_data: Dict[str, Any], blocks: Dict[int, Any]):
+        """Parse robot position data."""
         if RRMapParser.Types.ROBOT_POSITION.value in blocks:
             robot = blocks[RRMapParser.Types.ROBOT_POSITION.value]["position"]
             rob_angle = blocks[RRMapParser.Types.ROBOT_POSITION.value]["angle"]
-            # Assume no transformation needed here
             parsed_map_data["robot"] = robot
             parsed_map_data["robot_angle"] = rob_angle
 
-        if RRMapParser.Types.GOTO_TARGET.value in blocks:
-            parsed_map_data["goto_target"] = blocks[
-                RRMapParser.Types.GOTO_TARGET.value
-            ]["position"]
-            # Assume no transformation needed here
-
+    @staticmethod
+    def _parse_zones_data(parsed_map_data: Dict[str, Any], blocks: Dict[int, Any]):
+        """Parse zones and forbidden zones data."""
         if RRMapParser.Types.CURRENTLY_CLEANED_ZONES.value in blocks:
-            parsed_map_data["currently_cleaned_zones"] = blocks[
-                RRMapParser.Types.CURRENTLY_CLEANED_ZONES.value
-            ]
             parsed_map_data["currently_cleaned_zones"] = [
                 [
                     zone[0],
@@ -319,13 +330,10 @@ class RRMapParser:
                     zone[2],
                     RRMapParser.Tools.DIMENSION_MM - zone[3],
                 ]
-                for zone in parsed_map_data["currently_cleaned_zones"]
+                for zone in blocks[RRMapParser.Types.CURRENTLY_CLEANED_ZONES.value]
             ]
 
         if RRMapParser.Types.FORBIDDEN_ZONES.value in blocks:
-            parsed_map_data["forbidden_zones"] = blocks[
-                RRMapParser.Types.FORBIDDEN_ZONES.value
-            ]
             parsed_map_data["forbidden_zones"] = [
                 [
                     zone[0],
@@ -337,13 +345,15 @@ class RRMapParser:
                     zone[6],
                     RRMapParser.Tools.DIMENSION_MM - zone[7],
                 ]
-                for zone in parsed_map_data["forbidden_zones"]
+                for zone in blocks[RRMapParser.Types.FORBIDDEN_ZONES.value]
             ]
 
+    @staticmethod
+    def _parse_virtual_walls_data(
+            parsed_map_data: Dict[str, Any], blocks: Dict[int, Any]
+    ):
+        """Parse virtual walls data."""
         if RRMapParser.Types.VIRTUAL_WALLS.value in blocks:
-            parsed_map_data["virtual_walls"] = blocks[
-                RRMapParser.Types.VIRTUAL_WALLS.value
-            ]
             parsed_map_data["virtual_walls"] = [
                 [
                     wall[0],
@@ -351,18 +361,18 @@ class RRMapParser:
                     wall[2],
                     RRMapParser.Tools.DIMENSION_MM - wall[3],
                 ]
-                for wall in parsed_map_data["virtual_walls"]
+                for wall in blocks[RRMapParser.Types.VIRTUAL_WALLS.value]
             ]
 
+    @staticmethod
+    def _parse_misc_data(parsed_map_data: Dict[str, Any], blocks: Dict[int, Any]):
+        """Parse miscellaneous data like cleaned blocks and mop zones."""
         if RRMapParser.Types.CURRENTLY_CLEANED_BLOCKS.value in blocks:
             parsed_map_data["currently_cleaned_blocks"] = blocks[
                 RRMapParser.Types.CURRENTLY_CLEANED_BLOCKS.value
             ]
 
         if RRMapParser.Types.FORBIDDEN_MOP_ZONES.value in blocks:
-            parsed_map_data["forbidden_mop_zones"] = blocks[
-                RRMapParser.Types.FORBIDDEN_MOP_ZONES.value
-            ]
             parsed_map_data["forbidden_mop_zones"] = [
                 [
                     zone[0],
@@ -374,10 +384,8 @@ class RRMapParser:
                     zone[6],
                     RRMapParser.Tools.DIMENSION_MM - zone[7],
                 ]
-                for zone in parsed_map_data["forbidden_mop_zones"]
+                for zone in blocks[RRMapParser.Types.FORBIDDEN_MOP_ZONES.value]
             ]
-
-        return parsed_map_data
 
     def parse_data(
         self, payload: Optional[bytes] = None, pixels: bool = False
