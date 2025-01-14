@@ -257,7 +257,7 @@ class RRMapParser:
 
     @callback
     def parse_rrm_data(
-            self, map_buf: bytes, pixels: bool = False
+        self, map_buf: bytes, pixels: bool = False
     ) -> Optional[Dict[str, Any]]:
         """Parse the complete map data."""
         if not self.parse(map_buf).get("map_index"):
@@ -350,7 +350,7 @@ class RRMapParser:
 
     @staticmethod
     def _parse_virtual_walls_data(
-            parsed_map_data: Dict[str, Any], blocks: Dict[int, Any]
+        parsed_map_data: Dict[str, Any], blocks: Dict[int, Any]
     ):
         """Parse virtual walls data."""
         if RRMapParser.Types.VIRTUAL_WALLS.value in blocks:

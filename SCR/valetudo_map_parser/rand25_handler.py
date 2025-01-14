@@ -207,9 +207,11 @@ class ReImageHandler:
     async def _setup_robot_and_image(
         self, m_json, size_x, size_y, colors, destinations
     ):
-        _, robot_position, robot_position_angle = await self.imd.async_get_robot_position(
-            m_json
-        )
+        (
+            _,
+            robot_position,
+            robot_position_angle,
+        ) = await self.imd.async_get_robot_position(m_json)
         if self.frame_number == 0:
             room_id, img_np_array = await self.imd.async_draw_base_layer(
                 m_json,
@@ -247,7 +249,9 @@ class ReImageHandler:
         img_np_array = await self.imd.async_draw_path(
             img_np_array, m_json, colors["move"]
         )
-        await self.imd.async_draw_go_to_flag(img_np_array, m_json, colors["go_to"])
+        img_np_array = await self.imd.async_draw_go_to_flag(
+            img_np_array, m_json, colors["go_to"]
+        )
         img_np_array = await self.imd.async_draw_robot_on_map(
             img_np_array, robot_position, robot_position_angle, colors["robot"]
         )

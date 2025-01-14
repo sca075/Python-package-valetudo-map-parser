@@ -8,7 +8,6 @@ Version: v0.1.6
 
 from __future__ import annotations
 
-from logging import getLogger
 import numpy as np
 
 from .config.types import (
@@ -18,7 +17,6 @@ from .config.types import (
     NumpyArray,
 )
 
-_LOGGER = getLogger(__name__)
 
 class ImageData:
     """Class to handle the image data."""
@@ -330,7 +328,6 @@ class RandImageData:
         try:
             path_data = json_data.get("goto_target", {})
         except KeyError:
-            _LOGGER.debug("No goto target data found in the json.")
             return None
 
         if path_data and path_data != []:
