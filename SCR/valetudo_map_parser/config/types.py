@@ -4,13 +4,13 @@ Version 0.0.1
 """
 
 import asyncio
-from dataclasses import dataclass
 import json
 import logging
+from dataclasses import dataclass
 from typing import Any, Dict, Tuple, Union
 
-from PIL import Image
 import numpy as np
+from PIL import Image
 
 DEFAULT_ROOMS = 1
 

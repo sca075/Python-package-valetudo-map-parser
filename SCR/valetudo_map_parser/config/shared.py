@@ -9,7 +9,9 @@ import logging
 
 from .types import (
     ATTR_CALIBRATION_POINTS,
+    ATTR_CAMERA_MODE,
     ATTR_MARGINS,
+    ATTR_OBSTACLES,
     ATTR_POINTS,
     ATTR_ROOMS,
     ATTR_ROTATE,
@@ -19,8 +21,6 @@ from .types import (
     ATTR_VACUUM_POSITION,
     ATTR_VACUUM_STATUS,
     ATTR_ZONES,
-    ATTR_CAMERA_MODE,
-    ATTR_OBSTACLES,
     CONF_ASPECT_RATIO,
     CONF_AUTO_ZOOM,
     CONF_OFFSET_BOTTOM,
@@ -35,8 +35,8 @@ from .types import (
     CONF_ZOOM_LOCK_RATIO,
     DEFAULT_VALUES,
     CameraModes,
+    Colors,
 )
-from .types import Colors
 
 _LOGGER = logging.getLogger(__name__)
 

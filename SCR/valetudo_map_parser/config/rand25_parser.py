@@ -5,10 +5,10 @@ Version: v2024.08.2
 - Additional functions are to get in our image_handler the images datas.
 """
 
-from enum import Enum
 import math
 import struct
-from typing import Dict, List, Optional, Callable, TypeVar, Any
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, TypeVar
 
 _CallableT = TypeVar("_CallableT", bound=Callable[..., Any])
 
@@ -386,6 +386,11 @@ class RRMapParser:
                 ]
                 for zone in blocks[RRMapParser.Types.FORBIDDEN_MOP_ZONES.value]
             ]
+
+        if RRMapParser.Types.GOTO_TARGET.value in blocks:
+            parsed_map_data["goto_target"] = blocks[
+                RRMapParser.Types.GOTO_TARGET.value
+            ]["position"]
 
     def parse_data(
         self, payload: Optional[bytes] = None, pixels: bool = False

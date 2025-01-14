@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from enum import StrEnum
-from typing import List, Dict, Tuple
 import logging
+from enum import StrEnum
+from typing import Dict, List, Tuple
 
 _LOGGER = logging.getLogger(__name__)
 

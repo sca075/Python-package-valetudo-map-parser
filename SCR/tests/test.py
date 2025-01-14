@@ -1,14 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import os
 
 from SCR.valetudo_map_parser.config.shared import CameraSharedManager
-import asyncio
-from SCR.valetudo_map_parser.hypfer_handler import (
+from SCR.valetudo_map_parser.hypfer_handler import (  # Adjust the import based on your project structure
     HypferMapImageHandler,
-)  # Adjust the import based on your project structure
-import logging
+)
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -9,12 +9,21 @@ from __future__ import annotations
 
 import logging
 import uuid
+from typing import Any
 
 from PIL import Image, ImageOps
-from typing import Any
-from .config.types import COLORS, DEFAULT_IMAGE_SIZE, DEFAULT_PIXEL_SIZE
-from .config.types import Colors, JsonType, PilPNG, RobotPosition, RoomsProperties
+
 from .config.auto_crop import AutoCrop
+from .config.types import (
+    COLORS,
+    DEFAULT_IMAGE_SIZE,
+    DEFAULT_PIXEL_SIZE,
+    Colors,
+    JsonType,
+    PilPNG,
+    RobotPosition,
+    RoomsProperties,
+)
 from .images_utils import ImageUtils as ImUtils
 from .map_data import RandImageData
 from .reimg_draw import ImageDraw

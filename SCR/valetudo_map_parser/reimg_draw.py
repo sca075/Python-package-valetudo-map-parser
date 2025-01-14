@@ -10,10 +10,9 @@ import hashlib
 import json
 import logging
 
-from .config.types import Color, JsonType, NumpyArray
 from .config.drawable import Drawable
-from .map_data import RandImageData
-from .map_data import ImageData
+from .config.types import Color, JsonType, NumpyArray
+from .map_data import ImageData, RandImageData
 
 _LOGGER = logging.getLogger(__name__)
 

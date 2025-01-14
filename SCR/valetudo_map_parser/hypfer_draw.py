@@ -10,12 +10,7 @@ import hashlib
 import json
 import logging
 
-from .config.types import (
-    Color,
-    JsonType,
-    NumpyArray,
-    RobotPosition,
-)
+from .config.types import Color, JsonType, NumpyArray, RobotPosition
 
 _LOGGER = logging.getLogger(__name__)
 

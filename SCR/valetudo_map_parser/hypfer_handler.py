@@ -12,6 +12,10 @@ import logging
 
 from PIL import Image
 
+from .config.auto_crop import AutoCrop
+from .config.colors import ColorsManagment, SupportedColor
+from .config.drawable import Drawable
+from .config.shared import CameraShared
 from .config.types import (
     CalibrationPoints,
     ChargerPosition,
@@ -19,18 +23,10 @@ from .config.types import (
     RobotPosition,
     RoomsProperties,
 )
-from .config.auto_crop import AutoCrop
-from .config.drawable import Drawable
-from .config.shared import CameraShared
+from .hypfer_draw import ImageDraw as ImDraw
+from .images_utils import ImageUtils as ImUtils
+from .images_utils import resize_to_aspect_ratio
 from .map_data import ImageData
-from .images_utils import (
-    ImageUtils as ImUtils,
-    resize_to_aspect_ratio,
-)
-from .hypfer_draw import (
-    ImageDraw as ImDraw,
-)
-from .config.colors import ColorsManagment, SupportedColor
 
 _LOGGER = logging.getLogger(__name__)
 

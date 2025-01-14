@@ -10,12 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .config.types import (
-    Colors,
-    ImageSize,
-    JsonType,
-    NumpyArray,
-)
+from .config.types import Colors, ImageSize, JsonType, NumpyArray
 
 
 class ImageData:

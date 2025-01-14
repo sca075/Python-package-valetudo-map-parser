@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import math
 
-from PIL import ImageDraw, ImageFont
 import numpy as np
+from PIL import ImageDraw, ImageFont
 
 from .types import Color, NumpyArray, PilPNG, Point, Union
 
