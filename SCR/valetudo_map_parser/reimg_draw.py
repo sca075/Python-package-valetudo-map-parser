@@ -43,6 +43,7 @@ class ImageDraw:
                     color_go_to,
                 )
                 predicted_path = self.data.get_rrm_goto_predicted_path(m_json)
+                _LOGGER.debug("Predicted path: %s", predicted_path)
                 if predicted_path:
                     np_array = await self.draw.lines(
                         np_array, predicted_path, 3, self.color_grey
