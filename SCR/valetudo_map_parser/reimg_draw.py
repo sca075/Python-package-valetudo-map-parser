@@ -299,25 +299,6 @@ class ImageDraw:
             _LOGGER.info("%s: Got the points in the json.", self.file_name)
         return entity_dict
 
-    @staticmethod
-    async def async_copy_array(original_array: NumpyArray) -> NumpyArray:
-        """Copy the array."""
-        return NumpyArray.copy(original_array)
-
-    async def calculate_array_hash(self, layers: dict, active: list[int] = None) -> str:
-        """Calculate the hash of the image based on the layers and active segments walls."""
-        self.img_h.active_zones = active
-        if layers and active:
-            data_to_hash = {
-                "layers": len(layers["wall"][0]),
-                "active_segments": tuple(active),
-            }
-            data_json = json.dumps(data_to_hash, sort_keys=True)
-            hash_value = hashlib.sha256(data_json.encode()).hexdigest()
-        else:
-            hash_value = None
-        return hash_value
-
     async def async_get_robot_position(self, m_json: JsonType) -> tuple | None:
         """Get the robot position from the entity data."""
         robot_pos = None

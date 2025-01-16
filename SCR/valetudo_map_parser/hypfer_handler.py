@@ -13,53 +13,34 @@ import logging
 from PIL import Image
 
 from .config.auto_crop import AutoCrop
-from .config.colors import ColorsManagment, SupportedColor
 from .config.drawable import Drawable
 from .config.shared import CameraShared
-from .config.types import (
-    CalibrationPoints,
-    ChargerPosition,
-    ImageSize,
-    RobotPosition,
-    RoomsProperties,
-)
+from .config.types import COLORS, CalibrationPoints, Colors, RoomsProperties
+from .config.utils import BaseHandler
 from .hypfer_draw import ImageDraw as ImDraw
-from .images_utils import ImageUtils as ImUtils
-from .images_utils import resize_to_aspect_ratio
 from .map_data import ImageData
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class HypferMapImageHandler:
+class HypferMapImageHandler(BaseHandler):
     """Map Image Handler Class.
     This class is used to handle the image data and the drawing of the map."""
 
     def __init__(self, shared_data: CameraShared):
         """Initialize the Map Image Handler."""
+        super().__init__()
         self.shared = shared_data  # camera shared data
-        self.file_name = self.shared.file_name  # file name of the vacuum.
         self.auto_crop = None  # auto crop data to be calculate once.
         self.calibration_data = None  # camera shared data.
-        self.charger_pos = None  # vacuum data charger position.
         self.crop_area = None  # module shared for calibration data.
-        self.crop_img_size = None  # size of the image cropped calibration data.
         self.data = ImageData  # imported Image Data Module.
         self.draw = Drawable  # imported Drawing utilities
         self.go_to = None  # vacuum go to data
         self.img_hash = None  # hash of the image calculated to check differences.
         self.img_base_layer = None  # numpy array store the map base layer.
-        self.img_size = None  # size of the created image
-        self.json_data = None  # local stored and shared json data.
-        self.json_id = None  # grabbed data of the vacuum image id.
-        self.path_pixels = None  # vacuum path datas.
-        self.robot_in_room = None  # vacuum room position.
-        self.robot_pos = None  # vacuum coordinates.
-        self.room_propriety = None  # vacuum segments data.
-        self.rooms_pos = None  # vacuum room coordinates / name list.
         self.active_zones = None  # vacuum active zones.
         self.frame_number = 0  # frame number of the image.
-        self.max_frames = 1024
         self.zooming = False  # zooming the image.
         self.svg_wait = False  # SVG image creation wait.
         self.trim_down = 0  # memory stored trims calculated once.
@@ -73,11 +54,9 @@ class HypferMapImageHandler:
         self.offset_x = 0  # offset x for the aspect ratio.
         self.offset_y = 0  # offset y for the aspect ratio.
         self.imd = ImDraw(self)
-        self.imu = ImUtils(self)
         self.ac = AutoCrop(self)
-        self.colors_manager = ColorsManagment({})
-        self.rooms_colors = self.colors_manager.get_rooms_colors()
         self.color_grey = (128, 128, 128, 255)
+        self.file_name = self.shared.file_name  # file name of the vacuum.
 
     async def async_extract_room_properties(self, json_data) -> RoomsProperties:
         """Extract room properties from the JSON data."""
@@ -128,23 +107,6 @@ class HypferMapImageHandler:
             self.rooms_pos = None
         return room_properties
 
-    async def _async_initialize_colors(self):
-        """Initialize and return all required colors."""
-        return {
-            "color_wall": self.colors_manager.get_colour(SupportedColor.WALLS),
-            "color_no_go": self.colors_manager.get_colour(SupportedColor.NO_GO),
-            "color_go_to": self.colors_manager.get_colour(SupportedColor.GO_TO),
-            "color_robot": self.colors_manager.get_colour(SupportedColor.ROBOT),
-            "color_charger": self.colors_manager.get_colour(SupportedColor.CHARGER),
-            "color_move": self.colors_manager.get_colour(SupportedColor.PATH),
-            "color_background": self.colors_manager.get_colour(
-                SupportedColor.MAP_BACKGROUND
-            ),
-            "color_zone_clean": self.colors_manager.get_colour(
-                SupportedColor.ZONE_CLEAN
-            ),
-        }
-
     # noinspection PyUnresolvedReferences,PyUnboundLocalVariable
     async def async_get_image_from_json(
         self,
@@ -157,7 +119,9 @@ class HypferMapImageHandler:
         @return Image.Image: The image to display.
         """
         # Initialize the colors.
-        colors = await self._async_initialize_colors()
+        colors: Colors = {
+            name: self.shared.user_colors[idx] for idx, name in enumerate(COLORS)
+        }
         # Check if the JSON data is not None else process the image.
         try:
             if m_json is not None:
@@ -186,12 +150,12 @@ class HypferMapImageHandler:
                 # Get the pixels size and layers from the JSON data
                 pixel_size = int(m_json["pixelSize"])
                 layers, active = self.data.find_layers(m_json["layers"], {}, [])
-                new_frame_hash = await self.imd.calculate_array_hash(layers, active)
+                new_frame_hash = await self.calculate_array_hash(layers, active)
                 if self.frame_number == 0:
                     self.img_hash = new_frame_hash
                     # empty image
                     img_np_array = await self.draw.create_empty_image(
-                        size_x, size_y, colors["color_background"]
+                        size_x, size_y, colors["background"]
                     )
                     # overlapping layers and segments
                     for layer_type, compressed_pixels_list in layers.items():
@@ -199,21 +163,21 @@ class HypferMapImageHandler:
                             img_np_array,
                             compressed_pixels_list,
                             layer_type,
-                            colors["color_wall"],
-                            colors["color_zone_clean"],
+                            colors["wall"],
+                            colors["zone_clean"],
                             pixel_size,
                         )
                     # Draw the virtual walls if any.
                     img_np_array = await self.imd.async_draw_virtual_walls(
-                        m_json, img_np_array, colors["color_no_go"]
+                        m_json, img_np_array, colors["no_go"]
                     )
                     # Draw charger.
                     img_np_array = await self.imd.async_draw_charger(
-                        img_np_array, entity_dict, colors["color_charger"]
+                        img_np_array, entity_dict, colors["charger"]
                     )
                     # Draw obstacles if any.
                     img_np_array = await self.imd.async_draw_obstacle(
-                        img_np_array, entity_dict, colors["color_no_go"]
+                        img_np_array, entity_dict, colors["no_go"]
                     )
                     # Robot and rooms position
                     if (room_id > 0) and not self.room_propriety:
@@ -228,7 +192,7 @@ class HypferMapImageHandler:
                             )
                     _LOGGER.info("%s: Completed base Layers", self.file_name)
                     # Copy the new array in base layer.
-                    self.img_base_layer = await self.imd.async_copy_array(img_np_array)
+                    self.img_base_layer = await self.async_copy_array(img_np_array)
                 self.shared.frame_number = self.frame_number
                 self.frame_number += 1
                 if (self.frame_number >= self.max_frames) or (
@@ -242,18 +206,18 @@ class HypferMapImageHandler:
                     str(self.frame_number),
                 )
                 # Copy the base layer to the new image.
-                img_np_array = await self.imd.async_copy_array(self.img_base_layer)
+                img_np_array = await self.async_copy_array(self.img_base_layer)
                 # All below will be drawn at each frame.
                 # Draw zones if any.
-                img_np_array = await self.imd.async_draw_zones(
+                img_np_array = await self.async_draw_zones(
                     m_json,
                     img_np_array,
-                    colors["color_zone_clean"],
-                    colors["color_no_go"],
+                    colors["zone_clean"],
+                    colors["no_go"],
                 )
                 # Draw the go_to target flag.
                 img_np_array = await self.imd.draw_go_to_flag(
-                    img_np_array, entity_dict, colors["color_go_to"]
+                    img_np_array, entity_dict, colors["go_to"]
                 )
                 # Draw path prediction and paths.
                 img_np_array = await self.imd.async_draw_paths(
@@ -300,15 +264,8 @@ class HypferMapImageHandler:
             ):
                 width = self.shared.image_ref_width
                 height = self.shared.image_ref_height
-                (
-                    resized_image,
-                    self.crop_img_size,
-                ) = await resize_to_aspect_ratio(
-                    pil_img,
-                    width,
-                    height,
-                    self.shared.image_aspect_ratio,
-                    self.async_map_coordinates_offset,
+                resized_image = await self.async_resize_image(
+                    pil_img, width, height, self.shared.image_aspect_ratio
                 )
                 return resized_image
             _LOGGER.debug("%s: Frame Completed.", self.file_name)
@@ -321,26 +278,6 @@ class HypferMapImageHandler:
                 exc_info=True,
             )
             return None
-
-    def get_frame_number(self) -> int:
-        """Return the frame number of the image."""
-        return self.frame_number
-
-    def get_robot_position(self) -> RobotPosition | None:
-        """Return the robot position."""
-        return self.robot_pos
-
-    def get_charger_position(self) -> ChargerPosition | None:
-        """Return the charger position."""
-        return self.charger_pos
-
-    def get_img_size(self) -> ImageSize | None:
-        """Return the size of the image."""
-        return self.img_size
-
-    def get_json_id(self) -> str | None:
-        """Return the JSON ID from the image."""
-        return self.json_id
 
     async def async_get_rooms_attributes(self) -> RoomsProperties:
         """Get the rooms attributes from the JSON data.
@@ -364,15 +301,7 @@ class HypferMapImageHandler:
         _LOGGER.info("Getting %s Calibrations points.", self.file_name)
 
         # Define the map points (fixed)
-        map_points = [
-            {"x": 0, "y": 0},  # Top-left corner 0
-            {"x": self.crop_img_size[0], "y": 0},  # Top-right corner 1
-            {
-                "x": self.crop_img_size[0],
-                "y": self.crop_img_size[1],
-            },  # Bottom-right corner 2
-            {"x": 0, "y": self.crop_img_size[1]},  # Bottom-left corner (optional) 3
-        ]
+        map_points = self.get_map_points()
         # Calculate the calibration points in the vacuum coordinate system
         vacuum_points = self.imu.get_vacuum_points(rotation_angle)
 
@@ -382,33 +311,3 @@ class HypferMapImageHandler:
             calibration_data.append(calibration_point)
         del vacuum_points, map_points, calibration_point, rotation_angle  # free memory.
         return calibration_data
-
-    async def async_map_coordinates_offset(
-        self, wsf: int, hsf: int, width: int, height: int
-    ) -> tuple[int, int]:
-        """
-        Offset the coordinates to the map.
-        :param wsf: Width scale factor.
-        :param hsf: Height scale factor.
-        :param width: Width of the image.
-        :param height: Height of the image.
-        :return: A tuple containing the adjusted (width, height) values
-        :raises ValueError: If any input parameters are negative
-        """
-
-        if any(x < 0 for x in (wsf, hsf, width, height)):
-            raise ValueError("All parameters must be positive integers")
-
-        if wsf == 1 and hsf == 1:
-            self.imu.set_image_offset_ratio_1_1(width, height)
-        elif wsf == 2 and hsf == 1:
-            self.imu.set_image_offset_ratio_2_1(width, height)
-        elif wsf == 3 and hsf == 2:
-            self.imu.set_image_offset_ratio_3_2(width, height)
-        elif wsf == 5 and hsf == 4:
-            self.imu.set_image_offset_ratio_5_4(width, height)
-        elif wsf == 9 and hsf == 16:
-            self.imu.set_image_offset_ratio_9_16(width, height)
-        elif wsf == 16 and hsf == 9:
-            self.imu.set_image_offset_ratio_16_9(width, height)
-        return width, height

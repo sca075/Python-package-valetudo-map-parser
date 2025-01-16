@@ -11,7 +11,7 @@ import logging
 import uuid
 from typing import Any
 
-from PIL import Image, ImageOps
+from PIL import Image
 
 from .config.auto_crop import AutoCrop
 from .config.types import (
@@ -24,7 +24,7 @@ from .config.types import (
     RobotPosition,
     RoomsProperties,
 )
-from .images_utils import ImageUtils as ImUtils
+from .config.utils import BaseHandler
 from .map_data import RandImageData
 from .reimg_draw import ImageDraw
 
@@ -32,33 +32,23 @@ _LOGGER = logging.getLogger(__name__)
 
 
 # noinspection PyTypeChecker
-class ReImageHandler:
+class ReImageHandler(BaseHandler):
     """
     Image Handler for Valetudo Re Vacuums.
     """
 
     def __init__(self, camera_shared):
+        super().__init__()
         self.auto_crop = None  # Auto crop flag
         self.segment_data = None  # Segment data
         self.outlines = None  # Outlines data
         self.calibration_data = None  # Calibration data
-        self.charger_pos = None  # Charger position
         self.crop_area = None  # Crop area
-        self.crop_img_size = []  # Crop image size
         self.data = RandImageData  # Image Data
-        self.frame_number = 0  # Image Frame number
-        self.max_frames = 1024
         self.go_to = None  # Go to position data
         self.img_base_layer = None  # Base image layer
         self.img_rotate = camera_shared.image_rotate  # Image rotation
-        self.img_size = None  # Image size
-        self.json_data = None  # Json data
-        self.json_id = None  # Json id
-        self.path_pixels = None  # Path pixels data
-        self.robot_in_room = None  # Robot in room data
-        self.robot_pos = None  # Robot position
         self.room_propriety = None  # Room propriety data
-        self.rooms_pos = None  # Rooms position data
         self.shared = camera_shared  # Shared data
         self.active_zones = None  # Active zones
         self.trim_down = None  # Trim down
@@ -74,7 +64,6 @@ class ReImageHandler:
         self.offset_left = self.shared.offset_left  # offset left
         self.offset_right = self.shared.offset_right  # offset right
         self.imd = ImageDraw(self)  # Image Draw
-        self.imu = ImUtils(self)  # Image Utils
         self.ac = AutoCrop(self)
 
     async def extract_room_properties(
@@ -186,7 +175,7 @@ class ReImageHandler:
 
                 # Increment frame number
                 self.frame_number += 1
-                img_np_array = await self.imd.async_copy_array(self.img_base_layer)
+                img_np_array = await self.async_copy_array(self.img_base_layer)
                 _LOGGER.debug(
                     "%s: Frame number %s", self.file_name, str(self.frame_number)
                 )
@@ -240,7 +229,7 @@ class ReImageHandler:
                         (robot_position[1] * 10),
                         robot_position_angle,
                     )
-            self.img_base_layer = await self.imd.async_copy_array(img_np_array)
+            self.img_base_layer = await self.async_copy_array(img_np_array)
         return self.img_base_layer, robot_position, robot_position_angle
 
     async def _draw_map_elements(
@@ -285,58 +274,11 @@ class ReImageHandler:
             width = self.shared.image_ref_width
             height = self.shared.image_ref_height
             if self.shared.image_aspect_ratio != "None":
-                wsf, hsf = [int(x) for x in self.shared.image_aspect_ratio.split(",")]
-                _LOGGER.debug("Aspect Ratio: %s, %s", str(wsf), str(hsf))
-                if wsf == 0 or hsf == 0:
-                    return pil_img
-                new_aspect_ratio = wsf / hsf
-                aspect_ratio = width / height
-                if aspect_ratio > new_aspect_ratio:
-                    new_width = int(pil_img.height * new_aspect_ratio)
-                    new_height = pil_img.height
-                else:
-                    new_width = pil_img.width
-                    new_height = int(pil_img.width / new_aspect_ratio)
-
-                resized = ImageOps.pad(pil_img, (new_width, new_height))
-                (
-                    self.crop_img_size[0],
-                    self.crop_img_size[1],
-                ) = await self.async_map_coordinates_offset(
-                    wsf, hsf, new_width, new_height
+                pil_img = await self.async_resize_image(
+                    pil_img, width, height, self.shared.image_aspect_ratio, True
                 )
-                _LOGGER.debug(
-                    "%s: Image Aspect Ratio: %s, %s",
-                    self.file_name,
-                    str(wsf),
-                    str(hsf),
-                )
-                _LOGGER.debug("%s: Resized Frame Completed.", self.file_name)
-                return resized
-            _LOGGER.debug("%s: Padded Frame Completed.", self.file_name)
-            return ImageOps.pad(pil_img, (width, height))
         _LOGGER.debug("%s: Frame Completed.", self.file_name)
         return pil_img
-
-    def get_frame_number(self) -> int:
-        """Return the frame number."""
-        return self.frame_number
-
-    def get_robot_position(self) -> Any:
-        """Return the robot position."""
-        return self.robot_pos
-
-    def get_charger_position(self) -> Any:
-        """Return the charger position."""
-        return self.charger_pos
-
-    def get_img_size(self) -> Any:
-        """Return the image size."""
-        return self.img_size
-
-    def get_json_id(self) -> str:
-        """Return the json id."""
-        return self.json_id
 
     async def get_rooms_attributes(
         self, destinations: JsonType = None
@@ -436,15 +378,7 @@ class ReImageHandler:
             )
 
             # Define the map points (fixed)
-            map_points = [
-                {"x": 0, "y": 0},  # Top-left corner 0
-                {"x": self.crop_img_size[0], "y": 0},  # Top-right corner 1
-                {
-                    "x": self.crop_img_size[0],
-                    "y": self.crop_img_size[1],
-                },  # Bottom-right corner 2
-                {"x": 0, "y": self.crop_img_size[1]},  # Bottom-left corner (optional) 3
-            ]
+            map_points = self.get_map_points()
 
             # Valetudo Re version need corrections of the coordinates and are implemented with *10
             vacuum_points = self.imu.re_get_vacuum_points(rotation_angle)
@@ -455,24 +389,3 @@ class ReImageHandler:
                 self.calibration_data.append(calibration_point)
 
         return self.calibration_data
-
-    async def async_map_coordinates_offset(
-        self, wsf: int, hsf: int, width: int, height: int
-    ) -> tuple[int, int]:
-        """
-        Offset the coordinates to the map.
-        """
-
-        if wsf == 1 and hsf == 1:
-            self.imu.set_image_offset_ratio_1_1(width, height, rand256=True)
-        elif wsf == 2 and hsf == 1:
-            self.imu.set_image_offset_ratio_2_1(width, height, rand256=True)
-        elif wsf == 3 and hsf == 2:
-            self.imu.set_image_offset_ratio_3_2(width, height, rand256=True)
-        elif wsf == 5 and hsf == 4:
-            self.imu.set_image_offset_ratio_5_4(width, height, rand256=True)
-        elif wsf == 9 and hsf == 16:
-            self.imu.set_image_offset_ratio_9_16(width, height, rand256=True)
-        elif wsf == 16 and hsf == 9:
-            self.imu.set_image_offset_ratio_16_9(width, height, rand256=True)
-        return width, height
