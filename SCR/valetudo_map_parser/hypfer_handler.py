@@ -51,8 +51,6 @@ class HypferMapImageHandler(BaseHandler):
         self.offset_bottom = self.shared.offset_down  # offset bottom
         self.offset_left = self.shared.offset_left  # offset left
         self.offset_right = self.shared.offset_right  # offset right
-        self.offset_x = 0  # offset x for the aspect ratio.
-        self.offset_y = 0  # offset y for the aspect ratio.
         self.imd = ImDraw(self)
         self.ac = AutoCrop(self)
         self.color_grey = (128, 128, 128, 255)
@@ -303,7 +301,7 @@ class HypferMapImageHandler(BaseHandler):
         # Define the map points (fixed)
         map_points = self.get_map_points()
         # Calculate the calibration points in the vacuum coordinate system
-        vacuum_points = self.imu.get_vacuum_points(rotation_angle)
+        vacuum_points = self.get_vacuum_points(rotation_angle)
 
         # Create the calibration data for each point
         for vacuum_point, map_point in zip(vacuum_points, map_points):

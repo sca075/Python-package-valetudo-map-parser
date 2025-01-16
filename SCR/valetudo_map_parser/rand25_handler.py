@@ -57,8 +57,6 @@ class ReImageHandler(BaseHandler):
         self.trim_up = None  # Trim up
         self.zooming = False  # Zooming flag
         self.file_name = self.shared.file_name  # File name
-        self.offset_x = 0  # offset x for the aspect ratio.
-        self.offset_y = 0  # offset y for the aspect ratio.
         self.offset_top = self.shared.offset_top  # offset top
         self.offset_bottom = self.shared.offset_down  # offset bottom
         self.offset_left = self.shared.offset_left  # offset left
@@ -121,9 +119,9 @@ class ReImageHandler(BaseHandler):
                             "y": (y_min + y_max) // 2,
                         }
                 # get the zones and points data
-                zone_properties = await self.imu.async_zone_propriety(zones_data)
+                zone_properties = await self.async_zone_propriety(zones_data)
                 # get the points data
-                point_properties = await self.imu.async_points_propriety(points_data)
+                point_properties = await self.async_points_propriety(points_data)
                 if room_properties or zone_properties:
                     extracted_data = [
                         f"{len(room_properties)} Rooms" if room_properties else None,
@@ -381,7 +379,7 @@ class ReImageHandler(BaseHandler):
             map_points = self.get_map_points()
 
             # Valetudo Re version need corrections of the coordinates and are implemented with *10
-            vacuum_points = self.imu.re_get_vacuum_points(rotation_angle)
+            vacuum_points = self.re_get_vacuum_points(rotation_angle)
 
             # Create the calibration data for each point
             for vacuum_point, map_point in zip(vacuum_points, map_points):
