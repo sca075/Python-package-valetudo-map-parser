@@ -207,7 +207,7 @@ class HypferMapImageHandler(BaseHandler):
                 img_np_array = await self.async_copy_array(self.img_base_layer)
                 # All below will be drawn at each frame.
                 # Draw zones if any.
-                img_np_array = await self.async_draw_zones(
+                img_np_array = await self.imd.async_draw_zones(
                     m_json,
                     img_np_array,
                     colors["zone_clean"],

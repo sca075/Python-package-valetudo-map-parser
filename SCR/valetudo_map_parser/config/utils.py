@@ -31,6 +31,7 @@ class BaseHandler:
         self.offset_x = 0
         self.offset_y = 0
         self.shared = None
+        self.crop_area = [0, 0, 0, 0]
 
     def get_frame_number(self) -> int:
         """Return the frame number of the image."""
@@ -316,20 +317,20 @@ class BaseHandler:
         # get_calibration_data
         vacuum_points = [
             {
-                "x": self.img.crop_area[0] + self.img.offset_x,
-                "y": self.img.crop_area[1] + self.img.offset_y,
+                "x": self.crop_area[0] + self.offset_x,
+                "y": self.crop_area[1] + self.offset_y,
             },  # Top-left corner 0
             {
-                "x": self.img.crop_area[2] - self.img.offset_x,
-                "y": self.img.crop_area[1] + self.img.offset_y,
+                "x": self.crop_area[2] - self.offset_x,
+                "y": self.crop_area[1] + self.offset_y,
             },  # Top-right corner 1
             {
-                "x": self.img.crop_area[2] - self.img.offset_x,
-                "y": self.img.crop_area[3] - self.img.offset_y,
+                "x": self.crop_area[2] - self.offset_x,
+                "y": self.crop_area[3] - self.offset_y,
             },  # Bottom-right corner 2
             {
-                "x": self.img.crop_area[0] + self.img.offset_x,
-                "y": self.img.crop_area[3] - self.img.offset_y,
+                "x": self.crop_area[0] + self.offset_x,
+                "y": self.crop_area[3] - self.offset_y,
             },  # Bottom-left corner (optional)3
         ]
 
@@ -363,20 +364,20 @@ class BaseHandler:
         RAND256 Vacuums Calibration Points are in 10th of a mm."""
         vacuum_points = [
             {
-                "x": ((self.img.crop_area[0] + self.img.offset_x) * 10),
-                "y": ((self.img.crop_area[1] + self.img.offset_y) * 10),
+                "x": ((self.crop_area[0] + self.offset_x) * 10),
+                "y": ((self.crop_area[1] + self.offset_y) * 10),
             },  # Top-left corner 0
             {
-                "x": ((self.img.crop_area[2] - self.img.offset_x) * 10),
-                "y": ((self.img.crop_area[1] + self.img.offset_y) * 10),
+                "x": ((self.crop_area[2] - self.offset_x) * 10),
+                "y": ((self.crop_area[1] + self.offset_y) * 10),
             },  # Top-right corner 1
             {
-                "x": ((self.img.crop_area[2] - self.img.offset_x) * 10),
-                "y": ((self.img.crop_area[3] - self.img.offset_y) * 10),
+                "x": ((self.crop_area[2] - self.offset_x) * 10),
+                "y": ((self.crop_area[3] - self.offset_y) * 10),
             },  # Bottom-right corner 2
             {
-                "x": ((self.img.crop_area[0] + self.img.offset_x) * 10),
-                "y": ((self.img.crop_area[3] - self.img.offset_y) * 10),
+                "x": ((self.crop_area[0] + self.offset_x) * 10),
+                "y": ((self.crop_area[3] - self.offset_y) * 10),
             },  # Bottom-left corner (optional)3
         ]
 

@@ -4,7 +4,7 @@ def _check_robot_position(x: int, y: int, robot_in_room) -> bool:
     return x_in_room and y_in_room
 
 
-def _check_robot_position(x: int, y: int, robot_in_room) -> bool:
+def check_robot_position(x: int, y: int, robot_in_room) -> bool:
     return (
         robot_in_room["left"] >= x >= robot_in_room["right"]
         and robot_in_room["up"] >= y >= robot_in_room["down"]
