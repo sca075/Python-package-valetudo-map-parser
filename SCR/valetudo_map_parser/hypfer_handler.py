@@ -219,7 +219,7 @@ class HypferMapImageHandler(BaseHandler):
                 )
                 # Draw path prediction and paths.
                 img_np_array = await self.imd.async_draw_paths(
-                    img_np_array, m_json, colors["color_move"], self.color_grey
+                    img_np_array, m_json, colors["move"], self.color_grey
                 )
                 # Check if the robot is docked.
                 if self.shared.vacuum_state == "docked":
@@ -233,13 +233,13 @@ class HypferMapImageHandler(BaseHandler):
                         x=robot_position[0],
                         y=robot_position[1],
                         angle=robot_position_angle,
-                        fill=colors["color_robot"],
+                        fill=colors["robot"],
                         robot_state=self.shared.vacuum_state,
                     )
                 # Resize the image
                 img_np_array = await self.ac.async_auto_trim_and_zoom_image(
                     img_np_array,
-                    colors["color_background"],
+                    colors["background"],
                     int(self.shared.margins),
                     int(self.shared.image_rotate),
                     self.zooming,

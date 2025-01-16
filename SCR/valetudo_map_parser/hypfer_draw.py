@@ -70,7 +70,7 @@ class ImageDraw:
         self, img_np_array, pixels, layer_type, room_id, pixel_size, color_zone_clean
     ):
         """Process a room layer (segment or floor)."""
-        room_color = self.img_h.rooms_colors[room_id]
+        room_color = self.img_h.shared.rooms_colors[room_id]
 
         try:
             if layer_type == "segment":
