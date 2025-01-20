@@ -239,7 +239,7 @@ class RandImageData:
         return compressed_pixels
 
     @staticmethod
-    def calculate_max_x_y(coord_array):
+    def _calculate_max_x_y(coord_array):
         """Calculate the max and min x and y coordinates."""
         max_x = -float("inf")
         max_y = -float("inf")
@@ -334,18 +334,18 @@ class RandImageData:
     def get_rrm_currently_cleaned_zones(json_data: JsonType) -> dict:
         """Get the currently cleaned zones from the json."""
         re_zones = json_data.get("currently_cleaned_zones", [])
-        formatted_zones = RandImageData.rrm_valetudo_format_zone(re_zones)
+        formatted_zones = RandImageData._rrm_valetudo_format_zone(re_zones)
         return formatted_zones
 
     @staticmethod
     def get_rrm_forbidden_zones(json_data: JsonType) -> dict:
         """Get the forbidden zones from the json."""
         re_zones = json_data.get("forbidden_zones", [])
-        formatted_zones = RandImageData.rrm_valetudo_format_zone(re_zones)
+        formatted_zones = RandImageData._rrm_valetudo_format_zone(re_zones)
         return formatted_zones
 
     @staticmethod
-    def rrm_valetudo_format_zone(coordinates: list) -> any:
+    def _rrm_valetudo_format_zone(coordinates: list) -> any:
         """Format the zones from RRM to Valetudo."""
         formatted_zones = []
         for zone_data in coordinates:
@@ -387,7 +387,7 @@ class RandImageData:
         return formatted_zones
 
     @staticmethod
-    def rrm_valetudo_lines(coordinates: list) -> list:
+    def _rrm_valetudo_lines(coordinates: list) -> list:
         """Format the lines from RRM to Valetudo."""
         formatted_lines = []
         for lines in coordinates:
@@ -402,7 +402,7 @@ class RandImageData:
             tmp_data = json_data.get("virtual_walls", [])
         except KeyError:
             return None
-        virtual_walls = RandImageData.rrm_valetudo_lines(tmp_data)
+        virtual_walls = RandImageData._rrm_valetudo_lines(tmp_data)
         return virtual_walls
 
     @staticmethod
@@ -495,11 +495,11 @@ class RandImageData:
             return None
         return seg_ids
 
-    @staticmethod
-    def convert_negative_angle(angle: int) -> int:
-        """Convert negative angle to positive."""
-        angle_c = angle % 360  # Ensure angle is within 0-359
-        if angle_c < 0:
-            angle_c += 360  # Convert negative angle to positive
-        angle = angle_c + 180  # add offset
-        return angle
+    # @staticmethod
+    # def convert_negative_angle(angle: int) -> int:
+    #     """Convert negative angle to positive."""
+    #     angle_c = angle % 360  # Ensure angle is within 0-359
+    #     if angle_c < 0:
+    #         angle_c += 360  # Convert negative angle to positive
+    #     angle = angle_c + 180  # add offset
+    #     return angle

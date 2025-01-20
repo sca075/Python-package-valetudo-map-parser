@@ -262,9 +262,9 @@ class ImageDraw:
             for path in path_pixels:
                 # Get the points from the current path and extend multiple paths.
                 points = path.get("points", [])
-                sublists = self.img_h.data.sublist(points, 2)
+                sublist = self.img_h.data.sublist(points, 2)
                 self.img_h.shared.map_new_path = self.img_h.data.sublist_join(
-                    sublists, 2
+                    sublist, 2
                 )
                 np_array = await self.img_h.draw.lines(
                     np_array, self.img_h.shared.map_new_path, 5, color_move
@@ -276,9 +276,8 @@ class ImageDraw:
         try:
             entity_dict = self.img_h.data.find_points_entities(m_json)
         except (ValueError, KeyError):
-            entity_dict = None
-        else:
-            _LOGGER.info("%s: Got the points in the json.", self.file_name)
+            return None
+        _LOGGER.info("%s: Got the points in the json.", self.file_name)
         return entity_dict
 
     async def async_get_robot_in_room(

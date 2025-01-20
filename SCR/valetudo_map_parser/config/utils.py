@@ -32,6 +32,7 @@ class BaseHandler:
         self.offset_y = 0
         self.shared = None
         self.crop_area = [0, 0, 0, 0]
+        self.zooming = False
 
     def get_frame_number(self) -> int:
         """Return the frame number of the image."""
@@ -53,10 +54,22 @@ class BaseHandler:
         """Return the JSON ID from the image."""
         return self.json_id
 
+    def check_zoom_and_aspect_ratio(self) -> bool:
+        """Check if the image is zoomed and has an aspect ratio."""
+        return (
+                self.shared.image_auto_zoom
+                and self.shared.vacuum_state == "cleaning"
+                and self.zooming
+                and self.shared.image_zoom_lock_ratio
+                or self.shared.image_aspect_ratio != "None"
+        )
+
     async def async_resize_image(
-        self, pil_img, width, height, aspect_ratio=None, is_rand=False
+        self, pil_img, aspect_ratio=None, is_rand=False
     ):
         """Resize the image to the given dimensions and aspect ratio."""
+        width = self.shared.image_ref_width
+        height = self.shared.image_ref_height
         if aspect_ratio:
             wsf, hsf = [int(x) for x in aspect_ratio.split(",")]
             if wsf == 0 or hsf == 0:
@@ -105,7 +118,7 @@ class BaseHandler:
         return width, height
 
     @staticmethod
-    async def calculate_array_hash(layers: dict, active: list[int] = None) -> str:
+    async def calculate_array_hash(layers: dict, active: list[int] = None) -> str or None:
         """Calculate the hash of the image based on layers and active zones."""
         if layers and active:
             data_to_hash = {
@@ -121,17 +134,17 @@ class BaseHandler:
         """Copy the array."""
         return NumpyArray.copy(original_array)
 
-    def get_map_points(self) -> dict:
+    def get_map_points(self) -> list[dict[str, int] | dict[str, int] | dict[str, int] | dict[str, int]]:
         """Return the map points."""
         return [
-            {"x": 0, "y": 0},  # Top-left corner 0
-            {"x": self.crop_img_size[0], "y": 0},  # Top-right corner 1
-            {
-                "x": self.crop_img_size[0],
-                "y": self.crop_img_size[1],
-            },  # Bottom-right corner 2
-            {"x": 0, "y": self.crop_img_size[1]},  # Bottom-left corner (optional) 3
-        ]
+                {"x": 0, "y": 0},  # Top-left corner 0
+                {"x": self.crop_img_size[0], "y": 0},  # Top-right corner 1
+                {
+                    "x": self.crop_img_size[0],
+                    "y": self.crop_img_size[1],
+                },  # Bottom-right corner 2
+                {"x": 0, "y": self.crop_img_size[1]},  # Bottom-left corner (optional) 3
+            ]
 
     def set_image_offset_ratio_1_1(
             self, width: int, height: int, rand256: bool = False
@@ -447,3 +460,13 @@ class BaseHandler:
             if id_count > 1:
                 _LOGGER.debug("%s: Point Properties updated.", self.file_name)
         return point_properties
+
+    @staticmethod
+    def get_corners(x_max:int, x_min:int, y_max:int, y_min:int) -> list[tuple[int, int]]:
+        """Return the corners of the image."""
+        return [
+        (x_min, y_min),
+        (x_max, y_min),
+        (x_max, y_max),
+        (x_min, y_max),
+        ]

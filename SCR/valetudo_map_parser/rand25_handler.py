@@ -55,14 +55,13 @@ class ReImageHandler(BaseHandler):
         self.trim_left = None  # Trim left
         self.trim_right = None  # Trim right
         self.trim_up = None  # Trim up
-        self.zooming = False  # Zooming flag
         self.file_name = self.shared.file_name  # File name
         self.offset_top = self.shared.offset_top  # offset top
         self.offset_bottom = self.shared.offset_down  # offset bottom
         self.offset_left = self.shared.offset_left  # offset left
         self.offset_right = self.shared.offset_right  # offset right
         self.imd = ImageDraw(self)  # Image Draw
-        self.ac = AutoCrop(self)
+        self.crop = AutoCrop(self)
 
     async def extract_room_properties(
         self, json_data: JsonType, destinations: JsonType
@@ -96,12 +95,7 @@ class ReImageHandler(BaseHandler):
                         x_max = self.outlines[id_x][1][0]
                         y_min = self.outlines[id_x][0][1]
                         y_max = self.outlines[id_x][1][1]
-                        corners = [
-                            (x_min, y_min),
-                            (x_max, y_min),
-                            (x_max, y_max),
-                            (x_min, y_max),
-                        ]
+                        corners = self.get_corners(x_max, x_min, y_max, y_min)
                         # rand256 vacuums accept int(room_id) or str(name)
                         # the card will soon support int(room_id) but the camera will send name
                         # this avoids the manual change of the values in the card.
@@ -251,30 +245,21 @@ class ReImageHandler(BaseHandler):
         img_np_array = await self.imd.async_draw_robot_on_map(
             img_np_array, robot_position, robot_position_angle, colors["robot"]
         )
-        img_np_array = await self.ac.async_auto_trim_and_zoom_image(
+        img_np_array = await self.crop.async_auto_trim_and_zoom_image(
             img_np_array,
-            colors["background"],
-            int(self.shared.margins),
-            int(self.shared.image_rotate),
-            self.zooming,
+            detect_colour=colors["background"],
+            margin_size=int(self.shared.margins),
+            rotate=int(self.shared.image_rotate),
+            zoom=self.zooming,
             rand256=True,
         )
         return img_np_array
 
     async def _finalize_image(self, pil_img):
-        if (
-            self.shared.image_auto_zoom
-            and self.shared.vacuum_state == "cleaning"
-            and self.zooming
-            and self.shared.image_zoom_lock_ratio
-            or self.shared.image_aspect_ratio != "None"
-        ):
-            width = self.shared.image_ref_width
-            height = self.shared.image_ref_height
-            if self.shared.image_aspect_ratio != "None":
-                pil_img = await self.async_resize_image(
-                    pil_img, width, height, self.shared.image_aspect_ratio, True
-                )
+        if self.check_zoom_and_aspect_ratio() :
+            pil_img = await self.async_resize_image(
+                pil_img, self.shared.image_aspect_ratio, True
+            )
         _LOGGER.debug("%s: Frame Completed.", self.file_name)
         return pil_img
 

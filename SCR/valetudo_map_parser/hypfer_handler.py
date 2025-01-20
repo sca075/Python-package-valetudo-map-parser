@@ -40,8 +40,6 @@ class HypferMapImageHandler(BaseHandler):
         self.img_hash = None  # hash of the image calculated to check differences.
         self.img_base_layer = None  # numpy array store the map base layer.
         self.active_zones = None  # vacuum active zones.
-        self.frame_number = 0  # frame number of the image.
-        self.zooming = False  # zooming the image.
         self.svg_wait = False  # SVG image creation wait.
         self.trim_down = 0  # memory stored trims calculated once.
         self.trim_left = 0  # memory stored trims calculated once.
@@ -78,12 +76,7 @@ class HypferMapImageHandler(BaseHandler):
                         x_max,
                         y_max,
                     ) = await self.data.async_get_rooms_coordinates(pixels, pixel_size)
-                    corners = [
-                        (x_min, y_min),
-                        (x_max, y_min),
-                        (x_max, y_max),
-                        (x_min, y_max),
-                    ]
+                    corners = self.get_corners(x_max, x_min, y_max, y_min)
                     room_id = str(segment_id)
                     self.rooms_pos.append(
                         {
@@ -253,17 +246,9 @@ class HypferMapImageHandler(BaseHandler):
             pil_img = Image.fromarray(img_np_array, mode="RGBA")
             del img_np_array
             # reduce the image size if the zoomed image is bigger then the original.
-            if (
-                self.shared.image_auto_zoom
-                and self.shared.vacuum_state == "cleaning"
-                and self.zooming
-                and self.shared.image_zoom_lock_ratio
-                or self.shared.image_aspect_ratio != "None"
-            ):
-                width = self.shared.image_ref_width
-                height = self.shared.image_ref_height
+            if self.check_zoom_and_aspect_ratio():
                 resized_image = await self.async_resize_image(
-                    pil_img, width, height, self.shared.image_aspect_ratio
+                    pil_img, self.shared.image_aspect_ratio
                 )
                 return resized_image
             _LOGGER.debug("%s: Frame Completed.", self.file_name)
