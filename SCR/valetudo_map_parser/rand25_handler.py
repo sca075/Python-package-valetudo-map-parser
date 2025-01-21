@@ -38,7 +38,6 @@ class ReImageHandler(BaseHandler):
     """
 
     def __init__(self, camera_shared):
-        super().__init__()
         self.auto_crop = None  # Auto crop flag
         self.segment_data = None  # Segment data
         self.outlines = None  # Outlines data
@@ -62,6 +61,7 @@ class ReImageHandler(BaseHandler):
         self.offset_right = self.shared.offset_right  # offset right
         self.imd = ImageDraw(self)  # Image Draw
         self.crop = AutoCrop(self)
+        super().__init__()
 
     async def extract_room_properties(
         self, json_data: JsonType, destinations: JsonType
@@ -257,8 +257,14 @@ class ReImageHandler(BaseHandler):
 
     async def _finalize_image(self, pil_img):
         if self.check_zoom_and_aspect_ratio():
-            pil_img = await self.async_resize_image(
-                pil_img, self.shared.image_aspect_ratio, True
+            width = self.shared.image_ref_width
+            height = self.shared.image_ref_height
+            pil_img = await self.async_resize_images(
+                pil_img=pil_img,
+                width=width,
+                height=height,
+                aspect_ratio=self.shared.image_aspect_ratio,
+                Rand256=True,
             )
         _LOGGER.debug("%s: Frame Completed.", self.file_name)
         return pil_img

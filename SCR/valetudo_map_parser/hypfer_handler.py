@@ -29,8 +29,8 @@ class HypferMapImageHandler(BaseHandler):
 
     def __init__(self, shared_data: CameraShared):
         """Initialize the Map Image Handler."""
-        super().__init__()
         self.shared = shared_data  # camera shared data
+        super().__init__()
         self.auto_crop = None  # auto crop data to be calculate once.
         self.calibration_data = None  # camera shared data.
         self.crop_area = None  # module shared for calibration data.
@@ -247,8 +247,13 @@ class HypferMapImageHandler(BaseHandler):
             del img_np_array
             # reduce the image size if the zoomed image is bigger then the original.
             if self.check_zoom_and_aspect_ratio():
+                width = self._shared.image_ref_width
+                height = self._shared.image_ref_height
                 resized_image = await self.async_resize_image(
-                    pil_img, self.shared.image_aspect_ratio
+                    pil_img=pil_img,
+                    width=width,
+                    height=height,
+                    aspect_ratio=self.shared.image_aspect_ratio,
                 )
                 return resized_image
             _LOGGER.debug("%s: Frame Completed.", self.file_name)

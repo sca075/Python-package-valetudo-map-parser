@@ -43,6 +43,7 @@ class BaseHandler:
 
     def __init__(self):
         self.file_name = None
+        self.shared = None
         self.img_size = None
         self.json_data = None
         self.json_id = None
@@ -57,15 +58,13 @@ class BaseHandler:
         self.crop_img_size = [0, 0]
         self.offset_x = 0
         self.offset_y = 0
-        self.shared:CameraShared = None
         self.crop_area = [0, 0, 0, 0]
         self.zooming = False
-        self.async_resize_image = partial(
+        self.async_resize_images = partial(
             async_resize_image,
-            width=self.shared.image_ref_width,
-            height=self.shared.image_ref_height,
             crop_size=self.crop_img_size,
             offset_func=self.async_map_coordinates_offset,
+            rand256=False,
         )
 
     def get_frame_number(self) -> int:
