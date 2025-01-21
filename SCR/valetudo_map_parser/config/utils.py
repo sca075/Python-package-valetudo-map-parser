@@ -1,14 +1,41 @@
 """Utility code for the valetudo map parser."""
 
+from dataclasses import dataclass
+from functools import partial
 import hashlib
 import json
 from logging import getLogger
 
-from PIL import ImageOps
+from PIL import ImageOps, Image
 
 from .types import ChargerPosition, ImageSize, NumpyArray, RobotPosition
+from .shared import CameraShared
 
 _LOGGER = getLogger(__name__)
+
+
+@dataclass
+class ResizeParams:
+    """Resize the image to the given dimensions and aspect ratio."""
+
+    pil_img: Image  # PIL image object
+    width: int
+    height: int
+    aspect_ratio: str = None
+    crop_size: list = None
+    is_rand: bool = False
+    offset_func: callable = None  # Function reference for offset calculation
+
+
+@dataclass
+class OffsetParams:
+    """Map parameters."""
+
+    wsf: int
+    hsf: int
+    width: int
+    height: int
+    rand256: bool = False
 
 
 class BaseHandler:
@@ -30,9 +57,16 @@ class BaseHandler:
         self.crop_img_size = [0, 0]
         self.offset_x = 0
         self.offset_y = 0
-        self.shared = None
+        self.shared = CameraShared(self.file_name)
         self.crop_area = [0, 0, 0, 0]
         self.zooming = False
+        self.async_resize_image = partial(
+            async_resize_image,
+            width=self.shared.image_ref_width,
+            height=self.shared.image_ref_height,
+            crop_size=self.crop_img_size,
+            offset_func=self.async_map_coordinates_offset,
+        )
 
     def get_frame_number(self) -> int:
         """Return the frame number of the image."""
@@ -57,97 +91,15 @@ class BaseHandler:
     def check_zoom_and_aspect_ratio(self) -> bool:
         """Check if the image is zoomed and has an aspect ratio."""
         return (
-                self.shared.image_auto_zoom
-                and self.shared.vacuum_state == "cleaning"
-                and self.zooming
-                and self.shared.image_zoom_lock_ratio
-                or self.shared.image_aspect_ratio != "None"
+            self.shared.image_auto_zoom
+            and self.shared.vacuum_state == "cleaning"
+            and self.zooming
+            and self.shared.image_zoom_lock_ratio
+            or self.shared.image_aspect_ratio != "None"
         )
 
-    async def async_resize_image(
-        self, pil_img, aspect_ratio=None, is_rand=False
-    ):
-        """Resize the image to the given dimensions and aspect ratio."""
-        width = self.shared.image_ref_width
-        height = self.shared.image_ref_height
-        if aspect_ratio:
-            wsf, hsf = [int(x) for x in aspect_ratio.split(",")]
-            if wsf == 0 or hsf == 0:
-                return pil_img
-            new_aspect_ratio = wsf / hsf
-            if width / height > new_aspect_ratio:
-                new_width = int(pil_img.height * new_aspect_ratio)
-                new_height = pil_img.height
-            else:
-                new_width = pil_img.width
-                new_height = int(pil_img.width / new_aspect_ratio)
-                _LOGGER.debug(
-                    "%s: Image Aspect Ratio: %s, %s",
-                    self.file_name,
-                    str(wsf),
-                    str(hsf),
-                )
-                (
-                    self.crop_img_size[0],
-                    self.crop_img_size[1],
-                ) = await self.async_map_coordinates_offset(
-                    wsf, hsf, new_width, new_height, is_rand
-                )
-            return ImageOps.pad(pil_img, (new_width, new_height))
-        return ImageOps.pad(pil_img, (width, height))
-
-    async def async_map_coordinates_offset(
-        self, wsf: int, hsf: int, width: int, height: int, rand256: bool = False
-    ) -> tuple[int, int]:
-        """
-        Offset the coordinates to the map.
-        """
-
-        if wsf == 1 and hsf == 1:
-            self.set_image_offset_ratio_1_1(width, height, rand256)
-        elif wsf == 2 and hsf == 1:
-            self.set_image_offset_ratio_2_1(width, height, rand256)
-        elif wsf == 3 and hsf == 2:
-            self.set_image_offset_ratio_3_2(width, height, rand256)
-        elif wsf == 5 and hsf == 4:
-            self.set_image_offset_ratio_5_4(width, height, rand256)
-        elif wsf == 9 and hsf == 16:
-            self.set_image_offset_ratio_9_16(width, height, rand256)
-        elif wsf == 16 and hsf == 9:
-            self.set_image_offset_ratio_16_9(width, height, rand256)
-        return width, height
-
-    @staticmethod
-    async def calculate_array_hash(layers: dict, active: list[int] = None) -> str or None:
-        """Calculate the hash of the image based on layers and active zones."""
-        if layers and active:
-            data_to_hash = {
-                "layers": len(layers["wall"][0]),
-                "active_segments": tuple(active),
-            }
-            data_json = json.dumps(data_to_hash, sort_keys=True)
-            return hashlib.sha256(data_json.encode()).hexdigest()
-        return None
-
-    @staticmethod
-    async def async_copy_array(original_array: NumpyArray) -> NumpyArray:
-        """Copy the array."""
-        return NumpyArray.copy(original_array)
-
-    def get_map_points(self) -> list[dict[str, int] | dict[str, int] | dict[str, int] | dict[str, int]]:
-        """Return the map points."""
-        return [
-                {"x": 0, "y": 0},  # Top-left corner 0
-                {"x": self.crop_img_size[0], "y": 0},  # Top-right corner 1
-                {
-                    "x": self.crop_img_size[0],
-                    "y": self.crop_img_size[1],
-                },  # Bottom-right corner 2
-                {"x": 0, "y": self.crop_img_size[1]},  # Bottom-left corner (optional) 3
-            ]
-
-    def set_image_offset_ratio_1_1(
-            self, width: int, height: int, rand256: bool = False
+    def _set_image_offset_ratio_1_1(
+        self, width: int, height: int, rand256: bool = False
     ) -> None:
         """Set the image offset ratio to 1:1."""
 
@@ -173,8 +125,8 @@ class BaseHandler:
             self.offset_y,
         )
 
-    def set_image_offset_ratio_2_1(
-            self, width: int, height: int, rand256: bool = False
+    def _set_image_offset_ratio_2_1(
+        self, width: int, height: int, rand256: bool = False
     ) -> None:
         """Set the image offset ratio to 2:1."""
 
@@ -201,8 +153,8 @@ class BaseHandler:
             self.offset_y,
         )
 
-    def set_image_offset_ratio_3_2(
-            self, width: int, height: int, rand256: bool = False
+    def _set_image_offset_ratio_3_2(
+        self, width: int, height: int, rand256: bool = False
     ) -> None:
         """Set the image offset ratio to 3:2."""
 
@@ -212,13 +164,11 @@ class BaseHandler:
             if rotation in [0, 180]:
                 self.offset_y = width - self.crop_img_size[0]
                 self.offset_x = ((height - self.crop_img_size[1]) // 2) - (
-                        self.crop_img_size[1] // 10
+                    self.crop_img_size[1] // 10
                 )
             elif rotation in [90, 270]:
                 self.offset_y = (self.crop_img_size[0] - width) // 2
-                self.offset_x = (self.crop_img_size[1] - height) + (
-                        (height // 10) // 2
-                )
+                self.offset_x = (self.crop_img_size[1] - height) + ((height // 10) // 2)
         else:
             if rotation in [0, 180]:
                 self.offset_x = (width - self.crop_img_size[0]) // 2
@@ -234,8 +184,8 @@ class BaseHandler:
             self.offset_y,
         )
 
-    def set_image_offset_ratio_5_4(
-            self, width: int, height: int, rand256: bool = False
+    def _set_image_offset_ratio_5_4(
+        self, width: int, height: int, rand256: bool = False
     ) -> None:
         """Set the image offset ratio to 5:4."""
 
@@ -243,16 +193,14 @@ class BaseHandler:
         if not rand256:
             if rotation in [0, 180]:
                 self.offset_x = ((width - self.crop_img_size[0]) // 2) - (
-                        self.crop_img_size[0] // 2
+                    self.crop_img_size[0] // 2
                 )
                 self.offset_y = (self.crop_img_size[1] - height) - (
-                        self.crop_img_size[1] // 2
+                    self.crop_img_size[1] // 2
                 )
             elif rotation in [90, 270]:
                 self.offset_y = ((self.crop_img_size[0] - width) // 2) - 10
-                self.offset_x = (self.crop_img_size[1] - height) + (
-                        height // 10
-                )
+                self.offset_x = (self.crop_img_size[1] - height) + (height // 10)
         else:
             if rotation in [0, 180]:
                 self.offset_y = (width - self.crop_img_size[0]) // 2
@@ -268,8 +216,8 @@ class BaseHandler:
             self.offset_y,
         )
 
-    def set_image_offset_ratio_9_16(
-            self, width: int, height: int, rand256: bool = False
+    def _set_image_offset_ratio_9_16(
+        self, width: int, height: int, rand256: bool = False
     ) -> None:
         """Set the image offset ratio to 9:16."""
 
@@ -296,8 +244,8 @@ class BaseHandler:
             self.offset_y,
         )
 
-    def set_image_offset_ratio_16_9(
-            self, width: int, height: int, rand256: bool = False
+    def _set_image_offset_ratio_16_9(
+        self, width: int, height: int, rand256: bool = False
     ) -> None:
         """Set the image offset ratio to 16:9."""
 
@@ -323,6 +271,71 @@ class BaseHandler:
             self.offset_x,
             self.offset_y,
         )
+
+    async def async_map_coordinates_offset(
+        self, params: OffsetParams
+    ) -> tuple[int, int]:
+        """
+        Offset the coordinates to the map.
+        """
+        if params.wsf == 1 and params.hsf == 1:
+            self._set_image_offset_ratio_1_1(
+                params.width, params.height, params.rand256
+            )
+        elif params.wsf == 2 and params.hsf == 1:
+            self._set_image_offset_ratio_2_1(
+                params.width, params.height, params.rand256
+            )
+        elif params.wsf == 3 and params.hsf == 2:
+            self._set_image_offset_ratio_3_2(
+                params.width, params.height, params.rand256
+            )
+        elif params.wsf == 5 and params.hsf == 4:
+            self._set_image_offset_ratio_5_4(
+                params.width, params.height, params.rand256
+            )
+        elif params.wsf == 9 and params.hsf == 16:
+            self._set_image_offset_ratio_9_16(
+                params.width, params.height, params.rand256
+            )
+        elif params.wsf == 16 and params.hsf == 9:
+            self._set_image_offset_ratio_16_9(
+                params.width, params.height, params.rand256
+            )
+        return params.width, params.height
+
+    @staticmethod
+    async def calculate_array_hash(
+        layers: dict, active: list[int] = None
+    ) -> str or None:
+        """Calculate the hash of the image based on layers and active zones."""
+        if layers and active:
+            data_to_hash = {
+                "layers": len(layers["wall"][0]),
+                "active_segments": tuple(active),
+            }
+            data_json = json.dumps(data_to_hash, sort_keys=True)
+            return hashlib.sha256(data_json.encode()).hexdigest()
+        return None
+
+    @staticmethod
+    async def async_copy_array(original_array: NumpyArray) -> NumpyArray:
+        """Copy the array."""
+        return NumpyArray.copy(original_array)
+
+    def get_map_points(
+        self,
+    ) -> list[dict[str, int] | dict[str, int] | dict[str, int] | dict[str, int]]:
+        """Return the map points."""
+        return [
+            {"x": 0, "y": 0},  # Top-left corner 0
+            {"x": self.crop_img_size[0], "y": 0},  # Top-right corner 1
+            {
+                "x": self.crop_img_size[0],
+                "y": self.crop_img_size[1],
+            },  # Bottom-right corner 2
+            {"x": 0, "y": self.crop_img_size[1]},  # Bottom-left corner (optional) 3
+        ]
 
     def get_vacuum_points(self, rotation_angle: int) -> list[dict[str, int]]:
         """Calculate the calibration points based on the rotation angle."""
@@ -462,11 +475,47 @@ class BaseHandler:
         return point_properties
 
     @staticmethod
-    def get_corners(x_max:int, x_min:int, y_max:int, y_min:int) -> list[tuple[int, int]]:
+    def get_corners(
+        x_max: int, x_min: int, y_max: int, y_min: int
+    ) -> list[tuple[int, int]]:
         """Return the corners of the image."""
         return [
-        (x_min, y_min),
-        (x_max, y_min),
-        (x_max, y_max),
-        (x_min, y_max),
+            (x_min, y_min),
+            (x_max, y_min),
+            (x_max, y_max),
+            (x_min, y_max),
         ]
+
+
+async def async_resize_image(params: ResizeParams):
+    """Resize the image to the given dimensions and aspect ratio."""
+    if params.aspect_ratio:
+        wsf, hsf = [int(x) for x in params.aspect_ratio.split(",")]
+        if wsf == 0 or hsf == 0:
+            return params.pil_img
+        new_aspect_ratio = wsf / hsf
+        if params.width / params.height > new_aspect_ratio:
+            new_width = int(params.pil_img.height * new_aspect_ratio)
+            new_height = params.pil_img.height
+        else:
+            new_width = params.pil_img.width
+            new_height = int(params.pil_img.width / new_aspect_ratio)
+
+        _LOGGER.debug(
+            "Image Aspect Ratio: %s, %s",
+            str(wsf),
+            str(hsf),
+        )
+
+        if params.crop_size is not None:
+            params.crop_size[0], params.crop_size[1] = await params.offset_func(
+                wsf=wsf,
+                hsf=hsf,
+                width=new_width,
+                height=new_height,
+                rand256=params.is_rand,
+            )
+
+        return ImageOps.pad(params.pil_img, (new_width, new_height))
+
+    return ImageOps.pad(params.pil_img, (params.width, params.height))

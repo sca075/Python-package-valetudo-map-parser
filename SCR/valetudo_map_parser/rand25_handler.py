@@ -256,7 +256,7 @@ class ReImageHandler(BaseHandler):
         return img_np_array
 
     async def _finalize_image(self, pil_img):
-        if self.check_zoom_and_aspect_ratio() :
+        if self.check_zoom_and_aspect_ratio():
             pil_img = await self.async_resize_image(
                 pil_img, self.shared.image_aspect_ratio, True
             )
