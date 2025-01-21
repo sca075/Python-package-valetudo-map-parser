@@ -24,7 +24,7 @@ from .config.types import (
     RobotPosition,
     RoomsProperties,
 )
-from .config.utils import BaseHandler
+from .config.utils import BaseHandler, ResizeParams
 from .map_data import RandImageData
 from .reimg_draw import ImageDraw
 
@@ -258,16 +258,17 @@ class ReImageHandler(BaseHandler):
 
     async def _finalize_image(self, pil_img):
         if self.check_zoom_and_aspect_ratio():
-            width = self.shared.image_ref_width
-            height = self.shared.image_ref_height
-            pil_img = await self.async_resize_images(
+            resize_params = ResizeParams(
                 pil_img=pil_img,
-                width=width,
-                height=height,
+                width=self.shared.image_ref_width,
+                height=self.shared.image_ref_height,
                 aspect_ratio=self.shared.image_aspect_ratio,
                 crop_size=self.crop_img_size,
                 offset_func=self.async_map_coordinates_offset,
                 Rand256=True,
+            )
+            pil_img = await self.async_resize_images(
+                resize_params
             )
         _LOGGER.debug("%s: Frame Completed.", self.file_name)
         return pil_img
