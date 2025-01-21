@@ -38,7 +38,7 @@ class ReImageHandler(BaseHandler):
     """
 
     def __init__(self, camera_shared):
-        BaseHandler.__init__()
+        BaseHandler.__init__(self)
         self.auto_crop = None  # Auto crop flag
         self.segment_data = None  # Segment data
         self.outlines = None  # Outlines data

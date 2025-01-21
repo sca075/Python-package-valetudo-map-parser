@@ -29,7 +29,7 @@ class HypferMapImageHandler(BaseHandler):
 
     def __init__(self, shared_data: CameraShared):
         """Initialize the Map Image Handler."""
-        BaseHandler.__init__()
+        BaseHandler.__init__(self)
         self.shared = shared_data  # camera shared data
         self.auto_crop = None  # auto crop data to be calculate once.
         self.calibration_data = None  # camera shared data.
