@@ -57,7 +57,7 @@ class BaseHandler:
         self.crop_img_size = [0, 0]
         self.offset_x = 0
         self.offset_y = 0
-        self.shared = CameraShared(self.file_name)
+        self.shared:CameraShared = None
         self.crop_area = [0, 0, 0, 0]
         self.zooming = False
         self.async_resize_image = partial(
