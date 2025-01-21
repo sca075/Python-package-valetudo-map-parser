@@ -1,7 +1,6 @@
 """Utility code for the valetudo map parser."""
 
 from dataclasses import dataclass
-from functools import partial
 import hashlib
 import json
 from logging import getLogger
@@ -9,7 +8,6 @@ from logging import getLogger
 from PIL import ImageOps, Image
 
 from .types import ChargerPosition, ImageSize, NumpyArray, RobotPosition
-from .shared import CameraShared
 
 _LOGGER = getLogger(__name__)
 
@@ -60,12 +58,7 @@ class BaseHandler:
         self.offset_y = 0
         self.crop_area = [0, 0, 0, 0]
         self.zooming = False
-        self.async_resize_images = partial(
-            async_resize_image,
-            crop_size=self.crop_img_size,
-            offset_func=self.async_map_coordinates_offset,
-            rand256=False,
-        )
+        self.async_resize_images = async_resize_image()
 
     def get_frame_number(self) -> int:
         """Return the frame number of the image."""

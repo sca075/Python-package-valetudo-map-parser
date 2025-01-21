@@ -247,13 +247,15 @@ class HypferMapImageHandler(BaseHandler):
             del img_np_array
             # reduce the image size if the zoomed image is bigger then the original.
             if self.check_zoom_and_aspect_ratio():
-                width = self._shared.image_ref_width
-                height = self._shared.image_ref_height
+                width = self.shared.image_ref_width
+                height = self.shared.image_ref_height
                 resized_image = await self.async_resize_image(
                     pil_img=pil_img,
                     width=width,
                     height=height,
                     aspect_ratio=self.shared.image_aspect_ratio,
+                    crop_size=self.crop_img_size,
+                    offset_func=self.async_map_coordinates_offset(),
                 )
                 return resized_image
             _LOGGER.debug("%s: Frame Completed.", self.file_name)
