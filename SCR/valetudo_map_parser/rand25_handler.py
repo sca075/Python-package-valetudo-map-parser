@@ -38,6 +38,7 @@ class ReImageHandler(BaseHandler):
     """
 
     def __init__(self, camera_shared):
+        BaseHandler.__init__()
         self.auto_crop = None  # Auto crop flag
         self.segment_data = None  # Segment data
         self.outlines = None  # Outlines data
@@ -61,7 +62,7 @@ class ReImageHandler(BaseHandler):
         self.offset_right = self.shared.offset_right  # offset right
         self.imd = ImageDraw(self)  # Image Draw
         self.crop = AutoCrop(self)
-        super().__init__()
+
 
     async def extract_room_properties(
         self, json_data: JsonType, destinations: JsonType
