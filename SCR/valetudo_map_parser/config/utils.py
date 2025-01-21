@@ -58,7 +58,7 @@ class BaseHandler:
         self.offset_y = 0
         self.crop_area = [0, 0, 0, 0]
         self.zooming = False
-        self.async_resize_images = async_resize_image()
+        self.async_resize_images = async_resize_image
 
     def get_frame_number(self) -> int:
         """Return the frame number of the image."""
