@@ -63,7 +63,6 @@ class ReImageHandler(BaseHandler):
         self.imd = ImageDraw(self)  # Image Draw
         self.crop = AutoCrop(self)
 
-
     async def extract_room_properties(
         self, json_data: JsonType, destinations: JsonType
     ) -> RoomsProperties:
@@ -267,9 +266,7 @@ class ReImageHandler(BaseHandler):
                 offset_func=self.async_map_coordinates_offset,
                 Rand256=True,
             )
-            pil_img = await self.async_resize_images(
-                resize_params
-            )
+            pil_img = await self.async_resize_images(resize_params)
         _LOGGER.debug("%s: Frame Completed.", self.file_name)
         return pil_img
 

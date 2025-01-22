@@ -253,11 +253,9 @@ class HypferMapImageHandler(BaseHandler):
                     height=self.shared.image_ref_height,
                     aspect_ratio=self.shared.image_aspect_ratio,
                     crop_size=self.crop_img_size,
-                    offset_func=self.async_map_coordinates_offset
+                    offset_func=self.async_map_coordinates_offset,
                 )
-                resized_image = await self.async_resize_images(
-                    resize_params
-                )
+                resized_image = await self.async_resize_images(resize_params)
                 return resized_image
             _LOGGER.debug("%s: Frame Completed.", self.file_name)
             return pil_img
