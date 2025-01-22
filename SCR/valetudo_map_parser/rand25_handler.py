@@ -264,7 +264,7 @@ class ReImageHandler(BaseHandler):
                 aspect_ratio=self.shared.image_aspect_ratio,
                 crop_size=self.crop_img_size,
                 offset_func=self.async_map_coordinates_offset,
-                Rand256=True,
+                is_rand=True,
             )
             pil_img = await self.async_resize_images(resize_params)
         _LOGGER.debug("%s: Frame Completed.", self.file_name)

@@ -254,6 +254,7 @@ class HypferMapImageHandler(BaseHandler):
                     aspect_ratio=self.shared.image_aspect_ratio,
                     crop_size=self.crop_img_size,
                     offset_func=self.async_map_coordinates_offset,
+                    is_rand=False,
                 )
                 resized_image = await self.async_resize_images(resize_params)
                 return resized_image
