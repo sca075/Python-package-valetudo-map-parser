@@ -17,8 +17,8 @@ jobs:
             name: Check code with isort
           - id: pylint
             name: Check code with pylint
-          # - id: mypy
-          #   name: Check code with mypy
+          - id: mypy
+            name: Check code with mypy
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4
