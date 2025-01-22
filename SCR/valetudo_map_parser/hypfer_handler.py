@@ -16,7 +16,7 @@ from .config.auto_crop import AutoCrop
 from .config.drawable import Drawable
 from .config.shared import CameraShared
 from .config.types import COLORS, CalibrationPoints, Colors, RoomsProperties
-from .config.utils import BaseHandler, ResizeParams
+from .config.utils import BaseHandler, prepare_resize_params
 from .hypfer_draw import ImageDraw as ImDraw
 from .map_data import ImageData
 
@@ -247,15 +247,7 @@ class HypferMapImageHandler(BaseHandler):
             del img_np_array
             # reduce the image size if the zoomed image is bigger then the original.
             if self.check_zoom_and_aspect_ratio():
-                resize_params = ResizeParams(
-                    pil_img=pil_img,
-                    width=self.shared.image_ref_width,
-                    height=self.shared.image_ref_height,
-                    aspect_ratio=self.shared.image_aspect_ratio,
-                    crop_size=self.crop_img_size,
-                    offset_func=self.async_map_coordinates_offset,
-                    is_rand=False,
-                )
+                resize_params = prepare_resize_params(self, pil_img, False)
                 resized_image = await self.async_resize_images(resize_params)
                 return resized_image
             _LOGGER.debug("%s: Frame Completed.", self.file_name)

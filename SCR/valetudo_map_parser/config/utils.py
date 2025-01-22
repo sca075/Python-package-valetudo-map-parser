@@ -1,11 +1,11 @@
 """Utility code for the valetudo map parser."""
 
-from dataclasses import dataclass
 import hashlib
 import json
+from dataclasses import dataclass
 from logging import getLogger
 
-from PIL import ImageOps, Image
+from PIL import Image, ImageOps
 
 from .types import ChargerPosition, ImageSize, NumpyArray, RobotPosition
 
@@ -501,10 +501,20 @@ async def async_resize_image(params: ResizeParams):
 
         if params.crop_size is not None:
             offset = OffsetParams(wsf, hsf, new_width, new_height, params.is_rand)
-            params.crop_size[0], params.crop_size[1] = await params.offset_func(
-                offset
-            )
+            params.crop_size[0], params.crop_size[1] = await params.offset_func(offset)
 
         return ImageOps.pad(params.pil_img, (new_width, new_height))
 
     return ImageOps.pad(params.pil_img, (params.width, params.height))
+
+def prepare_resize_params(handler, pil_img, rand):
+    """Prepare resize parameters for image resizing."""
+    return ResizeParams(
+        pil_img=pil_img,
+        width=handler.shared.image_ref_width,
+        height=handler.shared.image_ref_height,
+        aspect_ratio=handler.shared.image_aspect_ratio,
+        crop_size=handler.crop_img_size,
+        offset_func=handler.async_map_coordinates_offset,
+        is_rand=rand
+    )
