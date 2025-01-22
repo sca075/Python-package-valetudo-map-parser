@@ -500,12 +500,9 @@ async def async_resize_image(params: ResizeParams):
         )
 
         if params.crop_size is not None:
+            offset = OffsetParams(wsf, hsf, new_width, new_height, params.is_rand)
             params.crop_size[0], params.crop_size[1] = await params.offset_func(
-                wsf=wsf,
-                hsf=hsf,
-                width=new_width,
-                height=new_height,
-                rand256=params.is_rand,
+                offset
             )
 
         return ImageOps.pad(params.pil_img, (new_width, new_height))
