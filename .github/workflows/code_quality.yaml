@@ -41,3 +41,7 @@ jobs:
 
       - name: Run ${{ matrix.id }} checks
         run: poetry run ${{ matrix.id }} SCR
+
+      - name: Clear Poetry Cache
+        run: poetry cache clear --all pypi
+
