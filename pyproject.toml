@@ -25,16 +25,7 @@ pylint = "*"
 types-Pillow = "*"
 
 # Ruff settings
-[tool.ruff]
-line-length = 120
-target-version = "py312"
-
 [tool.ruff.format]
-line-length = 120
-
-[tool.ruff.lint]
-select = ["E", "F", "I"]
-ignore = ["E501"]  # Example of ignoring line length violations in linting
 
 # isort settings (compatible with Ruff)
 [tool.isort]
