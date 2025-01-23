@@ -36,9 +36,6 @@ jobs:
       - name: Install Python dependencies
         run: poetry install --no-interaction --with dev
 
-      - name: Verify installed dependencies
-        run: poetry show isort pylint ruff
-
       - name: Run ${{ matrix.id }} checks
         run: poetry run ${{ matrix.id }} SCR
 
