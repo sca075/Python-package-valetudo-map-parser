@@ -11,14 +11,12 @@ jobs:
     strategy:
       matrix:
         include:
-          - id: black
-            name: Check code with black
+          - id: ruff
+            name: Check code with ruff format
           - id: isort
             name: Check code with isort
           - id: pylint
             name: Check code with pylint
-          # - id: mypy
-          #   name: Check code with mypy
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4
@@ -29,12 +27,17 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install workflow dependencies
-        run: |
-          pip install -r .github/workflows/requirements.txt
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Configure Poetry virtualenv in project
+        run: poetry config virtualenvs.create true
 
       - name: Install Python dependencies
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --with dev
+
+      - name: Verify installed dependencies
+        run: poetry show isort pylint ruff
 
       - name: Run ${{ matrix.id }} checks
         run: poetry run ${{ matrix.id }} SCR
