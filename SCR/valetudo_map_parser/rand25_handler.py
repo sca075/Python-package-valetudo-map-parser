@@ -28,6 +28,7 @@ from .config.utils import BaseHandler, prepare_resize_params
 from .map_data import RandImageData
 from .reimg_draw import ImageDraw
 
+
 _LOGGER = logging.getLogger(__name__)
 
 

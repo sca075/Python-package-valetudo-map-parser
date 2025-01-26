@@ -10,6 +10,7 @@ import struct
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, TypeVar
 
+
 _CallableT = TypeVar("_CallableT", bound=Callable[..., Any])
 
 

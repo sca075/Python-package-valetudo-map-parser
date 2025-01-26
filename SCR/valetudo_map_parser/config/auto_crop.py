@@ -10,6 +10,7 @@ from numpy import rot90
 
 from .types import Color, NumpyArray, TrimCropData
 
+
 _LOGGER = logging.getLogger(__name__)
 
 

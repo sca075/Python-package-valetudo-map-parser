@@ -6,6 +6,7 @@ Version: v2024.12.0
 
 import asyncio
 import logging
+from typing import Dict, List
 
 from .types import (
     ATTR_CALIBRATION_POINTS,
@@ -36,7 +37,9 @@ from .types import (
     DEFAULT_VALUES,
     CameraModes,
     Colors,
+    TrimsData,
 )
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -99,8 +102,15 @@ class CameraShared:
         self.map_pred_points = None  # Predefined points data
         self.map_new_path = None  # New path data
         self.map_old_path = None  # Old path data
-        self.trim_crop_data = None
         self.user_language = None  # User language
+        self.trim_crop_data = None
+        self.trims: Dict[TrimsData, int] = {
+            TrimsData.TRIM_LEFT: 0,
+            TrimsData.TRIM_UP: 0,
+            TrimsData.TRIM_RIGHT: 0,
+            TrimsData.TRIM_DOWN: 0,
+        }
+        self.skip_room_ids: List[str] = []
 
     def update_user_colors(self, user_colors):
         """Update the user colors."""

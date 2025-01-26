@@ -6,6 +6,7 @@ import logging
 from enum import StrEnum
 from typing import Dict, List, Tuple
 
+
 _LOGGER = logging.getLogger(__name__)
 
 Color = Tuple[int, int, int, int]  # RGBA color definition

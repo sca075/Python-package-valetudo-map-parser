@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "valetudo-map-parser"
-version = "0.1.9.b22"
+version = "0.1.9.b23"
 description = "A Python library to parse Valetudo map data returning a PIL Image object."
 authors = ["Sandro Cantarella <gsca075@gmail.com>"]
 license = "Apache-2.0"
@@ -41,8 +41,9 @@ lines_after_imports = 2
 
 # Pylint settings
 [tool.pylint]
-disable = ["C0103", "C0116", "R0902", "R0903", "R0913",
-    "R0914", "W0640", "R0917", "R0904", "R0915", "W0511"]
+disable = ["C0103", "C0116", "R0902", "R0903", "R0904","R0913",
+     "R0914", "R0917", "R0915", "W0640"]
+
 max-line-length = 120
 
 [build-system]

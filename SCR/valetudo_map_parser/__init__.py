@@ -16,6 +16,7 @@ from .config.types import (
 from .hypfer_handler import HypferMapImageHandler
 from .rand25_handler import ReImageHandler
 
+
 __all__ = [
     "HypferMapImageHandler",
     "ReImageHandler",

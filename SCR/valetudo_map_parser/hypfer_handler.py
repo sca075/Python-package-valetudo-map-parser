@@ -20,6 +20,7 @@ from .config.utils import BaseHandler, prepare_resize_params
 from .hypfer_draw import ImageDraw as ImDraw
 from .map_data import ImageData
 
+
 _LOGGER = logging.getLogger(__name__)
 
 

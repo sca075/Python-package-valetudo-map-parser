@@ -7,10 +7,12 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any, Dict, Tuple, Union
 
 import numpy as np
 from PIL import Image
+
 
 DEFAULT_ROOMS = 1
 
@@ -587,3 +589,12 @@ class CameraModes:
     CAMERA_STANDBY = "camera_standby"
     CAMERA_OFF = False
     CAMERA_ON = True
+
+
+class TrimsData(Enum):
+    """Constants for the trims data."""
+
+    TRIM_LEFT = "trim_left"
+    TRIM_UP = "trim_up"
+    TRIM_RIGHT = "trim_right"
+    TRIM_DOWN = "trim_down"

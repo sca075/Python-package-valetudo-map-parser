@@ -12,6 +12,7 @@ from .config.drawable import Drawable
 from .config.types import Color, JsonType, NumpyArray
 from .map_data import ImageData, RandImageData
 
+
 _LOGGER = logging.getLogger(__name__)
 
 

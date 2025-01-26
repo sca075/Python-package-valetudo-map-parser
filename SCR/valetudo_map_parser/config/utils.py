@@ -4,10 +4,12 @@ import hashlib
 import json
 from dataclasses import dataclass
 from logging import getLogger
+from typing import Callable, List, Optional
 
-from PIL import Image, ImageOps
+from PIL import ImageOps
 
-from .types import ChargerPosition, ImageSize, NumpyArray, RobotPosition
+from .types import ChargerPosition, ImageSize, NumpyArray, PilPNG, RobotPosition
+
 
 _LOGGER = getLogger(__name__)
 
@@ -16,13 +18,13 @@ _LOGGER = getLogger(__name__)
 class ResizeParams:
     """Resize the image to the given dimensions and aspect ratio."""
 
-    pil_img: Image  # PIL image object
+    pil_img: PilPNG
     width: int
     height: int
-    aspect_ratio: str = None
-    crop_size: list = None
-    is_rand: bool = False
-    offset_func: callable = None  # Function reference for offset calculation
+    aspect_ratio: str
+    crop_size: List[int]
+    is_rand: Optional[bool] = False
+    offset_func: Optional[Callable] = None
 
 
 @dataclass
@@ -33,7 +35,7 @@ class OffsetParams:
     hsf: int
     width: int
     height: int
-    rand256: bool = False
+    rand256: Optional[bool] = False
 
 
 class BaseHandler:
@@ -91,7 +93,7 @@ class BaseHandler:
         )
 
     def _set_image_offset_ratio_1_1(
-        self, width: int, height: int, rand256: bool = False
+        self, width: int, height: int, rand256: Optional[bool] = False
     ) -> None:
         """Set the image offset ratio to 1:1."""
 
@@ -118,7 +120,7 @@ class BaseHandler:
         )
 
     def _set_image_offset_ratio_2_1(
-        self, width: int, height: int, rand256: bool = False
+        self, width: int, height: int, rand256: Optional[bool] = False
     ) -> None:
         """Set the image offset ratio to 2:1."""
 
@@ -146,7 +148,7 @@ class BaseHandler:
         )
 
     def _set_image_offset_ratio_3_2(
-        self, width: int, height: int, rand256: bool = False
+        self, width: int, height: int, rand256: Optional[bool] = False
     ) -> None:
         """Set the image offset ratio to 3:2."""
 
@@ -177,7 +179,7 @@ class BaseHandler:
         )
 
     def _set_image_offset_ratio_5_4(
-        self, width: int, height: int, rand256: bool = False
+        self, width: int, height: int, rand256: Optional[bool] = False
     ) -> None:
         """Set the image offset ratio to 5:4."""
 
@@ -209,7 +211,7 @@ class BaseHandler:
         )
 
     def _set_image_offset_ratio_9_16(
-        self, width: int, height: int, rand256: bool = False
+        self, width: int, height: int, rand256: Optional[bool] = False
     ) -> None:
         """Set the image offset ratio to 9:16."""
 
@@ -237,7 +239,7 @@ class BaseHandler:
         )
 
     def _set_image_offset_ratio_16_9(
-        self, width: int, height: int, rand256: bool = False
+        self, width: int, height: int, rand256: Optional[bool] = False
     ) -> None:
         """Set the image offset ratio to 16:9."""
 
@@ -298,8 +300,8 @@ class BaseHandler:
 
     @staticmethod
     async def calculate_array_hash(
-        layers: dict, active: list[int] = None
-    ) -> str or None:
+        layers: dict, active: Optional[List[int]]
+    ) -> str | None:
         """Calculate the hash of the image based on layers and active zones."""
         if layers and active:
             data_to_hash = {
@@ -499,13 +501,14 @@ async def async_resize_image(params: ResizeParams):
             str(hsf),
         )
 
-        if params.crop_size is not None:
+        if (params.crop_size is not None) and (params.offset_func is not None):
             offset = OffsetParams(wsf, hsf, new_width, new_height, params.is_rand)
             params.crop_size[0], params.crop_size[1] = await params.offset_func(offset)
 
         return ImageOps.pad(params.pil_img, (new_width, new_height))
 
     return ImageOps.pad(params.pil_img, (params.width, params.height))
+
 
 def prepare_resize_params(handler, pil_img, rand):
     """Prepare resize parameters for image resizing."""
@@ -516,5 +519,5 @@ def prepare_resize_params(handler, pil_img, rand):
         aspect_ratio=handler.shared.image_aspect_ratio,
         crop_size=handler.crop_img_size,
         offset_func=handler.async_map_coordinates_offset,
-        is_rand=rand
+        is_rand=rand,
     )
