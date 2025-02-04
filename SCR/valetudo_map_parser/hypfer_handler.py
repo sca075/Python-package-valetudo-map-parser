@@ -15,7 +15,7 @@ from PIL import Image
 from .config.auto_crop import AutoCrop
 from .config.drawable import Drawable
 from .config.shared import CameraShared
-from .config.types import COLORS, CalibrationPoints, Colors, RoomsProperties
+from .config.types import COLORS, CalibrationPoints, Colors, RoomsProperties, TrimsData
 from .config.utils import BaseHandler, prepare_resize_params
 from .hypfer_draw import ImageDraw as ImDraw
 from .map_data import ImageData
@@ -42,10 +42,18 @@ class HypferMapImageHandler(BaseHandler):
         self.img_base_layer = None  # numpy array store the map base layer.
         self.active_zones = None  # vacuum active zones.
         self.svg_wait = False  # SVG image creation wait.
-        self.trim_down = 0  # memory stored trims calculated once.
-        self.trim_left = 0  # memory stored trims calculated once.
-        self.trim_right = 0  # memory stored trims calculated once.
-        self.trim_up = 0  # memory stored trims calculated once.
+        self.trim_up = self.shared.trims.get(
+            TrimsData.TRIM_UP, 0
+        )  # memory stored trims calculated once.
+        self.trim_down = self.shared.trims.get(
+            TrimsData.TRIM_DOWN, 0
+        )  # memory stored trims calculated once.
+        self.trim_left = self.shared.trims.get(
+            TrimsData.TRIM_LEFT, 0
+        )  # memory stored trims calculated once.
+        self.trim_right = self.shared.trims.get(
+            TrimsData.TRIM_RIGHT, 0
+        )  # memory stored trims calculated once.
         self.offset_top = self.shared.offset_top  # offset top
         self.offset_bottom = self.shared.offset_down  # offset bottom
         self.offset_left = self.shared.offset_left  # offset left

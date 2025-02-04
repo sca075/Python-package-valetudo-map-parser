@@ -23,6 +23,7 @@ from .config.types import (
     PilPNG,
     RobotPosition,
     RoomsProperties,
+    TrimsData,
 )
 from .config.utils import BaseHandler, prepare_resize_params
 from .map_data import RandImageData
@@ -52,10 +53,18 @@ class ReImageHandler(BaseHandler):
         self.room_propriety = None  # Room propriety data
         self.shared = camera_shared  # Shared data
         self.active_zones = None  # Active zones
-        self.trim_down = None  # Trim down
-        self.trim_left = None  # Trim left
-        self.trim_right = None  # Trim right
-        self.trim_up = None  # Trim up
+        self.trim_up = self.shared.trims.get(
+            TrimsData.TRIM_UP, 0
+        )  # memory stored trims calculated once.
+        self.trim_down = self.shared.trims.get(
+            TrimsData.TRIM_DOWN, 0
+        )  # memory stored trims calculated once.
+        self.trim_left = self.shared.trims.get(
+            TrimsData.TRIM_LEFT, 0
+        )  # memory stored trims calculated once.
+        self.trim_right = self.shared.trims.get(
+            TrimsData.TRIM_RIGHT, 0
+        )  # memory stored trims calculated once.
         self.file_name = self.shared.file_name  # File name
         self.offset_top = self.shared.offset_top  # offset top
         self.offset_bottom = self.shared.offset_down  # offset bottom

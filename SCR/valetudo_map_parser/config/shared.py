@@ -112,6 +112,14 @@ class CameraShared:
         }
         self.skip_room_ids: List[str] = []
 
+    def get_trims_dictionary(self):
+        return {
+            "trim_left": self.trims.get(TrimsData.TRIM_LEFT, 0),
+            "trim_up": self.trims.get(TrimsData.TRIM_UP, 0),
+            "trim_right": self.trims.get(TrimsData.TRIM_RIGHT, 0),
+            "trim_down": self.trims.get(TrimsData.TRIM_DOWN, 0),
+        }
+
     def update_user_colors(self, user_colors):
         """Update the user colors."""
         self.user_colors = user_colors
@@ -228,11 +236,24 @@ class CameraSharedManager:
             instance.vacuum_status_position = device_info.get(
                 CONF_VAC_STAT_POS, DEFAULT_VALUES["vac_status_position"]
             )
-
             # If enable_snapshots, check for png in www.
             instance.enable_snapshots = device_info.get(
                 CONF_SNAPSHOTS_ENABLE, DEFAULT_VALUES["enable_www_snapshots"]
             )
+            instance.trims = {
+                TrimsData.TRIM_LEFT: device_info.get(
+                    "trims_data", DEFAULT_VALUES["trims_data"]
+                ).get("trim_left", 0),
+                TrimsData.TRIM_UP: device_info.get(
+                    "trims_data", DEFAULT_VALUES["trims_data"]
+                ).get("trim_up", 0),
+                TrimsData.TRIM_RIGHT: device_info.get(
+                    "trims_data", DEFAULT_VALUES["trims_data"]
+                ).get("trim_right", 0),
+                TrimsData.TRIM_DOWN: device_info.get(
+                    "trims_data", DEFAULT_VALUES["trims_data"]
+                ).get("trim_down", 0),
+            }
 
         except TypeError as ex:
             _LOGGER.error("Shared data can't be initialized due to a TypeError! %s", ex)

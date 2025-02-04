@@ -28,9 +28,6 @@ class AutoCrop:
     def __init__(self, image_handler):
         self.imh = image_handler
         self.file_name = self.imh.file_name
-        # self.path_to_data = self.hass.config.path(
-        #     STORAGE_DIR, CAMERA_STORAGE, f"auto_crop_{self.file_name}.json"
-        # )
 
     def check_trim(
         self, trimmed_height, trimmed_width, margin_size, image_array, file_name, rotate
@@ -71,19 +68,18 @@ class AutoCrop:
             )
         return trimmed_width, trimmed_height
 
-    async def _async_auto_crop_data(self):  # , tdata=None
+    async def _async_auto_crop_data(self, tdata=None):  # , tdata=None
         """Load the auto crop data from the Camera config."""
-        # todo: implement this method but from config data
-        # if not self.imh.auto_crop:
-        #     trims_data = TrimCropData.from_dict(dict(tdata)).to_list()
-        #     (
-        #         self.imh.trim_left,
-        #         self.imh.trim_up,
-        #         self.imh.trim_right,
-        #         self.imh.trim_down,
-        #     ) = trims_data
-        #     self._calculate_trimmed_dimensions()
-        #     return trims_data
+        if not self.imh.auto_crop:
+            trims_data = TrimCropData.from_dict(dict(tdata)).to_list()
+            (
+                self.imh.trim_left,
+                self.imh.trim_up,
+                self.imh.trim_right,
+                self.imh.trim_down,
+            ) = trims_data
+            self._calculate_trimmed_dimensions()
+            return trims_data
         return None
 
     def auto_crop_offset(self):
@@ -97,25 +93,12 @@ class AutoCrop:
     async def _init_auto_crop(self):
         """Initialize the auto crop data."""
         if not self.imh.auto_crop and self.imh.shared.vacuum_state == "docked":
-            self.imh.auto_crop = await self._async_auto_crop_data()
+            self.imh.auto_crop = await self._async_auto_crop_data(self.imh.shared.trims)
             if self.imh.auto_crop:
                 self.auto_crop_offset()
         else:
             self.imh.max_frames = 5
         return self.imh.auto_crop
-
-    # async def _async_save_auto_crop_data(self):
-    #     """Save the auto crop data to the disk."""
-    #     try:
-    #         if not os.path.exists(self.path_to_data):
-    #             data = TrimCropData(
-    #                 self.imh.trim_left,
-    #                 self.imh.trim_up,
-    #                 self.imh.trim_right,
-    #                 self.imh.trim_down,
-    #             ).to_dict()
-    #     except Exception as e:
-    #         _LOGGER.error(f"Failed to save trim data due to an error: {e}")
 
     async def async_image_margins(
         self, image_array: NumpyArray, detect_colour: Color
