@@ -7,7 +7,6 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass, asdict
-from enum import Enum
 from typing import Any, Dict, Tuple, Union
 
 import numpy as np
@@ -617,6 +616,11 @@ class TrimsData:
         """Convert TrimsConfig instance to a JSON string."""
         return json.dumps(asdict(self))
 
+    @classmethod
+    def from_dict(cls, data: dict):
+        """Initialize TrimData from a dictionary."""
+        return cls(**data)
+
     def to_dict(self) -> dict:
-        """Convert TrimsConfig instance to a dictionary."""
+        """Convert TrimData to a dictionary."""
         return asdict(self)

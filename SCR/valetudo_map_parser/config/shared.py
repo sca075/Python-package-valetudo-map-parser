@@ -6,7 +6,7 @@ Version: v2024.12.0
 
 import asyncio
 import logging
-from typing import Dict, List
+from typing import List
 
 from .types import (
     ATTR_CALIBRATION_POINTS,
@@ -104,7 +104,7 @@ class CameraShared:
         self.map_old_path = None  # Old path data
         self.user_language = None  # User language
         self.trim_crop_data = None
-        self.trims = TrimsData  # Trims data
+        self.trims = TrimsData.from_dict(DEFAULT_VALUES["trims_data"])  # Trims data
         self.skip_room_ids: List[str] = []
 
     def update_user_colors(self, user_colors):
