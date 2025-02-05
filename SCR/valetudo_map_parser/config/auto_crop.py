@@ -8,7 +8,7 @@ import logging
 import numpy as np
 from numpy import rot90
 
-from .types import Color, NumpyArray, TrimCropData
+from .types import Color, NumpyArray, TrimCropData, TrimsData
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -68,10 +68,10 @@ class AutoCrop:
             )
         return trimmed_width, trimmed_height
 
-    async def _async_auto_crop_data(self, tdata=None):  # , tdata=None
+    async def _async_auto_crop_data(self, tdata: TrimsData = None):  # , tdata=None
         """Load the auto crop data from the Camera config."""
         if not self.imh.auto_crop:
-            trims_data = TrimCropData.from_dict(dict(tdata)).to_list()
+            trims_data = TrimCropData.from_dict(dict(tdata.to_dict())).to_list()
             (
                 self.imh.trim_left,
                 self.imh.trim_up,

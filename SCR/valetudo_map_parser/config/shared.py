@@ -104,21 +104,8 @@ class CameraShared:
         self.map_old_path = None  # Old path data
         self.user_language = None  # User language
         self.trim_crop_data = None
-        self.trims: Dict[TrimsData, int] = {
-            TrimsData.TRIM_LEFT: 0,
-            TrimsData.TRIM_UP: 0,
-            TrimsData.TRIM_RIGHT: 0,
-            TrimsData.TRIM_DOWN: 0,
-        }
+        self.trims = TrimsData  # Trims data
         self.skip_room_ids: List[str] = []
-
-    def get_trims_dictionary(self):
-        return {
-            "trim_left": self.trims.get(TrimsData.TRIM_LEFT, 0),
-            "trim_up": self.trims.get(TrimsData.TRIM_UP, 0),
-            "trim_right": self.trims.get(TrimsData.TRIM_RIGHT, 0),
-            "trim_down": self.trims.get(TrimsData.TRIM_DOWN, 0),
-        }
 
     def update_user_colors(self, user_colors):
         """Update the user colors."""
@@ -240,20 +227,9 @@ class CameraSharedManager:
             instance.enable_snapshots = device_info.get(
                 CONF_SNAPSHOTS_ENABLE, DEFAULT_VALUES["enable_www_snapshots"]
             )
-            instance.trims = {
-                TrimsData.TRIM_LEFT: device_info.get(
-                    "trims_data", DEFAULT_VALUES["trims_data"]
-                ).get("trim_left", 0),
-                TrimsData.TRIM_UP: device_info.get(
-                    "trims_data", DEFAULT_VALUES["trims_data"]
-                ).get("trim_up", 0),
-                TrimsData.TRIM_RIGHT: device_info.get(
-                    "trims_data", DEFAULT_VALUES["trims_data"]
-                ).get("trim_right", 0),
-                TrimsData.TRIM_DOWN: device_info.get(
-                    "trims_data", DEFAULT_VALUES["trims_data"]
-                ).get("trim_down", 0),
-            }
+            instance.trims.from_dict(
+                device_info.get("trims_data", DEFAULT_VALUES["trims_data"])
+            )
 
         except TypeError as ex:
             _LOGGER.error("Shared data can't be initialized due to a TypeError! %s", ex)

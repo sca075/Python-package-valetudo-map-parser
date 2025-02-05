@@ -6,7 +6,7 @@ Version 0.0.1
 import asyncio
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from enum import Enum
 from typing import Any, Dict, Tuple, Union
 
@@ -593,10 +593,30 @@ class CameraModes:
     CAMERA_ON = True
 
 
-class TrimsData(Enum):
-    """Constants for the trims data."""
+@dataclass
+class TrimsData:
+    """Dataclass to store and manage trims data."""
 
-    TRIM_LEFT = "trim_left"
-    TRIM_UP = "trim_up"
-    TRIM_RIGHT = "trim_right"
-    TRIM_DOWN = "trim_down"
+    trim_left: int = 0
+    trim_up: int = 0
+    trim_right: int = 0
+    trim_down: int = 0
+
+    @classmethod
+    def from_json(cls, json_data: str):
+        """Create a TrimsConfig instance from a JSON string."""
+        data = json.loads(json_data)
+        return cls(
+            trim_left=data.get("trim_left", 0),
+            trim_up=data.get("trim_up", 0),
+            trim_right=data.get("trim_right", 0),
+            trim_down=data.get("trim_down", 0),
+        )
+
+    def to_json(self) -> str:
+        """Convert TrimsConfig instance to a JSON string."""
+        return json.dumps(asdict(self))
+
+    def to_dict(self) -> dict:
+        """Convert TrimsConfig instance to a dictionary."""
+        return asdict(self)
