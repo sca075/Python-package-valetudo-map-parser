@@ -244,7 +244,7 @@ class AutoCrop:
         """
         try:
             self.auto_crop = await self._init_auto_crop()
-            if self.auto_crop is None:
+            if (self.auto_crop is None) or (self.auto_crop == [0, 0, 0, 0]):
                 _LOGGER.debug("%s: Calculating auto trim box", self.handler.file_name)
                 # Find the coordinates of the first occurrence of a non-background color
                 min_y, min_x, max_x, max_y = await self.async_image_margins(
