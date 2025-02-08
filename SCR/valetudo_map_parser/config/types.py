@@ -6,7 +6,7 @@ Version 0.0.1
 import asyncio
 import json
 import logging
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import Any, Dict, Tuple, Union
 
 import numpy as np

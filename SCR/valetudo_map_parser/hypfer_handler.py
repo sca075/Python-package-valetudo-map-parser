@@ -24,17 +24,16 @@ from .map_data import ImageData
 _LOGGER = logging.getLogger(__name__)
 
 
-class HypferMapImageHandler(BaseHandler):
+class HypferMapImageHandler(BaseHandler, AutoCrop):
     """Map Image Handler Class.
     This class is used to handle the image data and the drawing of the map."""
 
     def __init__(self, shared_data: CameraShared):
         """Initialize the Map Image Handler."""
         BaseHandler.__init__(self)
+        AutoCrop.__init__(self, BaseHandler)
         self.shared = shared_data  # camera shared data
-        self.auto_crop = None  # auto crop data to be calculate once.
         self.calibration_data = None  # camera shared data.
-        self.crop_area = None  # module shared for calibration data.
         self.data = ImageData  # imported Image Data Module.
         self.draw = Drawable  # imported Drawing utilities
         self.go_to = None  # vacuum go to data
@@ -42,18 +41,7 @@ class HypferMapImageHandler(BaseHandler):
         self.img_base_layer = None  # numpy array store the map base layer.
         self.active_zones = None  # vacuum active zones.
         self.svg_wait = False  # SVG image creation wait.
-        trim_data = self.shared.trims.to_dict()  # trims data
-        _LOGGER.debug("Trim Data: %s", str(trim_data))
-        self.trim_up = trim_data.get("trim_up", 0)  # trim up
-        self.trim_down = trim_data.get("trim_down", 0)  # trim down
-        self.trim_left = trim_data.get("trim_left", 0)  # trim left
-        self.trim_right = trim_data.get("trim_right", 0)  # trim right
-        self.offset_top = self.shared.offset_top  # offset top
-        self.offset_bottom = self.shared.offset_down  # offset bottom
-        self.offset_left = self.shared.offset_left  # offset left
-        self.offset_right = self.shared.offset_right  # offset right
-        self.imd = ImDraw(self)
-        self.ac = AutoCrop(self, self.shared)
+        self.imd = ImDraw(self)  # Image Draw class.
         self.color_grey = (128, 128, 128, 255)
         self.file_name = self.shared.file_name  # file name of the vacuum.
 
@@ -233,7 +221,7 @@ class HypferMapImageHandler(BaseHandler):
                         robot_state=self.shared.vacuum_state,
                     )
                 # Resize the image
-                img_np_array = await self.ac.async_auto_trim_and_zoom_image(
+                img_np_array = await self.async_auto_trim_and_zoom_image(
                     img_np_array,
                     colors["background"],
                     int(self.shared.margins),

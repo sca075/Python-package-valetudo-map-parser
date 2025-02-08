@@ -33,38 +33,27 @@ _LOGGER = logging.getLogger(__name__)
 
 
 # noinspection PyTypeChecker
-class ReImageHandler(BaseHandler):
+class ReImageHandler(BaseHandler, AutoCrop):
     """
     Image Handler for Valetudo Re Vacuums.
     """
 
-    def __init__(self, camera_shared):
+    def __init__(self, shared_data):
         BaseHandler.__init__(self)
+        AutoCrop.__init__(self, BaseHandler)
         self.auto_crop = None  # Auto crop flag
         self.segment_data = None  # Segment data
         self.outlines = None  # Outlines data
         self.calibration_data = None  # Calibration data
-        self.crop_area = None  # Crop area
         self.data = RandImageData  # Image Data
         self.go_to = None  # Go to position data
         self.img_base_layer = None  # Base image layer
-        self.img_rotate = camera_shared.image_rotate  # Image rotation
+        self.img_rotate = shared_data.image_rotate  # Image rotation
         self.room_propriety = None  # Room propriety data
-        self.shared = camera_shared  # Shared data
+        self.shared = shared_data  # Shared data
         self.active_zones = None  # Active zones
-        trim_data = self.shared.trims.to_dict()  # trims data
-        _LOGGER.debug("Trim Data: %s", trim_data)
-        self.trim_up = trim_data.get("trim_up", 0)  # trim up
-        self.trim_down = trim_data.get("trim_down", 0)  # trim down
-        self.trim_left = trim_data.get("trim_left", 0)  # trim left
-        self.trim_right = trim_data.get("trim_right", 0)  # trim right
         self.file_name = self.shared.file_name  # File name
-        self.offset_top = self.shared.offset_top  # offset top
-        self.offset_bottom = self.shared.offset_down  # offset bottom
-        self.offset_left = self.shared.offset_left  # offset left
-        self.offset_right = self.shared.offset_right  # offset right
         self.imd = ImageDraw(self)  # Image Draw
-        self.crop = AutoCrop(self, self.shared)
 
     async def extract_room_properties(
         self, json_data: JsonType, destinations: JsonType
@@ -248,7 +237,7 @@ class ReImageHandler(BaseHandler):
         img_np_array = await self.imd.async_draw_robot_on_map(
             img_np_array, robot_position, robot_position_angle, colors["robot"]
         )
-        img_np_array = await self.crop.async_auto_trim_and_zoom_image(
+        img_np_array = await self.async_auto_trim_and_zoom_image(
             img_np_array,
             detect_colour=colors["background"],
             margin_size=int(self.shared.margins),
