@@ -29,6 +29,14 @@ class AutoCrop:
         self.imh = image_handler
         self.file_name = self.imh.file_name
 
+    def validate_crop_dimensions(self, shared):
+        """Ensure width and height are valid before processing cropping."""
+        if shared.image_ref_width <= 0 or shared.image_ref_height <= 0:
+            _LOGGER.warning("Auto-crop failed: Invalid dimensions (width=%s, height=%s). Using original image.",
+                            shared.image_ref_width, shared.image_ref_height)
+            return False
+        return True
+
     def check_trim(
         self, trimmed_height, trimmed_width, margin_size, image_array, file_name, rotate
     ):
@@ -201,7 +209,10 @@ class AutoCrop:
         Automatically crops and trims a numpy array and returns the processed image.
         """
         try:
-            await self._init_auto_crop()
+            if self.validate_crop_dimensions(self.imh.shared):
+                await self._init_auto_crop()
+            else:
+                return image_array
             if self.imh.auto_crop is None:
                 _LOGGER.debug("%s: Calculating auto trim box", self.file_name)
                 # Find the coordinates of the first occurrence of a non-background color

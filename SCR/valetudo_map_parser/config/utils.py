@@ -485,8 +485,13 @@ async def async_resize_image(params: ResizeParams):
     """Resize the image to the given dimensions and aspect ratio."""
     if params.aspect_ratio:
         wsf, hsf = [int(x) for x in params.aspect_ratio.split(",")]
-        if wsf == 0 or hsf == 0:
-            return params.pil_img
+
+        if wsf == 0 or hsf == 0 or params.width <= 0 or params.height <= 0:
+            _LOGGER.warning(
+                "Invalid aspect ratio parameters: width=%s, height=%s, wsf=%s, hsf=%s. Returning original image.",
+                params.width, params.height, wsf, hsf)
+            return params.pil_img  # Return original image if invalid
+
         new_aspect_ratio = wsf / hsf
         if params.width / params.height > new_aspect_ratio:
             new_width = int(params.pil_img.height * new_aspect_ratio)
@@ -495,11 +500,7 @@ async def async_resize_image(params: ResizeParams):
             new_width = params.pil_img.width
             new_height = int(params.pil_img.width / new_aspect_ratio)
 
-        _LOGGER.debug(
-            "Image Aspect Ratio: %s, %s",
-            str(wsf),
-            str(hsf),
-        )
+        _LOGGER.debug("Resizing image to aspect ratio: %s, %s", wsf, hsf)
 
         if (params.crop_size is not None) and (params.offset_func is not None):
             offset = OffsetParams(wsf, hsf, new_width, new_height, params.is_rand)

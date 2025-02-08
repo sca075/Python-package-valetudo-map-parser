@@ -53,6 +53,7 @@ class ReImageHandler(BaseHandler):
         self.shared = camera_shared  # Shared data
         self.active_zones = None  # Active zones
         trim_data = self.shared.trims.to_dict()  # trims data
+        _LOGGER.debug("Trim Data: %s", trim_data)
         self.trim_up = trim_data.get("trim_up", 0)  # trim up
         self.trim_down = trim_data.get("trim_down", 0)  # trim down
         self.trim_left = trim_data.get("trim_left", 0)  # trim left
@@ -258,6 +259,9 @@ class ReImageHandler(BaseHandler):
         return img_np_array
 
     async def _finalize_image(self, pil_img):
+        if not self.shared.image_ref_width or not self.shared.image_ref_height:
+            _LOGGER.warning("Image finalization failed: Invalid image dimensions. Returning original image.")
+            return pil_img
         if self.check_zoom_and_aspect_ratio():
             resize_params = prepare_resize_params(self, pil_img, True)
             pil_img = await self.async_resize_images(resize_params)

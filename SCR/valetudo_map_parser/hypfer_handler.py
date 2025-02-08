@@ -43,6 +43,7 @@ class HypferMapImageHandler(BaseHandler):
         self.active_zones = None  # vacuum active zones.
         self.svg_wait = False  # SVG image creation wait.
         trim_data = self.shared.trims.to_dict()  # trims data
+        _LOGGER.debug("Trim Data: %s", str(trim_data))
         self.trim_up = trim_data.get("trim_up", 0)  # trim up
         self.trim_down = trim_data.get("trim_down", 0)  # trim down
         self.trim_left = trim_data.get("trim_left", 0)  # trim left
