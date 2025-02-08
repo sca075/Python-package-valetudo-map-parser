@@ -64,7 +64,7 @@ class ReImageHandler(BaseHandler):
         self.offset_left = self.shared.offset_left  # offset left
         self.offset_right = self.shared.offset_right  # offset right
         self.imd = ImageDraw(self)  # Image Draw
-        self.crop = AutoCrop(self)
+        self.crop = AutoCrop(self, self.shared)
 
     async def extract_room_properties(
         self, json_data: JsonType, destinations: JsonType
@@ -260,7 +260,9 @@ class ReImageHandler(BaseHandler):
 
     async def _finalize_image(self, pil_img):
         if not self.shared.image_ref_width or not self.shared.image_ref_height:
-            _LOGGER.warning("Image finalization failed: Invalid image dimensions. Returning original image.")
+            _LOGGER.warning(
+                "Image finalization failed: Invalid image dimensions. Returning original image."
+            )
             return pil_img
         if self.check_zoom_and_aspect_ratio():
             resize_params = prepare_resize_params(self, pil_img, True)

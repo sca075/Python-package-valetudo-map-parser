@@ -489,7 +489,11 @@ async def async_resize_image(params: ResizeParams):
         if wsf == 0 or hsf == 0 or params.width <= 0 or params.height <= 0:
             _LOGGER.warning(
                 "Invalid aspect ratio parameters: width=%s, height=%s, wsf=%s, hsf=%s. Returning original image.",
-                params.width, params.height, wsf, hsf)
+                params.width,
+                params.height,
+                wsf,
+                hsf,
+            )
             return params.pil_img  # Return original image if invalid
 
         new_aspect_ratio = wsf / hsf

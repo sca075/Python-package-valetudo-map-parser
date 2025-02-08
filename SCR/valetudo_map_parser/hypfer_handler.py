@@ -53,7 +53,7 @@ class HypferMapImageHandler(BaseHandler):
         self.offset_left = self.shared.offset_left  # offset left
         self.offset_right = self.shared.offset_right  # offset right
         self.imd = ImDraw(self)
-        self.ac = AutoCrop(self)
+        self.ac = AutoCrop(self, self.shared)
         self.color_grey = (128, 128, 128, 255)
         self.file_name = self.shared.file_name  # file name of the vacuum.
 

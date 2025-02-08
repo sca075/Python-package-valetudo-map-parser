@@ -25,16 +25,20 @@ class TrimError(Exception):
 class AutoCrop:
     """Auto Crop Class for trimming and zooming images."""
 
-    def __init__(self, image_handler):
+    def __init__(self, image_handler, shared):
         self.imh = image_handler
-        self.file_name = self.imh.file_name
+        self.file_name = shared.file_name
+        self.shared = shared
 
     @staticmethod
     def validate_crop_dimensions(shared):
         """Ensure width and height are valid before processing cropping."""
         if shared.image_ref_width <= 0 or shared.image_ref_height <= 0:
-            _LOGGER.warning("Auto-crop failed: Invalid dimensions (width=%s, height=%s). Using original image.",
-                            shared.image_ref_width, shared.image_ref_height)
+            _LOGGER.warning(
+                "Auto-crop failed: Invalid dimensions (width=%s, height=%s). Using original image.",
+                shared.image_ref_width,
+                shared.image_ref_height,
+            )
             return False
         return True
 
@@ -66,18 +70,18 @@ class AutoCrop:
             ),
         )
         # Ensure shared reference dimensions are updated
-        if hasattr(self.imh.shared, "image_ref_height") and hasattr(
-            self.imh.shared, "image_ref_width"
+        if hasattr(self.shared, "image_ref_height") and hasattr(
+            self.shared, "image_ref_width"
         ):
-            self.imh.shared.image_ref_height = trimmed_height
-            self.imh.shared.image_ref_width = trimmed_width
+            self.shared.image_ref_height = trimmed_height
+            self.shared.image_ref_width = trimmed_width
         else:
             _LOGGER.warning(
                 "Shared attributes for image dimensions are not initialized."
             )
         return trimmed_width, trimmed_height
 
-    async def _async_auto_crop_data(self, tdata: TrimsData = None):  # , tdata=None
+    async def _async_auto_crop_data(self, tdata: TrimsData):  # , tdata=None
         """Load the auto crop data from the Camera config."""
         if not self.imh.auto_crop:
             trims_data = TrimCropData.from_dict(dict(tdata.to_dict())).to_list()
@@ -101,8 +105,8 @@ class AutoCrop:
 
     async def _init_auto_crop(self):
         """Initialize the auto crop data."""
-        if not self.imh.auto_crop and self.imh.shared.vacuum_state == "docked":
-            self.imh.auto_crop = await self._async_auto_crop_data(self.imh.shared.trims)
+        if not self.imh.auto_crop and self.shared.vacuum_state == "docked":
+            self.imh.auto_crop = await self._async_auto_crop_data(self.shared.trims)
             if self.imh.auto_crop:
                 self.auto_crop_offset()
         else:
@@ -139,8 +143,8 @@ class AutoCrop:
 
         if (
             zoom
-            and self.imh.shared.vacuum_state == "cleaning"
-            and self.imh.shared.image_auto_zoom
+            and self.shared.vacuum_state == "cleaning"
+            and self.shared.image_auto_zoom
         ):
             # Zoom the image based on the robot's position.
             _LOGGER.debug(
@@ -247,7 +251,7 @@ class AutoCrop:
                     self.imh.trim_right,
                     self.imh.trim_down,
                 ).to_list()
-                # if self.imh.shared.vacuum_state == "docked":
+                # if self.shared.vacuum_state == "docked":
                 #     await (
                 #         self._async_save_auto_crop_data()
                 #     )  # Save the crop data to the disk
