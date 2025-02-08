@@ -40,7 +40,8 @@ class ReImageHandler(BaseHandler, AutoCrop):
 
     def __init__(self, shared_data):
         BaseHandler.__init__(self)
-        AutoCrop.__init__(self, BaseHandler)
+        self.shared = shared_data  # Shared data
+        AutoCrop.__init__(self, self)
         self.auto_crop = None  # Auto crop flag
         self.segment_data = None  # Segment data
         self.outlines = None  # Outlines data
@@ -50,7 +51,6 @@ class ReImageHandler(BaseHandler, AutoCrop):
         self.img_base_layer = None  # Base image layer
         self.img_rotate = shared_data.image_rotate  # Image rotation
         self.room_propriety = None  # Room propriety data
-        self.shared = shared_data  # Shared data
         self.active_zones = None  # Active zones
         self.file_name = self.shared.file_name  # File name
         self.imd = ImageDraw(self)  # Image Draw

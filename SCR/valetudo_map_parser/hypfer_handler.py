@@ -31,8 +31,8 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
     def __init__(self, shared_data: CameraShared):
         """Initialize the Map Image Handler."""
         BaseHandler.__init__(self)
-        AutoCrop.__init__(self, BaseHandler)
         self.shared = shared_data  # camera shared data
+        AutoCrop.__init__(self, self)
         self.calibration_data = None  # camera shared data.
         self.data = ImageData  # imported Image Data Module.
         self.draw = Drawable  # imported Drawing utilities
