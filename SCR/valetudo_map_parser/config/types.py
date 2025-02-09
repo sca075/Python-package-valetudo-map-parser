@@ -7,7 +7,7 @@ import asyncio
 import json
 import logging
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Dict, Tuple, Union, Optional
 
 import numpy as np
 from PIL import Image
@@ -74,44 +74,43 @@ class TrimCropData:
         )
 
 
-# pylint: disable=no-member
 class RoomStore:
-    """Store the room data for the vacuum."""
+    """Singleton RoomStore to store room data per vacuum."""
 
-    _instance = None
-    _lock = asyncio.Lock()
+    _instances: Dict[str, "RoomStore"] = {}  # Stores instances by vacuum ID
+    _lock = asyncio.Lock()  # Ensures thread-safe access
 
-    def __init__(self):
-        self.vacuums_data = {}
+    def __new__(cls, vacuum_id: str, rooms_data: Optional[dict] = None) -> "RoomStore":
+        """Create a new instance or return an existing one."""
+        if vacuum_id not in cls._instances:
+            instance = super().__new__(cls)
+            instance.vacuum_id = vacuum_id
+            instance.vacuums_data = rooms_data or {}  # Store room data
+            cls._instances[vacuum_id] = instance  # Store the instance
+        return cls._instances[vacuum_id]
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(RoomStore, cls).__new__(cls)
-            cls._instance.vacuums_data = {}
-        return cls._instance
+    def __init__(self, vacuum_id: str, rooms_data: Optional[dict] = None):
+        """Initialize the instance."""
+        self.vacuum_id = vacuum_id
+        self.vacuums_data = rooms_data or {}
 
-    async def async_set_rooms_data(self, vacuum_id: str, rooms_data: dict) -> None:
-        """Set the room data for the vacuum."""
-        print("Setting room data")
-        async with self._lock:
-            self.vacuums_data[vacuum_id] = rooms_data
+    def get_rooms(self) -> dict:
+        """Return the stored rooms data."""
+        return self.vacuums_data
 
-    async def async_get_rooms_data(self, vacuum_id: str) -> dict:
-        """Get the room data for a vacuum."""
-        async with self._lock:
-            data = self.vacuums_data.get(vacuum_id, {})
-            if isinstance(data, str):
-                json_data = json.loads(data)
-                return json_data
-            return data
+    def set_rooms(self, rooms_data: dict) -> None:
+        """Update the rooms data."""
+        self.vacuums_data = rooms_data
 
-    async def async_get_rooms_count(self, vacuum_id: str) -> int:
-        """Count the number of rooms for a vacuum."""
-        async with self._lock:
-            count = len(self.vacuums_data.get(vacuum_id, {}))
-            if count == 0:
-                return DEFAULT_ROOMS
-            return count
+    def get_rooms_count(self) -> int:
+        """Return the number of rooms stored for this vacuum."""
+        return len(self.vacuums_data)
+
+    @classmethod
+    def get_all_instances(cls) -> Dict[str, "RoomStore"]:
+        """Return all active instances (for debugging)."""
+        return cls._instances
+
 
 
 # pylint: disable=no-member

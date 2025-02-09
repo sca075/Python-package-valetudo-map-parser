@@ -121,8 +121,8 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     _LOGGER.debug(
                         "%s: Rooms and Zones data not available!", self.file_name
                     )
-                rooms = RoomStore()
-                await rooms.async_set_rooms_data(self.file_name, room_properties)
+                rooms = RoomStore(self.file_name, room_properties)
+                _LOGGER.debug("Rooms Data: %s", rooms.get_rooms())
                 return room_properties, zone_properties, point_properties
         except RuntimeError as e:
             _LOGGER.debug(
