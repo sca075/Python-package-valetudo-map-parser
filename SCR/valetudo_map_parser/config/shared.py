@@ -123,6 +123,10 @@ class CameraShared:
         """Get the rooms colors."""
         return self.rooms_colors
 
+    def reset_trims(self) -> dict:
+        """Reset the trims."""
+        return self.trims.clear()
+
     async def batch_update(self, **kwargs):
         """Batch update multiple attributes."""
         for key, value in kwargs.items():
@@ -172,6 +176,7 @@ class CameraSharedManager:
         self._lock = asyncio.Lock()
         self.file_name = file_name
         self.device_info = device_info
+        self.update_shared_data(device_info)
 
         # Automatically initialize shared data for the instance
         # self._init_shared_data(device_info)
@@ -227,9 +232,12 @@ class CameraSharedManager:
             instance.enable_snapshots = device_info.get(
                 CONF_SNAPSHOTS_ENABLE, DEFAULT_VALUES["enable_www_snapshots"]
             )
-            instance.trims.from_dict(
-                device_info.get("trims_data", DEFAULT_VALUES["trims_data"])
-            )
+            # Ensure trims are updated correctly
+            trim_data = device_info.get("trims_data", DEFAULT_VALUES["trims_data"])
+            _LOGGER.debug("Updating shared trims with: %s", trim_data)
+            instance.trims = TrimsData.from_dict(trim_data)
+
+            _LOGGER.debug("Shared trims successfully updated: %s", instance.trims.to_dict())
 
         except TypeError as ex:
             _LOGGER.error("Shared data can't be initialized due to a TypeError! %s", ex)

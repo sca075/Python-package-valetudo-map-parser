@@ -27,6 +27,7 @@ from .config.types import (
 from .config.utils import BaseHandler, prepare_resize_params
 from .map_data import RandImageData
 from .reimg_draw import ImageDraw
+from .config.types import RoomStore
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -120,6 +121,8 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     _LOGGER.debug(
                         "%s: Rooms and Zones data not available!", self.file_name
                     )
+                rooms = RoomStore()
+                await rooms.async_set_rooms_data(self.file_name, room_properties)
                 return room_properties, zone_properties, point_properties
         except RuntimeError as e:
             _LOGGER.debug(

@@ -58,7 +58,7 @@ class BaseHandler:
         self.crop_img_size = [0, 0]
         self.offset_x = 0
         self.offset_y = 0
-        self.crop_area = [0, 0, 0, 0]
+        self.crop_area = None
         self.zooming = False
         self.async_resize_images = async_resize_image
 
@@ -495,7 +495,10 @@ async def async_resize_image(params: ResizeParams):
                 hsf,
             )
             return params.pil_img  # Return original image if invalid
-
+        if params.width == 0:
+            params.width = params.pil_img.width
+        if params.height == 0:
+            params.height = params.pil_img.height
         new_aspect_ratio = wsf / hsf
         if params.width / params.height > new_aspect_ratio:
             new_width = int(params.pil_img.height * new_aspect_ratio)
@@ -505,6 +508,7 @@ async def async_resize_image(params: ResizeParams):
             new_height = int(params.pil_img.width / new_aspect_ratio)
 
         _LOGGER.debug("Resizing image to aspect ratio: %s, %s", wsf, hsf)
+        _LOGGER.debug("New image size: %s x %s", new_width, new_height)
 
         if (params.crop_size is not None) and (params.offset_func is not None):
             offset = OffsetParams(wsf, hsf, new_width, new_height, params.is_rand)

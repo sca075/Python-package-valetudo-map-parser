@@ -15,7 +15,7 @@ from PIL import Image
 from .config.auto_crop import AutoCrop
 from .config.drawable import Drawable
 from .config.shared import CameraShared
-from .config.types import COLORS, CalibrationPoints, Colors, RoomsProperties
+from .config.types import COLORS, CalibrationPoints, Colors, RoomsProperties, RoomStore
 from .config.utils import BaseHandler, prepare_resize_params
 from .hypfer_draw import ImageDraw as ImDraw
 from .map_data import ImageData
@@ -83,6 +83,8 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                         "y": ((y_min + y_max) // 2),
                     }
         if room_properties:
+            rooms = RoomStore()
+            await rooms.async_set_rooms_data(self.file_name, room_properties)
             _LOGGER.debug("%s: Rooms data extracted!", self.file_name)
         else:
             _LOGGER.debug("%s: Rooms data not available!", self.file_name)

@@ -92,6 +92,7 @@ class RoomStore:
 
     async def async_set_rooms_data(self, vacuum_id: str, rooms_data: dict) -> None:
         """Set the room data for the vacuum."""
+        print("Setting room data")
         async with self._lock:
             self.vacuums_data[vacuum_id] = rooms_data
 
@@ -623,4 +624,12 @@ class TrimsData:
 
     def to_dict(self) -> dict:
         """Convert TrimData to a dictionary."""
+        return asdict(self)
+
+    def clear(self)-> dict:
+        """Clear all the trims."""
+        self.trim_left = 0
+        self.trim_up = 0
+        self.trim_right = 0
+        self.trim_down = 0
         return asdict(self)

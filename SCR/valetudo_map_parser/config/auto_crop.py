@@ -90,6 +90,7 @@ class AutoCrop:
 
     async def _async_auto_crop_data(self, tdata: TrimsData):  # , tdata=None
         """Load the auto crop data from the Camera config."""
+        _LOGGER.debug("Auto Crop data: %s, %s", str(tdata), str(self.auto_crop))
         if not self.auto_crop:
             trims_data = TrimCropData.from_dict(dict(tdata.to_dict())).to_list()
             (
@@ -98,9 +99,12 @@ class AutoCrop:
                 self.trim_right,
                 self.trim_down,
             ) = trims_data
-            self._calculate_trimmed_dimensions()
+            _LOGGER.debug("Auto Crop trims data: %s", trims_data)
+            if trims_data != [0, 0, 0, 0]:
+                self._calculate_trimmed_dimensions()
+            else:
+                trims_data = None
             return trims_data
-        _LOGGER.debug("No Crop data found in the Camera config.")
         return None
 
     def auto_crop_offset(self):
@@ -113,7 +117,9 @@ class AutoCrop:
 
     async def _init_auto_crop(self):
         """Initialize the auto crop data."""
-        if not self.auto_crop and self.handler.shared.vacuum_state == "docked":
+        _LOGGER.debug("Auto Crop Init data: %s", str(self.auto_crop))
+        _LOGGER.debug("Auto Crop Init trims data: %s", self.handler.shared.trims.to_dict())
+        if not self.auto_crop:  # and self.handler.shared.vacuum_state == "docked":
             self.auto_crop = await self._async_auto_crop_data(self.handler.shared.trims)
             if self.auto_crop:
                 self.auto_crop_offset()
