@@ -237,7 +237,9 @@ class CameraSharedManager:
             _LOGGER.debug("Updating shared trims with: %s", trim_data)
             instance.trims = TrimsData.from_dict(trim_data)
 
-            _LOGGER.debug("Shared trims successfully updated: %s", instance.trims.to_dict())
+            _LOGGER.debug(
+                "Shared trims successfully updated: %s", instance.trims.to_dict()
+            )
 
         except TypeError as ex:
             _LOGGER.error("Shared data can't be initialized due to a TypeError! %s", ex)

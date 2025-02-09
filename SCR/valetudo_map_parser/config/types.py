@@ -6,8 +6,9 @@ Version 0.0.1
 import asyncio
 import json
 import logging
+import threading
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, Tuple, Union, Optional
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 from PIL import Image
@@ -75,42 +76,55 @@ class TrimCropData:
 
 
 class RoomStore:
-    """Singleton RoomStore to store room data per vacuum."""
+    """
+    Singleton RoomStore per vacuum_id.
 
-    _instances: Dict[str, "RoomStore"] = {}  # Stores instances by vacuum ID
-    _lock = asyncio.Lock()  # Ensures thread-safe access
+    This class stores room data (a dictionary) for each vacuum.
+    Calling RoomStore(vacuum_id, rooms_data) creates a new instance for that vacuum_id if it doesn't exist,
+    or returns the existing one (optionally updating the data if rooms_data is provided).
+    """
+
+    _instances: Dict[str, "RoomStore"] = {}
+    _lock = threading.Lock()
+
+    # Declare instance attributes for static analysis tools like Pylint
+    vacuum_id: str
+    vacuums_data: dict
 
     def __new__(cls, vacuum_id: str, rooms_data: Optional[dict] = None) -> "RoomStore":
-        """Create a new instance or return an existing one."""
-        if vacuum_id not in cls._instances:
-            instance = super().__new__(cls)
-            instance.vacuum_id = vacuum_id
-            instance.vacuums_data = rooms_data or {}  # Store room data
-            cls._instances[vacuum_id] = instance  # Store the instance
+        with cls._lock:
+            if vacuum_id not in cls._instances:
+                instance = super(RoomStore, cls).__new__(cls)
+                instance.vacuum_id = vacuum_id
+                instance.vacuums_data = rooms_data or {}
+                cls._instances[vacuum_id] = instance
+            else:
+                # Update the instance's data if new rooms_data is provided.
+                if rooms_data is not None:
+                    cls._instances[vacuum_id].vacuums_data = rooms_data
         return cls._instances[vacuum_id]
-
-    def __init__(self, vacuum_id: str, rooms_data: Optional[dict] = None):
-        """Initialize the instance."""
-        self.vacuum_id = vacuum_id
-        self.vacuums_data = rooms_data or {}
 
     def get_rooms(self) -> dict:
         """Return the stored rooms data."""
         return self.vacuums_data
 
     def set_rooms(self, rooms_data: dict) -> None:
-        """Update the rooms data."""
+        """Update the stored rooms data."""
         self.vacuums_data = rooms_data
 
     def get_rooms_count(self) -> int:
-        """Return the number of rooms stored for this vacuum."""
-        return len(self.vacuums_data)
+        """
+        Return the number of rooms stored for this vacuum.
+        This is simply the number of keys in the vacuums_data dictionary.
+        """
+        if isinstance(self.vacuums_data, dict):
+            return len(self.vacuums_data)
+        return DEFAULT_ROOMS
 
     @classmethod
     def get_all_instances(cls) -> Dict[str, "RoomStore"]:
-        """Return all active instances (for debugging)."""
+        """Return all active RoomStore instances (useful for debugging)."""
         return cls._instances
-
 
 
 # pylint: disable=no-member
@@ -625,7 +639,7 @@ class TrimsData:
         """Convert TrimData to a dictionary."""
         return asdict(self)
 
-    def clear(self)-> dict:
+    def clear(self) -> dict:
         """Clear all the trims."""
         self.trim_left = 0
         self.trim_up = 0

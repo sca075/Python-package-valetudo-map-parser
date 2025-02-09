@@ -84,7 +84,9 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                     }
         if room_properties:
             rooms = RoomStore(self.file_name, room_properties)
-            _LOGGER.debug("%s: Rooms data extracted! %s", self.file_name, rooms.get_rooms())
+            _LOGGER.debug(
+                "%s: Rooms data extracted! %s", self.file_name, rooms.get_rooms()
+            )
         else:
             _LOGGER.debug("%s: Rooms data not available!", self.file_name)
             self.rooms_pos = None

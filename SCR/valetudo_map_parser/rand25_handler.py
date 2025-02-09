@@ -23,11 +23,11 @@ from .config.types import (
     PilPNG,
     RobotPosition,
     RoomsProperties,
+    RoomStore,
 )
 from .config.utils import BaseHandler, prepare_resize_params
 from .map_data import RandImageData
 from .reimg_draw import ImageDraw
-from .config.types import RoomStore
 
 
 _LOGGER = logging.getLogger(__name__)
