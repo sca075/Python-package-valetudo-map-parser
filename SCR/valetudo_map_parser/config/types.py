@@ -118,7 +118,8 @@ class RoomStore:
         This is simply the number of keys in the vacuums_data dictionary.
         """
         if isinstance(self.vacuums_data, dict):
-            return len(self.vacuums_data)
+            if len(self.vacuums_data) != 0:
+                return len(self.vacuums_data)
         return DEFAULT_ROOMS
 
     @classmethod
