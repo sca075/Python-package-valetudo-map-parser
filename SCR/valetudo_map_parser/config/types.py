@@ -116,10 +116,11 @@ class RoomStore:
         """
         Return the number of rooms stored for this vacuum.
         This is simply the number of keys in the vacuums_data dictionary.
+        If no data is stored, return the default number of rooms.
         """
         if isinstance(self.vacuums_data, dict):
-            if len(self.vacuums_data) != 0:
-                return len(self.vacuums_data)
+            count = len(self.vacuums_data)
+            return count if count > 0 else DEFAULT_ROOMS
         return DEFAULT_ROOMS
 
     @classmethod
@@ -607,6 +608,7 @@ class CameraModes:
     CAMERA_ON = True
 
 
+# noinspection PyTypeChecker
 @dataclass
 class TrimsData:
     """Dataclass to store and manage trims data."""
