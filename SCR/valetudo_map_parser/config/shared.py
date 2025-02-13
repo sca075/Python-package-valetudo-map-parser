@@ -234,12 +234,10 @@ class CameraSharedManager:
             )
             # Ensure trims are updated correctly
             trim_data = device_info.get("trims_data", DEFAULT_VALUES["trims_data"])
-            _LOGGER.debug("Updating shared trims with: %s", trim_data)
-            instance.trims = TrimsData.from_dict(trim_data)
-
             _LOGGER.debug(
-                "Shared trims successfully updated: %s", instance.trims.to_dict()
+                "%s: Updating shared trims with: %s", instance.file_name, trim_data
             )
+            instance.trims = TrimsData.from_dict(trim_data)
 
         except TypeError as ex:
             _LOGGER.error("Shared data can't be initialized due to a TypeError! %s", ex)

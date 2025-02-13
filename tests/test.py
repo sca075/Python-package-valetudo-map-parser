@@ -139,9 +139,9 @@ class TestImageHandler:
         store = RoomStore("test_vacuum")
         rooms_data = await handler.async_get_rooms_attributes()
         _LOGGER.info(f"Room Properties: {rooms_data}")
-        count = await store.async_get_rooms_count()
+        count = store.get_rooms_count()
         _LOGGER.info(f"Room Store Properties: {store.get_rooms_count()}, {count}")
-
+        _LOGGER.info(f"trims update: {shared.trims.to_dict()}")
         self.image.show()
 
 

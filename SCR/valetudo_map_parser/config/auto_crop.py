@@ -31,7 +31,6 @@ class AutoCrop:
         self.crop_area = None
         self.handler = handler
         trim_data = self.handler.shared.trims.to_dict()  # trims data
-        _LOGGER.debug("Trim Data: %s", str(trim_data))
         self.trim_up = trim_data.get("trim_up", 0)  # trim up
         self.trim_down = trim_data.get("trim_down", 0)  # trim down
         self.trim_left = trim_data.get("trim_left", 0)  # trim left
