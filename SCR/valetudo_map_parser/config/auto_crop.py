@@ -288,10 +288,15 @@ class AutoCrop:
                     self.trim_right,
                     self.trim_down,
                 ).to_list()
-                # if self.handler.shared.vacuum_state == "docked":
-                #     await (
-                #         self._async_save_auto_crop_data()
-                #     )  # Save the crop data to the disk
+                # Update the trims data in the shared instance
+                self.handler.shared.trims = TrimsData.from_dict(
+                    {
+                        "trim_left": self.trim_left,
+                        "trim_up": self.trim_up,
+                        "trim_right": self.trim_right,
+                        "trim_down": self.trim_down,
+                    }
+                )
                 self.auto_crop_offset()
             # If it is needed to zoom the image.
             trimmed = await self.async_check_if_zoom_is_on(
