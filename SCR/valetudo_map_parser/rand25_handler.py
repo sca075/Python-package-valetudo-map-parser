@@ -124,7 +124,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 rooms = RoomStore(self.file_name, room_properties)
                 _LOGGER.debug("Rooms Data: %s", rooms.get_rooms())
                 return room_properties, zone_properties, point_properties
-        except RuntimeError as e:
+        except (RuntimeError, ValueError) as e:
             _LOGGER.debug(
                 "No rooms Data or Error in extract_room_properties: %s",
                 e,
