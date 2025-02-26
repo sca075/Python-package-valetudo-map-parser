@@ -125,7 +125,8 @@ class CameraShared:
 
     def reset_trims(self) -> dict:
         """Reset the trims."""
-        return self.trims.clear()
+        self.trims = TrimsData.from_dict(DEFAULT_VALUES["trims_data"])
+        return self.trims
 
     async def batch_update(self, **kwargs):
         """Batch update multiple attributes."""

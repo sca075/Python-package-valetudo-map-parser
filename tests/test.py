@@ -4,6 +4,8 @@ import asyncio
 import json
 import logging
 import os
+import cProfile
+import pstats
 
 from SCR.valetudo_map_parser.config.colors_man import ColorsManagment
 from SCR.valetudo_map_parser.config.shared import CameraSharedManager
@@ -111,16 +113,14 @@ class TestImageHandler:
             'enable_www_snapshots': False,
             'get_svg_file': False,
             'trims_data': {
-                'trim_left': 0,
-                'trim_up': 0,
-                'trim_right': 0,
-                'trim_down': 0
+                'trim_left': 1980,
+                'trim_up': 1650,
+                'trim_right': 3974,
+                'trim_down': 3474
             }
         }
 
-
         shared_data = CameraSharedManager("test_vacuum", device_info)
-        # shared_data.update_shared_data(device_info)
         shared = shared_data.get_instance()
         shared.vacuum_state = "docked"
         _LOGGER.debug(f"Shared instance trims: {shared.trims}")
@@ -131,7 +131,6 @@ class TestImageHandler:
         _LOGGER.debug(f"Colors initialized: {shared.user_colors}")
 
         handler = HypferMapImageHandler(shared)
-
         self.image = await handler.async_get_image_from_json(self.test_data)
 
         _LOGGER.info(f"Calibration_data: {handler.get_calibration_data()}")
@@ -140,8 +139,8 @@ class TestImageHandler:
         rooms_data = await handler.async_get_rooms_attributes()
         _LOGGER.info(f"Room Properties: {rooms_data}")
         count = store.get_rooms_count()
-        _LOGGER.info(f"Room Store Properties: {store.get_rooms_count()}, {count}")
-        _LOGGER.info(f"trims update: {shared.trims.to_dict()}")
+        _LOGGER.info(f"Room Store Properties: {count}")
+        _LOGGER.info(f"Trims update: {shared.trims.to_dict()}")
         self.image.show()
 
 
@@ -152,10 +151,22 @@ def __main__():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
+    profiler = cProfile.Profile()
+    profiler.enable()
+
     try:
         loop.run_until_complete(test.test_image_handler())
     finally:
+        profiler.disable()
         loop.close()
+
+        # Save profiling data
+        profile_output = "profile_output.prof"
+        profiler.dump_stats(profile_output)
+
+        # Print profiling summary
+        stats = pstats.Stats(profile_output)
+        stats.strip_dirs().sort_stats("cumulative").print_stats(50)  # Show top 50 functions
 
 
 if __name__ == "__main__":

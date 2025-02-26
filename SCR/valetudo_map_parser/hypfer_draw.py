@@ -135,7 +135,7 @@ class ImageDraw:
             # List of dictionaries containing label and points for each obstacle
             # and draw obstacles on the map
             if obstacle_positions:
-                self.img_h.draw.draw_obstacles(
+                await self.img_h.draw.async_draw_obstacles(
                     np_array, obstacle_positions, color_no_go
                 )
             return np_array

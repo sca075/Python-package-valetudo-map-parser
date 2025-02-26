@@ -613,20 +613,22 @@ class CameraModes:
 class TrimsData:
     """Dataclass to store and manage trims data."""
 
-    trim_left: int = 0
+    floor: str = ""
     trim_up: int = 0
-    trim_right: int = 0
+    trim_left: int = 0
     trim_down: int = 0
+    trim_right: int = 0
 
     @classmethod
     def from_json(cls, json_data: str):
         """Create a TrimsConfig instance from a JSON string."""
         data = json.loads(json_data)
         return cls(
-            trim_left=data.get("trim_left", 0),
+            floor=data.get("floor", ""),
             trim_up=data.get("trim_up", 0),
-            trim_right=data.get("trim_right", 0),
+            trim_left=data.get("trim_left", 0),
             trim_down=data.get("trim_down", 0),
+            trim_right=data.get("trim_right", 0),
         )
 
     def to_json(self) -> str:
@@ -644,8 +646,13 @@ class TrimsData:
 
     def clear(self) -> dict:
         """Clear all the trims."""
-        self.trim_left = 0
+        self.floor = ""
         self.trim_up = 0
-        self.trim_right = 0
+        self.trim_left = 0
         self.trim_down = 0
+        self.trim_right = 0
         return asdict(self)
+
+    def self_instance(self):
+        """Return self instance."""
+        return self.self_instance()

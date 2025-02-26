@@ -118,7 +118,7 @@ class AutoCrop:
         """Initialize the auto crop data."""
         _LOGGER.debug("Auto Crop Init data: %s", str(self.auto_crop))
         _LOGGER.debug(
-            "Auto Crop Init trims data: %s", self.handler.shared.trims.to_dict()
+            "Auto Crop Init trims data: %r", self.handler.shared.trims.to_dict()
         )
         if not self.auto_crop:  # and self.handler.shared.vacuum_state == "docked":
             self.auto_crop = await self._async_auto_crop_data(self.handler.shared.trims)
