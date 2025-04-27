@@ -7,13 +7,15 @@ Version: 0.1.9
 from __future__ import annotations
 
 import logging
-import math
-from typing import Dict, List, Optional, Tuple, Union
+
+# math is not used in this file
+from typing import Optional, Tuple
 
 import numpy as np
 
 from .drawable import Drawable
 from .drawable_elements import DrawableElement, DrawingConfig
+
 
 # Type aliases
 NumpyArray = np.ndarray
@@ -67,10 +69,18 @@ class EnhancedDrawable(Drawable):
             int(max(0, min(255, r_out))),
             int(max(0, min(255, g_out))),
             int(max(0, min(255, b_out))),
-            int(max(0, min(255, a_out * 255)))
+            int(max(0, min(255, a_out * 255))),
         )
 
-    def blend_pixel(self, array: NumpyArray, x: int, y: int, color: Color, element: DrawableElement, element_map: NumpyArray) -> None:
+    def blend_pixel(
+        self,
+        array: NumpyArray,
+        x: int,
+        y: int,
+        color: Color,
+        element: DrawableElement,
+        element_map: NumpyArray,
+    ) -> None:
         """
         Blend a pixel color with the existing color at the specified position.
         Also updates the element map if the new element has higher z-index.
@@ -90,7 +100,11 @@ class EnhancedDrawable(Drawable):
         current_element = element_map[y, x]
 
         # Get z-indices for comparison
-        current_z = self.drawing_config.get_property(current_element, "z_index", 0) if current_element else 0
+        current_z = (
+            self.drawing_config.get_property(current_element, "z_index", 0)
+            if current_element
+            else 0
+        )
         new_z = self.drawing_config.get_property(element, "z_index", 0)
 
         # Get current color at this position
@@ -106,7 +120,9 @@ class EnhancedDrawable(Drawable):
         if new_z >= current_z:
             element_map[y, x] = element
 
-    async def draw_map(self, map_data: dict, base_array: Optional[NumpyArray] = None) -> Tuple[NumpyArray, NumpyArray]:
+    async def draw_map(
+        self, map_data: dict, base_array: Optional[NumpyArray] = None
+    ) -> Tuple[NumpyArray, NumpyArray]:
         """
         Draw the map with selected elements.
 
@@ -129,37 +145,63 @@ class EnhancedDrawable(Drawable):
             base_array = await self.create_empty_image(size_x, size_y, background_color)
 
         # Create a 2D map for element identification
-        element_map = np.zeros((base_array.shape[0], base_array.shape[1]), dtype=np.int32)
+        element_map = np.zeros(
+            (base_array.shape[0], base_array.shape[1]), dtype=np.int32
+        )
 
         # Draw elements in order of z-index
         for element in self.drawing_config.get_drawing_order():
             if element == DrawableElement.FLOOR:
-                base_array, element_map = await self._draw_floor(map_data, base_array, element_map)
+                base_array, element_map = await self._draw_floor(
+                    map_data, base_array, element_map
+                )
             elif element == DrawableElement.WALL:
-                base_array, element_map = await self._draw_walls(map_data, base_array, element_map)
+                base_array, element_map = await self._draw_walls(
+                    map_data, base_array, element_map
+                )
             elif element == DrawableElement.ROBOT:
-                base_array, element_map = await self._draw_robot(map_data, base_array, element_map)
+                base_array, element_map = await self._draw_robot(
+                    map_data, base_array, element_map
+                )
             elif element == DrawableElement.CHARGER:
-                base_array, element_map = await self._draw_charger(map_data, base_array, element_map)
+                base_array, element_map = await self._draw_charger(
+                    map_data, base_array, element_map
+                )
             elif element == DrawableElement.VIRTUAL_WALL:
-                base_array, element_map = await self._draw_virtual_walls(map_data, base_array, element_map)
+                base_array, element_map = await self._draw_virtual_walls(
+                    map_data, base_array, element_map
+                )
             elif element == DrawableElement.RESTRICTED_AREA:
-                base_array, element_map = await self._draw_restricted_areas(map_data, base_array, element_map)
+                base_array, element_map = await self._draw_restricted_areas(
+                    map_data, base_array, element_map
+                )
             elif element == DrawableElement.NO_MOP_AREA:
-                base_array, element_map = await self._draw_no_mop_areas(map_data, base_array, element_map)
+                base_array, element_map = await self._draw_no_mop_areas(
+                    map_data, base_array, element_map
+                )
             elif element == DrawableElement.PATH:
-                base_array, element_map = await self._draw_path(map_data, base_array, element_map)
+                base_array, element_map = await self._draw_path(
+                    map_data, base_array, element_map
+                )
             elif element == DrawableElement.PREDICTED_PATH:
-                base_array, element_map = await self._draw_predicted_path(map_data, base_array, element_map)
+                base_array, element_map = await self._draw_predicted_path(
+                    map_data, base_array, element_map
+                )
             elif element == DrawableElement.GO_TO_TARGET:
-                base_array, element_map = await self._draw_go_to_target(map_data, base_array, element_map)
+                base_array, element_map = await self._draw_go_to_target(
+                    map_data, base_array, element_map
+                )
             elif DrawableElement.ROOM_1 <= element <= DrawableElement.ROOM_15:
                 room_id = element - DrawableElement.ROOM_1 + 1
-                base_array, element_map = await self._draw_room(map_data, room_id, base_array, element_map)
+                base_array, element_map = await self._draw_room(
+                    map_data, room_id, base_array, element_map
+                )
 
         return base_array, element_map
 
-    async def _draw_floor(self, map_data: dict, array: NumpyArray, element_map: NumpyArray) -> Tuple[NumpyArray, NumpyArray]:
+    async def _draw_floor(
+        self, map_data: dict, array: NumpyArray, element_map: NumpyArray
+    ) -> Tuple[NumpyArray, NumpyArray]:
         """Draw the floor layer."""
         if not self.drawing_config.is_enabled(DrawableElement.FLOOR):
             return array, element_map
@@ -171,7 +213,9 @@ class EnhancedDrawable(Drawable):
 
         return array, element_map
 
-    async def _draw_walls(self, map_data: dict, array: NumpyArray, element_map: NumpyArray) -> Tuple[NumpyArray, NumpyArray]:
+    async def _draw_walls(
+        self, map_data: dict, array: NumpyArray, element_map: NumpyArray
+    ) -> Tuple[NumpyArray, NumpyArray]:
         """Draw the walls."""
         if not self.drawing_config.is_enabled(DrawableElement.WALL):
             return array, element_map
@@ -201,7 +245,9 @@ class EnhancedDrawable(Drawable):
 
         return array, element_map
 
-    async def _draw_robot(self, map_data: dict, array: NumpyArray, element_map: NumpyArray) -> Tuple[NumpyArray, NumpyArray]:
+    async def _draw_robot(
+        self, map_data: dict, array: NumpyArray, element_map: NumpyArray
+    ) -> Tuple[NumpyArray, NumpyArray]:
         """Draw the robot."""
         if not self.drawing_config.is_enabled(DrawableElement.ROBOT):
             return array, element_map
@@ -223,10 +269,17 @@ class EnhancedDrawable(Drawable):
             radius = 25  # Same as in the robot drawing method
             for dy in range(-radius, radius + 1):
                 for dx in range(-radius, radius + 1):
-                    if dx*dx + dy*dy <= radius*radius:
+                    if dx * dx + dy * dy <= radius * radius:
                         map_x, map_y = int(x + dx), int(y + dy)
                         # Use blend_pixel to properly blend colors and update element map
-                        self.blend_pixel(array, map_x, map_y, robot_color, DrawableElement.ROBOT, element_map)
+                        self.blend_pixel(
+                            array,
+                            map_x,
+                            map_y,
+                            robot_color,
+                            DrawableElement.ROBOT,
+                            element_map,
+                        )
 
             # TODO: Draw robot orientation indicator
             # This would be a line or triangle showing the direction
@@ -234,7 +287,9 @@ class EnhancedDrawable(Drawable):
 
         return array, element_map
 
-    async def _draw_charger(self, map_data: dict, array: NumpyArray, element_map: NumpyArray) -> Tuple[NumpyArray, NumpyArray]:
+    async def _draw_charger(
+        self, map_data: dict, array: NumpyArray, element_map: NumpyArray
+    ) -> Tuple[NumpyArray, NumpyArray]:
         """Draw the charger."""
         if not self.drawing_config.is_enabled(DrawableElement.CHARGER):
             return array, element_map
@@ -249,7 +304,9 @@ class EnhancedDrawable(Drawable):
 
         return array, element_map
 
-    async def _draw_virtual_walls(self, map_data: dict, array: NumpyArray, element_map: NumpyArray) -> Tuple[NumpyArray, NumpyArray]:
+    async def _draw_virtual_walls(
+        self, map_data: dict, array: NumpyArray, element_map: NumpyArray
+    ) -> Tuple[NumpyArray, NumpyArray]:
         """Draw virtual walls."""
         if not self.drawing_config.is_enabled(DrawableElement.VIRTUAL_WALL):
             return array, element_map
@@ -264,7 +321,9 @@ class EnhancedDrawable(Drawable):
 
         return array, element_map
 
-    async def _draw_restricted_areas(self, map_data: dict, array: NumpyArray, element_map: NumpyArray) -> Tuple[NumpyArray, NumpyArray]:
+    async def _draw_restricted_areas(
+        self, map_data: dict, array: NumpyArray, element_map: NumpyArray
+    ) -> Tuple[NumpyArray, NumpyArray]:
         """Draw restricted areas."""
         if not self.drawing_config.is_enabled(DrawableElement.RESTRICTED_AREA):
             return array, element_map
@@ -279,7 +338,9 @@ class EnhancedDrawable(Drawable):
 
         return array, element_map
 
-    async def _draw_no_mop_areas(self, map_data: dict, array: NumpyArray, element_map: NumpyArray) -> Tuple[NumpyArray, NumpyArray]:
+    async def _draw_no_mop_areas(
+        self, map_data: dict, array: NumpyArray, element_map: NumpyArray
+    ) -> Tuple[NumpyArray, NumpyArray]:
         """Draw no-mop areas."""
         if not self.drawing_config.is_enabled(DrawableElement.NO_MOP_AREA):
             return array, element_map
@@ -294,7 +355,9 @@ class EnhancedDrawable(Drawable):
 
         return array, element_map
 
-    async def _draw_path(self, map_data: dict, array: NumpyArray, element_map: NumpyArray) -> Tuple[NumpyArray, NumpyArray]:
+    async def _draw_path(
+        self, map_data: dict, array: NumpyArray, element_map: NumpyArray
+    ) -> Tuple[NumpyArray, NumpyArray]:
         """Draw the robot's path."""
         if not self.drawing_config.is_enabled(DrawableElement.PATH):
             return array, element_map
@@ -309,7 +372,9 @@ class EnhancedDrawable(Drawable):
 
         return array, element_map
 
-    async def _draw_predicted_path(self, map_data: dict, array: NumpyArray, element_map: NumpyArray) -> Tuple[NumpyArray, NumpyArray]:
+    async def _draw_predicted_path(
+        self, map_data: dict, array: NumpyArray, element_map: NumpyArray
+    ) -> Tuple[NumpyArray, NumpyArray]:
         """Draw the predicted path."""
         if not self.drawing_config.is_enabled(DrawableElement.PREDICTED_PATH):
             return array, element_map
@@ -324,7 +389,9 @@ class EnhancedDrawable(Drawable):
 
         return array, element_map
 
-    async def _draw_go_to_target(self, map_data: dict, array: NumpyArray, element_map: NumpyArray) -> Tuple[NumpyArray, NumpyArray]:
+    async def _draw_go_to_target(
+        self, map_data: dict, array: NumpyArray, element_map: NumpyArray
+    ) -> Tuple[NumpyArray, NumpyArray]:
         """Draw the go-to target."""
         if not self.drawing_config.is_enabled(DrawableElement.GO_TO_TARGET):
             return array, element_map
@@ -339,7 +406,9 @@ class EnhancedDrawable(Drawable):
 
         return array, element_map
 
-    async def _draw_room(self, map_data: dict, room_id: int, array: NumpyArray, element_map: NumpyArray) -> Tuple[NumpyArray, NumpyArray]:
+    async def _draw_room(
+        self, map_data: dict, room_id: int, array: NumpyArray, element_map: NumpyArray
+    ) -> Tuple[NumpyArray, NumpyArray]:
         """Draw a specific room."""
         element = getattr(DrawableElement, f"ROOM_{room_id}")
         if not self.drawing_config.is_enabled(element):
@@ -347,7 +416,9 @@ class EnhancedDrawable(Drawable):
 
         # Get room color from drawing config
         room_color = self.drawing_config.get_property(
-            element, "color", (135, 206, 250, 255)  # Default light blue
+            element,
+            "color",
+            (135, 206, 250, 255),  # Default light blue
         )
 
         # Implementation depends on the map data format
@@ -357,7 +428,9 @@ class EnhancedDrawable(Drawable):
         # Find room data in map_data
         room_pixels = []
         for layer in map_data.get("layers", []):
-            if layer.get("type") == "segment" and str(layer.get("metaData", {}).get("segmentId")) == str(room_id):
+            if layer.get("type") == "segment" and str(
+                layer.get("metaData", {}).get("segmentId")
+            ) == str(room_id):
                 # Extract room pixels from the layer
                 # This is a placeholder - actual implementation would depend on the map data format
                 # For example, it might use compressed pixels or other data structures

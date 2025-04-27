@@ -10,12 +10,18 @@ Refactored for clarity, consistency, and optimized parameter usage.
 from __future__ import annotations
 
 import asyncio
+import logging
 import math
 
+# cv2 is imported but not used directly in this file
+# It's needed for other modules that import from here
 import numpy as np
 from PIL import ImageDraw, ImageFont
 
 from .types import Color, NumpyArray, PilPNG, Point, Tuple, Union
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class Drawable:
@@ -51,8 +57,6 @@ class Drawable:
         alpha = color[3] if len(color) == 4 else 255
 
         # For debugging
-        import logging
-        _LOGGER = logging.getLogger(__name__)
         _LOGGER.debug("Drawing with color %s and alpha %s", color, alpha)
 
         # Create the full color with alpha

@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import logging
 from enum import IntEnum
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
-import numpy as np
+from .colors import DefaultColors, SupportedColor
 
-from .colors import SupportedColor, DefaultColors
+
+# numpy is not used in this file
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,6 +25,7 @@ PropertyDict = Dict[str, Union[Color, float, int]]
 
 class DrawableElement(IntEnum):
     """Enumeration of drawable map elements with unique integer codes."""
+
     # Base elements
     FLOOR = 1
     WALL = 2
@@ -80,7 +83,7 @@ class DrawingConfig:
             self._element_properties[room_element] = {
                 "color": (*rgb, int(alpha)),
                 "opacity": alpha / 255.0,
-                "z_index": 10  # Drawing order
+                "z_index": 10,  # Drawing order
             }
 
         # Map DrawableElement to SupportedColor
@@ -120,28 +123,44 @@ class DrawingConfig:
             alpha = DefaultColors.DEFAULT_ALPHA.get(alpha_key, 255.0)
 
             # Special case for semi-transparent elements
-            if element in [DrawableElement.RESTRICTED_AREA, DrawableElement.NO_MOP_AREA, DrawableElement.PREDICTED_PATH]:
+            if element in [
+                DrawableElement.RESTRICTED_AREA,
+                DrawableElement.NO_MOP_AREA,
+                DrawableElement.PREDICTED_PATH,
+            ]:
                 alpha = 125.0  # Semi-transparent by default
 
             self._element_properties[element] = {
                 "color": (*rgb, int(alpha)),
                 "opacity": alpha / 255.0,
-                "z_index": z_indices.get(element, 0)
+                "z_index": z_indices.get(element, 0),
             }
 
     def enable_element(self, element_code: DrawableElement) -> None:
         """Enable drawing of a specific element."""
         if element_code in self._enabled_elements:
             self._enabled_elements[element_code] = True
-            _LOGGER.info("Enabled element %s (%s)", element_code.name, element_code.value)
-            _LOGGER.info("Element %s is now enabled: %s", element_code.name, self._enabled_elements[element_code])
+            _LOGGER.info(
+                "Enabled element %s (%s)", element_code.name, element_code.value
+            )
+            _LOGGER.info(
+                "Element %s is now enabled: %s",
+                element_code.name,
+                self._enabled_elements[element_code],
+            )
 
     def disable_element(self, element_code: DrawableElement) -> None:
         """Disable drawing of a specific element."""
         if element_code in self._enabled_elements:
             self._enabled_elements[element_code] = False
-            _LOGGER.info("Disabled element %s (%s)", element_code.name, element_code.value)
-            _LOGGER.info("Element %s is now enabled: %s", element_code.name, self._enabled_elements[element_code])
+            _LOGGER.info(
+                "Disabled element %s (%s)", element_code.name, element_code.value
+            )
+            _LOGGER.info(
+                "Element %s is now enabled: %s",
+                element_code.name,
+                self._enabled_elements[element_code],
+            )
 
     def set_elements(self, element_codes: List[DrawableElement]) -> None:
         """Enable only the specified elements, disable all others."""
@@ -157,15 +176,23 @@ class DrawingConfig:
     def is_enabled(self, element_code: DrawableElement) -> bool:
         """Check if an element is enabled for drawing."""
         enabled = self._enabled_elements.get(element_code, False)
-        _LOGGER.debug("Checking if element %s is enabled: %s", element_code.name if hasattr(element_code, 'name') else element_code, enabled)
+        _LOGGER.debug(
+            "Checking if element %s is enabled: %s",
+            element_code.name if hasattr(element_code, "name") else element_code,
+            enabled,
+        )
         return enabled
 
-    def set_property(self, element_code: DrawableElement, property_name: str, value) -> None:
+    def set_property(
+        self, element_code: DrawableElement, property_name: str, value
+    ) -> None:
         """Set a drawing property for an element."""
         if element_code in self._element_properties:
             self._element_properties[element_code][property_name] = value
 
-    def get_property(self, element_code: DrawableElement, property_name: str, default=None):
+    def get_property(
+        self, element_code: DrawableElement, property_name: str, default=None
+    ):
         """Get a drawing property for an element."""
         if element_code in self._element_properties:
             return self._element_properties[element_code].get(property_name, default)
@@ -173,7 +200,9 @@ class DrawingConfig:
 
     def get_enabled_elements(self) -> List[DrawableElement]:
         """Get list of enabled element codes."""
-        return [element for element, enabled in self._enabled_elements.items() if enabled]
+        return [
+            element for element, enabled in self._enabled_elements.items() if enabled
+        ]
 
     def get_drawing_order(self) -> List[DrawableElement]:
         """Get list of enabled elements in drawing order (by z_index)."""
@@ -201,7 +230,7 @@ class DrawingConfig:
         for room_id in range(1, 16):
             room_element = getattr(DrawableElement, f"ROOM_{room_id}")
             color_key = SupportedColor.room_key(room_id - 1)
-            alpha_key = f"alpha_room_{room_id-1}"
+            alpha_key = f"alpha_room_{room_id - 1}"
 
             if color_key in device_info:
                 rgb = device_info[color_key]
@@ -214,7 +243,9 @@ class DrawingConfig:
                 self.set_property(room_element, "color", rgba)
                 self.set_property(room_element, "opacity", alpha / 255.0)
 
-                _LOGGER.debug("Updated room %d color to %s with alpha %s", room_id, rgb, alpha)
+                _LOGGER.debug(
+                    "Updated room %d color to %s with alpha %s", room_id, rgb, alpha
+                )
 
         # Update other element colors
         for element, color_key in element_color_mapping.items():
@@ -224,7 +255,11 @@ class DrawingConfig:
                 alpha = device_info.get(alpha_key, 255.0)
 
                 # Special case for semi-transparent elements
-                if element in [DrawableElement.RESTRICTED_AREA, DrawableElement.NO_MOP_AREA, DrawableElement.PREDICTED_PATH]:
+                if element in [
+                    DrawableElement.RESTRICTED_AREA,
+                    DrawableElement.NO_MOP_AREA,
+                    DrawableElement.PREDICTED_PATH,
+                ]:
                     if alpha > 200:  # If alpha is too high for these elements
                         alpha = 125.0  # Use a more appropriate default
 
@@ -235,7 +270,12 @@ class DrawingConfig:
                 self.set_property(element, "color", rgba)
                 self.set_property(element, "opacity", alpha / 255.0)
 
-                _LOGGER.debug("Updated element %s color to %s with alpha %s", element.name, rgb, alpha)
+                _LOGGER.debug(
+                    "Updated element %s color to %s with alpha %s",
+                    element.name,
+                    rgb,
+                    alpha,
+                )
 
         # Check for disabled elements using specific boolean flags
         # Map element disable flags to DrawableElement enum values
@@ -257,7 +297,9 @@ class DrawingConfig:
         for disable_key, element in element_disable_mapping.items():
             if device_info.get(disable_key, False):
                 self.disable_element(element)
-                _LOGGER.info("Disabled %s element from device_info setting", element.name)
+                _LOGGER.info(
+                    "Disabled %s element from device_info setting", element.name
+                )
 
         # Process room disable flags (1-15)
         for room_id in range(1, 16):
@@ -265,4 +307,6 @@ class DrawingConfig:
             if device_info.get(disable_key, False):
                 room_element = getattr(DrawableElement, f"ROOM_{room_id}")
                 self.disable_element(room_element)
-                _LOGGER.info("Disabled ROOM_%d element from device_info setting", room_id)
+                _LOGGER.info(
+                    "Disabled ROOM_%d element from device_info setting", room_id
+                )

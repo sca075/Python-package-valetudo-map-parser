@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 
+from .config.drawable_elements import DrawableElement
 from .config.types import Color, JsonType, NumpyArray, RobotPosition
 
 
@@ -90,8 +91,9 @@ class ImageDraw:
         if layer_type == "segment" and hasattr(self.img_h, "drawing_config"):
             # The room_id is 0-based, but DrawableElement.ROOM_x is 1-based
             current_room_id = room_id + 1
-            if current_room_id >= 1 and current_room_id <= 15:
-                from SCR.valetudo_map_parser.config.drawable_elements import DrawableElement
+            if 1 <= current_room_id <= 15:
+                # Use the DrawableElement imported at the top of the file
+
                 room_element = getattr(DrawableElement, f"ROOM_{current_room_id}", None)
                 if room_element and hasattr(self.img_h.drawing_config, "is_enabled"):
                     draw_room = self.img_h.drawing_config.is_enabled(room_element)
@@ -99,7 +101,7 @@ class ImageDraw:
                         "%s: Room %d is %s",
                         self.file_name,
                         current_room_id,
-                        "enabled" if draw_room else "disabled"
+                        "enabled" if draw_room else "disabled",
                     )
 
         # Get the room color
@@ -141,7 +143,9 @@ class ImageDraw:
                 )
         return room_color
 
-    async def _process_wall_layer(self, img_np_array, pixels, pixel_size, color_wall, disabled_rooms=None):
+    async def _process_wall_layer(
+        self, img_np_array, pixels, pixel_size, color_wall, disabled_rooms=None
+    ):
         """Process a wall layer.
 
         Args:
@@ -165,12 +169,16 @@ class ImageDraw:
 
         # If there are disabled rooms, we need to check each wall pixel
         # to see if it belongs to a disabled room
-        _LOGGER.debug("%s: Filtering walls for disabled rooms: %s", self.file_name, disabled_rooms)
+        _LOGGER.debug(
+            "%s: Filtering walls for disabled rooms: %s", self.file_name, disabled_rooms
+        )
 
         # Get the element map if available
-        element_map = getattr(self.img_h, 'element_map', None)
+        element_map = getattr(self.img_h, "element_map", None)
         if element_map is None:
-            _LOGGER.warning("%s: Element map not available, drawing all walls", self.file_name)
+            _LOGGER.warning(
+                "%s: Element map not available, drawing all walls", self.file_name
+            )
             return await self.img_h.draw.from_json_to_image(
                 img_np_array, pixels, pixel_size, color_wall
             )
@@ -195,7 +203,12 @@ class ImageDraw:
                     check_y = y + dy
 
                     # Make sure the position is within bounds
-                    if check_x < 0 or check_y < 0 or check_x >= element_map.shape[1] or check_y >= element_map.shape[0]:
+                    if (
+                        check_x < 0
+                        or check_y < 0
+                        or check_x >= element_map.shape[1]
+                        or check_y >= element_map.shape[0]
+                    ):
                         continue
 
                     # Get the element at this position
@@ -203,7 +216,7 @@ class ImageDraw:
 
                     # Check if this element is a disabled room
                     # Room elements are in the range 101-115 (ROOM_1 to ROOM_15)
-                    if element >= 101 and element <= 115:
+                    if 101 <= element <= 115:
                         room_id = element - 101  # Convert to 0-based index
                         if room_id in disabled_rooms:
                             is_disabled_room_wall = True
@@ -217,8 +230,12 @@ class ImageDraw:
                 filtered_pixels.append((x, y, z))
 
         # Draw the filtered walls
-        _LOGGER.debug("%s: Drawing %d of %d wall pixels after filtering",
-                     self.file_name, len(filtered_pixels), len(pixels))
+        _LOGGER.debug(
+            "%s: Drawing %d of %d wall pixels after filtering",
+            self.file_name,
+            len(filtered_pixels),
+            len(pixels),
+        )
         if filtered_pixels:
             return await self.img_h.draw.from_json_to_image(
                 img_np_array, filtered_pixels, pixel_size, color_wall
@@ -234,6 +251,7 @@ class ImageDraw:
             obstacle_data = entity_dict.get("obstacle")
         except KeyError:
             _LOGGER.info("%s No obstacle found.", self.file_name)
+            return np_array
         else:
             obstacle_positions = []
             if obstacle_data:
@@ -267,6 +285,7 @@ class ImageDraw:
             charger_pos = entity_dict.get("charger_location")
         except KeyError:
             _LOGGER.warning("%s: No charger position found.", self.file_name)
+            return np_array
         else:
             if charger_pos:
                 charger_pos = charger_pos[0]["points"]
@@ -427,58 +446,57 @@ class ImageDraw:
                     self.img_h.zooming = False
                 return temp
         # else we need to search and use the async method.
-        if self.img_h.rooms_pos:
-            last_room = None
-            room_count = 0
-            if self.img_h.robot_in_room:
-                last_room = self.img_h.robot_in_room
-            for room in self.img_h.rooms_pos:
-                corners = room["corners"]
-                self.img_h.robot_in_room = {
-                    "id": room_count,
-                    "left": int(corners[0][0]),
-                    "right": int(corners[2][0]),
-                    "up": int(corners[0][1]),
-                    "down": int(corners[2][1]),
-                    "room": str(room["name"]),
-                }
-                room_count += 1
-                # Check if the robot coordinates are inside the room's corners
-                if (
-                    (self.img_h.robot_in_room["right"] >= int(robot_x))
-                    and (self.img_h.robot_in_room["left"] <= int(robot_x))
-                ) and (
-                    (self.img_h.robot_in_room["down"] >= int(robot_y))
-                    and (self.img_h.robot_in_room["up"] <= int(robot_y))
-                ):
-                    temp = {
-                        "x": robot_x,
-                        "y": robot_y,
-                        "angle": angle,
-                        "in_room": self.img_h.robot_in_room["room"],
-                    }
-                    _LOGGER.debug(
-                        "%s is in %s room.",
-                        self.file_name,
-                        self.img_h.robot_in_room["room"],
-                    )
-                    del room, corners, robot_x, robot_y  # free memory.
-                    return temp
-            del room, corners  # free memory.
-            _LOGGER.debug(
-                "%s not located within Camera Rooms coordinates.",
-                self.file_name,
-            )
-            self.img_h.robot_in_room = last_room
-            self.img_h.zooming = False
-            temp = {
-                "x": robot_x,
-                "y": robot_y,
-                "angle": angle,
-                "in_room": last_room["room"] if last_room else None,
+        last_room = None
+        room_count = 0
+        if self.img_h.robot_in_room:
+            last_room = self.img_h.robot_in_room
+        for room in self.img_h.rooms_pos:
+            corners = room["corners"]
+            self.img_h.robot_in_room = {
+                "id": room_count,
+                "left": int(corners[0][0]),
+                "right": int(corners[2][0]),
+                "up": int(corners[0][1]),
+                "down": int(corners[2][1]),
+                "room": str(room["name"]),
             }
-            # If the robot is not inside any room, return a default value
-            return temp
+            room_count += 1
+            # Check if the robot coordinates are inside the room's corners
+            if (
+                (self.img_h.robot_in_room["right"] >= int(robot_x))
+                and (self.img_h.robot_in_room["left"] <= int(robot_x))
+            ) and (
+                (self.img_h.robot_in_room["down"] >= int(robot_y))
+                and (self.img_h.robot_in_room["up"] <= int(robot_y))
+            ):
+                temp = {
+                    "x": robot_x,
+                    "y": robot_y,
+                    "angle": angle,
+                    "in_room": self.img_h.robot_in_room["room"],
+                }
+                _LOGGER.debug(
+                    "%s is in %s room.",
+                    self.file_name,
+                    self.img_h.robot_in_room["room"],
+                )
+                del room, corners, robot_x, robot_y  # free memory.
+                return temp
+        del room, corners  # free memory.
+        _LOGGER.debug(
+            "%s not located within Camera Rooms coordinates.",
+            self.file_name,
+        )
+        self.img_h.robot_in_room = last_room
+        self.img_h.zooming = False
+        temp = {
+            "x": robot_x,
+            "y": robot_y,
+            "angle": angle,
+            "in_room": last_room["room"] if last_room else None,
+        }
+        # If the robot is not inside any room, return a default value
+        return temp
 
     async def async_get_robot_position(self, entity_dict: dict) -> tuple | None:
         """Get the robot position from the entity data."""

@@ -15,9 +15,8 @@ jobs:
             name: Check code with ruff format
           - id: isort
             name: Check code with isort
-          # Temporarily disabled pylint check due to refactoring
-          # - id: pylint
-          #   name: Check code with pylint
+          - id: pylint
+            name: Check code with pylint
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4
