@@ -128,7 +128,7 @@ class TestImageHandler:
             'disable_virtual_walls': False,   # Show virtual walls
             'disable_restricted_areas': False, # Show restricted areas
             'disable_no_mop_areas': False,    # Show no-mop areas
-            'disable_obstacles': True,        # Hide obstacles
+            'disable_obstacles': False,        # Hide obstacles
             'disable_path': False,             # Hide path
             'disable_predicted_path': False,  # Show predicted path
             'disable_go_to_target': False,    # Show go-to target
