@@ -44,8 +44,22 @@ class ImageDraw:
         color_wall,
         color_zone_clean,
         pixel_size,
+        disabled_rooms=None,
     ):
-        """Draw the base layer of the map."""
+        """Draw the base layer of the map.
+
+        Args:
+            img_np_array: The image array to draw on
+            compressed_pixels_list: The list of compressed pixels to draw
+            layer_type: The type of layer to draw (segment, floor, wall)
+            color_wall: The color to use for walls
+            color_zone_clean: The color to use for clean zones
+            pixel_size: The size of each pixel
+            disabled_rooms: A set of room IDs that are disabled
+
+        Returns:
+            A tuple of (room_id, img_np_array)
+        """
         room_id = 0
 
         for compressed_pixels in compressed_pixels_list:
@@ -62,7 +76,7 @@ class ImageDraw:
                 )
             elif layer_type == "wall":
                 img_np_array = await self._process_wall_layer(
-                    img_np_array, pixels, pixel_size, color_wall
+                    img_np_array, pixels, pixel_size, color_wall, disabled_rooms
                 )
 
         return room_id, img_np_array
@@ -71,6 +85,24 @@ class ImageDraw:
         self, img_np_array, pixels, layer_type, room_id, pixel_size, color_zone_clean
     ):
         """Process a room layer (segment or floor)."""
+        # Check if this room should be drawn
+        draw_room = True
+        if layer_type == "segment" and hasattr(self.img_h, "drawing_config"):
+            # The room_id is 0-based, but DrawableElement.ROOM_x is 1-based
+            current_room_id = room_id + 1
+            if current_room_id >= 1 and current_room_id <= 15:
+                from SCR.valetudo_map_parser.config.drawable_elements import DrawableElement
+                room_element = getattr(DrawableElement, f"ROOM_{current_room_id}", None)
+                if room_element and hasattr(self.img_h.drawing_config, "is_enabled"):
+                    draw_room = self.img_h.drawing_config.is_enabled(room_element)
+                    _LOGGER.debug(
+                        "%s: Room %d is %s",
+                        self.file_name,
+                        current_room_id,
+                        "enabled" if draw_room else "disabled"
+                    )
+
+        # Get the room color
         room_color = self.img_h.shared.rooms_colors[room_id]
 
         try:
@@ -79,13 +111,18 @@ class ImageDraw:
                     room_id, room_color, color_zone_clean
                 )
 
-            img_np_array = await self.img_h.draw.from_json_to_image(
-                img_np_array, pixels, pixel_size, room_color
-            )
+            # Only draw the room if it's enabled
+            if draw_room:
+                img_np_array = await self.img_h.draw.from_json_to_image(
+                    img_np_array, pixels, pixel_size, room_color
+                )
+
+            # Always increment the room_id, even if the room is not drawn
             room_id = (room_id + 1) % 16  # Cycle room_id back to 0 after 15
 
         except IndexError as e:
             _LOGGER.warning("%s: Image Draw Error: %s", self.file_name, str(e))
+
         _LOGGER.debug(
             "%s Active Zones: %s and Room ID: %s",
             self.file_name,
@@ -104,11 +141,90 @@ class ImageDraw:
                 )
         return room_color
 
-    async def _process_wall_layer(self, img_np_array, pixels, pixel_size, color_wall):
-        """Process a wall layer."""
-        return await self.img_h.draw.from_json_to_image(
-            img_np_array, pixels, pixel_size, color_wall
-        )
+    async def _process_wall_layer(self, img_np_array, pixels, pixel_size, color_wall, disabled_rooms=None):
+        """Process a wall layer.
+
+        Args:
+            img_np_array: The image array to draw on
+            pixels: The pixels to draw
+            pixel_size: The size of each pixel
+            color_wall: The color to use for the walls
+            disabled_rooms: A set of room IDs that are disabled
+
+        Returns:
+            The updated image array
+        """
+        # Log the wall color to verify alpha is being passed correctly
+        _LOGGER.debug("%s: Drawing walls with color %s", self.file_name, color_wall)
+
+        # If there are no disabled rooms, draw all walls
+        if not disabled_rooms:
+            return await self.img_h.draw.from_json_to_image(
+                img_np_array, pixels, pixel_size, color_wall
+            )
+
+        # If there are disabled rooms, we need to check each wall pixel
+        # to see if it belongs to a disabled room
+        _LOGGER.debug("%s: Filtering walls for disabled rooms: %s", self.file_name, disabled_rooms)
+
+        # Get the element map if available
+        element_map = getattr(self.img_h, 'element_map', None)
+        if element_map is None:
+            _LOGGER.warning("%s: Element map not available, drawing all walls", self.file_name)
+            return await self.img_h.draw.from_json_to_image(
+                img_np_array, pixels, pixel_size, color_wall
+            )
+
+        # Filter out walls that belong to disabled rooms
+        filtered_pixels = []
+        for x, y, z in pixels:
+            # Check if this wall pixel is adjacent to a disabled room
+            # by checking the surrounding pixels in the element map
+            is_disabled_room_wall = False
+
+            # Check the element map at this position and surrounding positions
+            # to see if this wall is adjacent to a disabled room
+            for dx in range(-1, 2):
+                for dy in range(-1, 2):
+                    # Skip the center pixel
+                    if dx == 0 and dy == 0:
+                        continue
+
+                    # Calculate the position to check
+                    check_x = x + dx
+                    check_y = y + dy
+
+                    # Make sure the position is within bounds
+                    if check_x < 0 or check_y < 0 or check_x >= element_map.shape[1] or check_y >= element_map.shape[0]:
+                        continue
+
+                    # Get the element at this position
+                    element = element_map[check_y, check_x]
+
+                    # Check if this element is a disabled room
+                    # Room elements are in the range 101-115 (ROOM_1 to ROOM_15)
+                    if element >= 101 and element <= 115:
+                        room_id = element - 101  # Convert to 0-based index
+                        if room_id in disabled_rooms:
+                            is_disabled_room_wall = True
+                            break
+
+                if is_disabled_room_wall:
+                    break
+
+            # If this wall is not adjacent to a disabled room, add it to the filtered pixels
+            if not is_disabled_room_wall:
+                filtered_pixels.append((x, y, z))
+
+        # Draw the filtered walls
+        _LOGGER.debug("%s: Drawing %d of %d wall pixels after filtering",
+                     self.file_name, len(filtered_pixels), len(pixels))
+        if filtered_pixels:
+            return await self.img_h.draw.from_json_to_image(
+                img_np_array, filtered_pixels, pixel_size, color_wall
+            )
+
+        return img_np_array
 
     async def async_draw_obstacle(
         self, np_array: NumpyArray, entity_dict: dict, color_no_go: Color

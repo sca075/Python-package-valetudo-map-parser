@@ -47,16 +47,32 @@ class Drawable:
     ) -> NumpyArray:
         """Draw the layers (rooms) from the vacuum JSON data onto the image array."""
         image_array = layer
+        # Extract alpha from color
+        alpha = color[3] if len(color) == 4 else 255
+
+        # For debugging
+        import logging
+        _LOGGER = logging.getLogger(__name__)
+        _LOGGER.debug("Drawing with color %s and alpha %s", color, alpha)
+
+        # Create the full color with alpha
+        full_color = color if len(color) == 4 else (*color, 255)
+
         # Loop through pixels to find min and max coordinates
         for x, y, z in pixels:
             col = x * pixel_size
             row = y * pixel_size
             # Draw pixels as blocks
             for i in range(z):
-                image_array[
+                # Get the region to update
+                region = image_array[
                     row : row + pixel_size,
                     col + i * pixel_size : col + (i + 1) * pixel_size,
-                ] = color
+                ]
+
+                # Simple direct assignment - ignore alpha for now to ensure visibility
+                region[:] = full_color
+
         return image_array
 
     @staticmethod

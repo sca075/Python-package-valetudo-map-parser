@@ -8,6 +8,7 @@ import cProfile
 import pstats
 
 from SCR.valetudo_map_parser.config.colors_man import ColorsManagment
+from SCR.valetudo_map_parser.config.drawable_elements import DrawableElement
 from SCR.valetudo_map_parser.config.shared import CameraSharedManager
 from SCR.valetudo_map_parser.config.types import RoomStore
 from SCR.valetudo_map_parser.hypfer_handler import HypferMapImageHandler
@@ -28,7 +29,7 @@ class TestImageHandler:
 
     def setUp(self):
         # Load the test.json file
-        test_file_path = os.getcwd() + "/test.json"
+        test_file_path = os.path.join(os.path.dirname(__file__), "test.json")
         _LOGGER.info(f"Loading test data from {test_file_path}")
 
         with open(test_file_path, "r") as file:
@@ -50,11 +51,11 @@ class TestImageHandler:
             'alpha_background': 255.0,
             'alpha_charger': 255.0,
             'alpha_go_to': 255.0,
-            'alpha_move': 255.0,
+            'alpha_move': 150.0,
             'alpha_no_go': 125.0,
             'alpha_robot': 255.0,
             'alpha_text': 255.0,
-            'alpha_wall': 255.0,
+            'alpha_wall': 115.0,  # Testing with a lower alpha value
             'alpha_zone_clean': 125.0,
             'aspect_ratio': '16, 9',
             'auto_zoom': True,
@@ -117,7 +118,37 @@ class TestImageHandler:
                 'trim_up': 1650,
                 'trim_right': 3974,
                 'trim_down': 3474
-            }
+            },
+            # Element visibility controls
+            # Base elements
+            'disable_floor': False,           # Show floor
+            'disable_wall': False,            # Show walls
+            'disable_robot': False,           # Show robot
+            'disable_charger': False,         # Show charger
+            'disable_virtual_walls': False,   # Show virtual walls
+            'disable_restricted_areas': False, # Show restricted areas
+            'disable_no_mop_areas': False,    # Show no-mop areas
+            'disable_obstacles': True,        # Hide obstacles
+            'disable_path': False,             # Hide path
+            'disable_predicted_path': False,  # Show predicted path
+            'disable_go_to_target': False,    # Show go-to target
+
+            # Room visibility (all rooms visible by default)
+            'disable_room_1': False,
+            'disable_room_2': False,
+            'disable_room_3': False,
+            'disable_room_4': False,
+            'disable_room_5': False,
+            'disable_room_6': False,
+            'disable_room_7': False,
+            'disable_room_8': False,
+            'disable_room_9': False,
+            'disable_room_10': False,
+            'disable_room_11': False,
+            'disable_room_12': False,
+            'disable_room_13': False,
+            'disable_room_14': False,
+            'disable_room_15': False
         }
 
         shared_data = CameraSharedManager("test_vacuum", device_info)
@@ -130,6 +161,80 @@ class TestImageHandler:
 
         _LOGGER.debug(f"Colors initialized: {shared.user_colors}")
 
+        handler = HypferMapImageHandler(shared)
+
+        # Demonstrate the drawable element selection system
+        _LOGGER.info("Testing drawable element selection system...")
+
+        # First, check which elements are disabled based on device_info
+        _LOGGER.info("Checking elements disabled from device_info:")
+        _LOGGER.info(f"PATH element enabled: {handler.drawing_config.is_enabled(DrawableElement.PATH)}")
+        _LOGGER.info(f"OBSTACLE element enabled: {handler.drawing_config.is_enabled(DrawableElement.OBSTACLE)}")
+
+        # Get the image with elements disabled from device_info
+        self.image = await handler.async_get_image_from_json(self.test_data)
+        _LOGGER.info("Created image with elements disabled from device_info")
+
+        # Show what elements can be disabled
+        _LOGGER.info("\nAvailable elements that can be disabled:")
+        for element in DrawableElement:
+            _LOGGER.info(f"  - {element.name}: {element.value} (enabled: {handler.drawing_config.is_enabled(element)})")
+
+        # Example 1: Re-enable path to see the difference
+        _LOGGER.info("\nExample 1: Re-enabling path to see the difference")
+
+        # Enable the path
+        handler.enable_element(DrawableElement.PATH)
+        _LOGGER.info(f"PATH element enabled: {handler.drawing_config.is_enabled(DrawableElement.PATH)}")
+
+        # Verify that the PATH element is enabled
+        if not handler.drawing_config.is_enabled(DrawableElement.PATH):
+            _LOGGER.warning("PATH element is still disabled after calling enable_element!")
+            # Force enable it
+            handler.drawing_config._enabled_elements[DrawableElement.PATH] = True
+            _LOGGER.info(f"Forced PATH element to be enabled: {handler.drawing_config.is_enabled(DrawableElement.PATH)}")
+
+        # Get a new image with path enabled
+        self.image = await handler.async_get_image_from_json(self.test_data)
+        _LOGGER.info("Created image with path re-enabled")
+
+        # Disable the path again to match device_info
+        handler.disable_element(DrawableElement.PATH)
+        _LOGGER.info(f"PATH element disabled again: {not handler.drawing_config.is_enabled(DrawableElement.PATH)}")
+
+        # Example 2: Disable all room segments except room 1
+        _LOGGER.info("\nExample 2: Disabling multiple room segments")
+        # First re-enable everything
+        for element in DrawableElement:
+            handler.enable_element(element)
+
+        # Then disable rooms 2-15
+        for room_id in range(2, 16):
+            room_element = getattr(DrawableElement, f"ROOM_{room_id}")
+            handler.disable_element(room_element)
+        _LOGGER.info("Disabled all rooms except Room 1")
+
+        # Get a new image with only room 1 visible
+        self.image = await handler.async_get_image_from_json(self.test_data)
+        _LOGGER.info("Created image with only Room 1 visible")
+
+        # Example 3: Change the color of a specific element
+        _LOGGER.info("\nExample 3: Changing element properties")
+        # First re-enable everything
+        for element in DrawableElement:
+            handler.enable_element(element)
+
+        # Change the color of the robot
+        handler.set_element_property(DrawableElement.ROBOT, "color", (255, 0, 0, 255))  # Bright red
+        _LOGGER.info("Changed robot color to bright red")
+
+        # Get a new image with the red robot
+        self.image = await handler.async_get_image_from_json(self.test_data)
+        _LOGGER.info("Created image with red robot")
+
+        # Restore all elements and default properties for final image
+        _LOGGER.info("\nRestoring all elements to default")
+        # Re-initialize the handler to reset all properties
         handler = HypferMapImageHandler(shared)
         self.image = await handler.async_get_image_from_json(self.test_data)
 

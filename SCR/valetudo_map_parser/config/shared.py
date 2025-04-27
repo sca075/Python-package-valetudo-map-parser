@@ -106,6 +106,7 @@ class CameraShared:
         self.trim_crop_data = None
         self.trims = TrimsData.from_dict(DEFAULT_VALUES["trims_data"])  # Trims data
         self.skip_room_ids: List[str] = []
+        self.device_info = None  # Store the device_info
 
     def update_user_colors(self, user_colors):
         """Update the user colors."""
@@ -187,6 +188,10 @@ class CameraSharedManager:
         instance = self.get_instance()  # Retrieve the correct instance
 
         try:
+            # Store the device_info in the instance
+            instance.device_info = device_info
+            _LOGGER.info("%s: Stored device_info in shared instance", instance.file_name)
+
             instance.attr_calibration_points = None
 
             # Initialize shared data with defaults from DEFAULT_VALUES
@@ -239,6 +244,14 @@ class CameraSharedManager:
                 "%s: Updating shared trims with: %s", instance.file_name, trim_data
             )
             instance.trims = TrimsData.from_dict(trim_data)
+
+            # Log disable_obstacles and disable_path settings
+            if "disable_obstacles" in device_info:
+                _LOGGER.info("%s: device_info contains disable_obstacles: %s", instance.file_name, device_info["disable_obstacles"])
+            if "disable_path" in device_info:
+                _LOGGER.info("%s: device_info contains disable_path: %s", instance.file_name, device_info["disable_path"])
+            if "disable_elements" in device_info:
+                _LOGGER.info("%s: device_info contains disable_elements: %s", instance.file_name, device_info["disable_elements"])
 
         except TypeError as ex:
             _LOGGER.error("Shared data can't be initialized due to a TypeError! %s", ex)

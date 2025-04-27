@@ -1,8 +1,10 @@
 """Valetudo map parser.
-Version: 0.1.8"""
+Version: 0.1.9"""
 
 from .config.colors import ColorsManagment
 from .config.drawable import Drawable
+from .config.drawable_elements import DrawableElement, DrawingConfig
+from .config.enhanced_drawable import EnhancedDrawable
 from .config.rand25_parser import RRMapParser
 from .config.shared import CameraShared, CameraSharedManager
 from .config.types import (
@@ -25,10 +27,11 @@ __all__ = [
     "CameraSharedManager",
     "ColorsManagment",
     "Drawable",
+    "DrawableElement",
+    "DrawingConfig",
+    "EnhancedDrawable",
     "SnapshotStore",
     "UserLanguageStore",
-    "UserLanguageStore",
-    "SnapshotStore",
     "RoomStore",
     "RoomsProperties",
     "TrimCropData",

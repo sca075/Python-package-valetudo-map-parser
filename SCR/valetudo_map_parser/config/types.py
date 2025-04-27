@@ -16,7 +16,8 @@ from PIL import Image
 
 DEFAULT_ROOMS = 1
 
-MY_LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__package__)
+
 
 Color = Union[Tuple[int, int, int], Tuple[int, int, int, int]]
 Colors = Dict[str, Color]
