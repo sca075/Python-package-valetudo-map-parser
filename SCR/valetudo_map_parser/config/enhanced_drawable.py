@@ -66,10 +66,10 @@ class EnhancedDrawable(Drawable):
 
         # Convert back to 0-255 range and return as tuple
         return (
-            int(max(0, min(255, r_out))),
-            int(max(0, min(255, g_out))),
-            int(max(0, min(255, b_out))),
-            int(max(0, min(255, a_out * 255))),
+            int(max(0, min(255, int(r_out)))),
+            int(max(0, min(255, int(g_out)))),
+            int(max(0, min(255, int(b_out)))),
+            int(max(0, min(255, int(a_out * 255)))),
         )
 
     def blend_pixel(
@@ -280,11 +280,6 @@ class EnhancedDrawable(Drawable):
                             DrawableElement.ROBOT,
                             element_map,
                         )
-
-            # TODO: Draw robot orientation indicator
-            # This would be a line or triangle showing the direction
-            # For now, we'll skip this part as it requires more complex drawing
-
         return array, element_map
 
     async def _draw_charger(

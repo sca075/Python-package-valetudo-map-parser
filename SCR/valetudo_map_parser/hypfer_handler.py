@@ -8,23 +8,37 @@ Version: 0.1.9
 from __future__ import annotations
 
 import json
-import logging
 
 import numpy as np
 from PIL import Image
 
 from .config.auto_crop import AutoCrop
-from .config.drawable import Drawable
-from .config.drawable_elements import DrawableElement, DrawingConfig
-from .config.enhanced_drawable import EnhancedDrawable
+from .config.drawable_elements import DrawableElement
+from .config.optimized_element_map import OptimizedElementMapGenerator
 from .config.shared import CameraShared
-from .config.types import COLORS, CalibrationPoints, Colors, RoomsProperties, RoomStore
-from .config.utils import BaseHandler, prepare_resize_params
+from .config.types import (
+    COLORS,
+    LOGGER,
+    CalibrationPoints,
+    Colors,
+    RoomsProperties,
+    RoomStore,
+)
+from .config.utils import (
+    BaseHandler,
+    blend_colors,
+    blend_pixel,
+    get_element_at_position,
+    get_room_at_position,
+    handle_room_outline_error,
+    initialize_drawing_config,
+    manage_drawable_elements,
+    prepare_resize_params,
+    update_element_map_with_robot,
+)
+from .config.room_outline import extract_room_outline_with_scipy
 from .hypfer_draw import ImageDraw as ImDraw
 from .map_data import ImageData
-
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class HypferMapImageHandler(BaseHandler, AutoCrop):
@@ -40,8 +54,9 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         self.data = ImageData  # imported Image Data Module.
 
         # Initialize drawing configuration using the shared utility function
-        from .config.utils import initialize_drawing_config
-        self.drawing_config, self.draw, self.enhanced_draw = initialize_drawing_config(self)
+        self.drawing_config, self.draw, self.enhanced_draw = initialize_drawing_config(
+            self
+        )
 
         self.go_to = None  # vacuum go to data
         self.img_hash = None  # hash of the image calculated to check differences.
@@ -51,12 +66,14 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         self.imd = ImDraw(self)  # Image Draw class.
         self.color_grey = (128, 128, 128, 255)
         self.file_name = self.shared.file_name  # file name of the vacuum.
-        self.element_map = None  # Map of element codes
+        self.element_map_manager = OptimizedElementMapGenerator(self.drawing_config,
+                                                       self.shared)  # Map of element codes
 
     @staticmethod
     def get_corners(x_max, x_min, y_max, y_min):
         """Get the corners of the room."""
         return [(x_min, y_min), (x_max, y_min), (x_max, y_max), (x_min, y_max)]
+
 
     async def extract_room_outline_from_map(self, room_id_int, pixels, pixel_size):
         """Extract the outline of a room using the pixel data and element map.
@@ -84,13 +101,13 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         min_y, max_y = min(y_values), max(y_values)
 
         # If we don't have an element map, return a rectangular outline
-        if not hasattr(self, "element_map") or self.element_map is None:
+        if not hasattr(self, "element_map") or self.shared.element_map is None:
             # Return rectangular outline
             return [(min_x, min_y), (max_x, min_y), (max_x, max_y), (min_x, max_y)]
 
         # Create a binary mask for this room using the pixel data
         # This is more reliable than using the element_map since we're directly using the pixel data
-        height, width = self.element_map.shape
+        height, width = self.shared.element_map.shape
         room_mask = np.zeros((height, width), dtype=np.uint8)
 
         # Fill the mask with room pixels using the pixel data
@@ -108,15 +125,16 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
 
         # Debug log to check if we have any room pixels
         num_room_pixels = np.sum(room_mask)
-        _LOGGER.debug(
+        LOGGER.debug(
             "%s: Room %s mask has %d pixels",
-            self.file_name, str(room_id_int), int(num_room_pixels)
+            self.file_name,
+            str(room_id_int),
+            int(num_room_pixels),
         )
 
-        # Use the shared utility function to extract the room outline
-        from .config.utils import async_extract_room_outline
-        return await async_extract_room_outline(
-            room_mask, min_x, min_y, max_x, max_y, self.file_name, room_id_int, _LOGGER
+        # Use the scipy-based room outline extraction
+        return await extract_room_outline_with_scipy(
+            room_mask, min_x, min_y, max_x, max_y, self.file_name, room_id_int
         )
 
     async def async_extract_room_properties(self, json_data) -> RoomsProperties:
@@ -151,15 +169,14 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                         outline = await self.extract_room_outline_from_map(
                             segment_id, pixels, pixel_size
                         )
-                        _LOGGER.debug(
+                        LOGGER.debug(
                             "%s: Traced outline for room %s with %d points",
                             self.file_name,
                             segment_id,
                             len(outline),
                         )
                     except (ValueError, IndexError, TypeError, ArithmeticError) as e:
-                        from .config.utils import handle_room_outline_error
-                        handle_room_outline_error(self.file_name, segment_id, e, _LOGGER)
+                        handle_room_outline_error(self.file_name, segment_id, e)
                         outline = corners
 
                     room_id = str(segment_id)
@@ -178,11 +195,11 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                     }
         if room_properties:
             rooms = RoomStore(self.file_name, room_properties)
-            _LOGGER.debug(
+            LOGGER.debug(
                 "%s: Rooms data extracted! %s", self.file_name, rooms.get_rooms()
             )
         else:
-            _LOGGER.debug("%s: Rooms data not available!", self.file_name)
+            LOGGER.debug("%s: Rooms data not available!", self.file_name)
             self.rooms_pos = None
         return room_properties
 
@@ -204,7 +221,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         # Check if the JSON data is not None else process the image.
         try:
             if m_json is not None:
-                _LOGGER.debug("%s: Creating Image.", self.file_name)
+                LOGGER.debug("%s: Creating Image.", self.file_name)
                 # buffer json data
                 self.json_data = m_json
                 # Get the image size from the JSON data
@@ -237,11 +254,8 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                         size_x, size_y, colors["background"]
                     )
 
-                    # Create element map for tracking what's drawn where
-                    self.element_map = np.zeros((size_y, size_x), dtype=np.int32)
-                    self.element_map[:] = DrawableElement.FLOOR
 
-                    _LOGGER.info("%s: Drawing map with color blending", self.file_name)
+                    LOGGER.info("%s: Drawing map with color blending", self.file_name)
 
                     # Draw layers and segments if enabled
                     room_id = 0
@@ -268,7 +282,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                                     ):
                                         # Add this room to the disabled rooms set
                                         disabled_rooms.add(room_id)
-                                        _LOGGER.debug(
+                                        LOGGER.debug(
                                             "%s: Room %d is disabled and will be skipped",
                                             self.file_name,
                                             current_room_id,
@@ -296,7 +310,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                                     )
                                     if room_element:
                                         # Log the room check for debugging
-                                        _LOGGER.debug(
+                                        LOGGER.debug(
                                             "%s: Checking if room %d is enabled: %s",
                                             self.file_name,
                                             current_room_id,
@@ -320,7 +334,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                                 if not self.drawing_config.is_enabled(
                                     DrawableElement.WALL
                                 ):
-                                    _LOGGER.info(
+                                    LOGGER.info(
                                         "%s: Skipping wall layer because WALL element is disabled",
                                         self.file_name,
                                     )
@@ -331,7 +345,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                                     # Need to modify compressed_pixels_list to exclude walls of disabled rooms
                                     # This requires knowledge of which walls belong to which rooms
                                     # For now, we'll just log that we're drawing walls for all rooms
-                                    _LOGGER.debug(
+                                    LOGGER.debug(
                                         "%s: Drawing walls for all rooms (including disabled ones)",
                                         self.file_name,
                                     )
@@ -390,7 +404,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                                 robot_y=(robot_position[1]),
                                 angle=robot_position_angle,
                             )
-                    _LOGGER.info("%s: Completed base Layers", self.file_name)
+                    LOGGER.info("%s: Completed base Layers", self.file_name)
                     # Copy the new array in base layer.
                     self.img_base_layer = await self.async_copy_array(img_np_array)
                 self.shared.frame_number = self.frame_number
@@ -399,7 +413,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                     new_frame_hash != self.img_hash
                 ):
                     self.frame_number = 0
-                _LOGGER.debug(
+                LOGGER.debug(
                     "%s: %s at Frame Number: %s",
                     self.file_name,
                     str(self.json_id),
@@ -425,16 +439,16 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
 
                 # Draw path prediction and paths if enabled
                 path_enabled = self.drawing_config.is_enabled(DrawableElement.PATH)
-                _LOGGER.info(
+                LOGGER.info(
                     "%s: PATH element enabled: %s", self.file_name, path_enabled
                 )
                 if path_enabled:
-                    _LOGGER.info("%s: Drawing path", self.file_name)
+                    LOGGER.info("%s: Drawing path", self.file_name)
                     img_np_array = await self.imd.async_draw_paths(
                         img_np_array, m_json, colors["move"], self.color_grey
                     )
                 else:
-                    _LOGGER.info("%s: Skipping path drawing", self.file_name)
+                    LOGGER.info("%s: Skipping path drawing", self.file_name)
 
                 # Check if the robot is docked.
                 if self.shared.vacuum_state == "docked":
@@ -459,8 +473,10 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                     )
 
                     # Update element map for robot position
-                    from .config.utils import update_element_map_with_robot
-                    update_element_map_with_robot(self.element_map, robot_position, DrawableElement.ROBOT)
+                    if hasattr(self.shared, 'element_map') and self.shared.element_map is not None:
+                        update_element_map_with_robot(
+                            self.shared.element_map, robot_position, DrawableElement.ROBOT
+                        )
                 # Resize the image
                 img_np_array = await self.async_auto_trim_and_zoom_image(
                     img_np_array,
@@ -471,9 +487,24 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                 )
             # If the image is None return None and log the error.
             if img_np_array is None:
-                _LOGGER.warning("%s: Image array is None.", self.file_name)
+                LOGGER.warning("%s: Image array is None.", self.file_name)
                 return None
+            # Debug logging for element map creation
+            LOGGER.info("%s: Frame number: %d, has element_map: %s",
+                       self.file_name, self.frame_number, hasattr(self.shared, 'element_map'))
 
+            if (self.shared.element_map is None) and (self.frame_number == 1):
+                # Create element map for tracking what's drawn where
+                LOGGER.info("%s: Creating element map with shape: %s",
+                           self.file_name, img_np_array.shape)
+
+                # Generate the element map directly from JSON data
+                # This will create a cropped element map containing only the non-zero elements
+                LOGGER.info("%s: Generating element map from JSON data", self.file_name)
+                self.shared.element_map = await self.element_map_manager.async_generate_from_json(m_json)
+
+                LOGGER.info("%s: Element map created with shape: %s",
+                           self.file_name, self.shared.element_map.shape if self.shared.element_map is not None else None)
             # Convert the numpy array to a PIL image
             pil_img = Image.fromarray(img_np_array, mode="RGBA")
             del img_np_array
@@ -482,10 +513,10 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                 resize_params = prepare_resize_params(self, pil_img, False)
                 resized_image = await self.async_resize_images(resize_params)
                 return resized_image
-            _LOGGER.debug("%s: Frame Completed.", self.file_name)
+            LOGGER.debug("%s: Frame Completed.", self.file_name)
             return pil_img
         except (RuntimeError, RuntimeWarning) as e:
-            _LOGGER.warning(
+            LOGGER.warning(
                 "%s: Error %s during image creation.",
                 self.file_name,
                 str(e),
@@ -499,12 +530,12 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         if self.room_propriety:
             return self.room_propriety
         if self.json_data:
-            _LOGGER.debug("Checking %s Rooms data..", self.file_name)
+            LOGGER.debug("Checking %s Rooms data..", self.file_name)
             self.room_propriety = await self.async_extract_room_properties(
                 self.json_data
             )
             if self.room_propriety:
-                _LOGGER.debug("Got %s Rooms Attributes.", self.file_name)
+                LOGGER.debug("Got %s Rooms Attributes.", self.file_name)
         return self.room_propriety
 
     def get_calibration_data(self) -> CalibrationPoints:
@@ -512,7 +543,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         this will create the attribute calibration points."""
         calibration_data = []
         rotation_angle = self.shared.image_rotate
-        _LOGGER.info("Getting %s Calibrations points.", self.file_name)
+        LOGGER.info("Getting %s Calibrations points.", self.file_name)
 
         # Define the map points (fixed)
         map_points = self.get_map_points()
@@ -530,7 +561,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
     def enable_element(self, element_code: DrawableElement) -> None:
         """Enable drawing of a specific element."""
         self.drawing_config.enable_element(element_code)
-        _LOGGER.info(
+        LOGGER.info(
             "%s: Enabled element %s, now enabled: %s",
             self.file_name,
             element_code.name,
@@ -539,33 +570,35 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
 
     def disable_element(self, element_code: DrawableElement) -> None:
         """Disable drawing of a specific element."""
-        from .config.utils import manage_drawable_elements
         manage_drawable_elements(self, "disable", element_code=element_code)
 
     def set_elements(self, element_codes: list[DrawableElement]) -> None:
         """Enable only the specified elements, disable all others."""
-        from .config.utils import manage_drawable_elements
         manage_drawable_elements(self, "set_elements", element_codes=element_codes)
 
     def set_element_property(
         self, element_code: DrawableElement, property_name: str, value
     ) -> None:
         """Set a drawing property for an element."""
-        from .config.utils import manage_drawable_elements
-        manage_drawable_elements(self, "set_property", element_code=element_code, property_name=property_name, value=value)
+        manage_drawable_elements(
+            self,
+            "set_property",
+            element_code=element_code,
+            property_name=property_name,
+            value=value,
+        )
 
     def get_element_at_position(self, x: int, y: int) -> DrawableElement | None:
         """Get the element code at a specific position."""
-        from .config.utils import get_element_at_position
-        return get_element_at_position(self.element_map, x, y)
+
+        return get_element_at_position(self.shared.element_map, x, y)
 
     def get_room_at_position(self, x: int, y: int) -> int | None:
         """Get the room ID at a specific position, or None if not a room."""
-        from .config.utils import get_room_at_position
-        return get_room_at_position(self.element_map, x, y, DrawableElement.ROOM_1)
+        return get_room_at_position(self.shared.element_map, x, y, DrawableElement.ROOM_1)
 
     @staticmethod
-    def blend_colors(self, base_color, overlay_color):
+    def blend_colors(base_color, overlay_color):
         """
         Blend two RGBA colors, considering alpha channels.
 
@@ -576,7 +609,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         Returns:
             The blended RGBA color
         """
-        from .config.utils import blend_colors
         return blend_colors(base_color, overlay_color)
 
     def blend_pixel(self, array, x, y, color, element):
@@ -584,10 +616,11 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         Blend a pixel color with the existing color at the specified position.
         Also updates the element map if the new element has higher z-index.
         """
-        from .config.utils import blend_pixel
-        return blend_pixel(array, x, y, color, element, self.element_map, self.drawing_config)
+        return blend_pixel(
+            array, x, y, color, element, self.shared.element_map, self.drawing_config
+        )
 
     @staticmethod
-    async def async_copy_array(array):
+    async def async_copy_array(original_array):
         """Copy the array."""
-        return array.copy()
+        return original_array.copy()

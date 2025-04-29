@@ -47,16 +47,16 @@ class TestRandImageHandler:
             'vacuum_map': 'valetudo/rockrobo',
             'vacuum_identifiers': {('mqtt', 'rockrobo')},
             'coordinator': "<custom_components.mqtt_vacuum_camera.coordinator.MQTTVacuumCoordinator object>",
-            'is_rand256': True,
+            'is_rand256': False,
             'unsub_options_update_listener': "<function ConfigEntry.add_update_listener.<locals>.<lambda>>",
             'alpha_background': 255.0,
             'alpha_charger': 255.0,
             'alpha_go_to': 255.0,
-            'alpha_move': 125.0,
+            'alpha_move': 150.0,
             'alpha_no_go': 125.0,
             'alpha_robot': 255.0,
             'alpha_text': 255.0,
-            'alpha_wall': 125.0,
+            'alpha_wall': 115.0,  # Testing with a lower alpha value
             'alpha_zone_clean': 125.0,
             'aspect_ratio': '16, 9',
             'auto_zoom': True,
@@ -70,8 +70,82 @@ class TestRandImageHandler:
             'color_text': [164, 25, 25],
             'color_wall': [255, 255, 0],
             'color_zone_clean': [255, 255, 255],
+            'color_room_0': [135, 206, 250],
+            'color_room_1': [176, 226, 255],
+            'color_room_2': [165, 141, 18],
+            'color_room_3': [164, 211, 238],
+            'color_room_4': [141, 182, 205],
+            'color_room_5': [96, 123, 139],
+            'color_room_6': [224, 255, 255],
+            'color_room_7': [209, 238, 238],
+            'color_room_8': [180, 205, 205],
+            'color_room_9': [122, 139, 139],
+            'color_room_10': [175, 238, 238],
+            'color_room_11': [84, 153, 199],
+            'color_room_12': [133, 193, 233],
+            'color_room_13': [245, 176, 65],
+            'color_room_14': [82, 190, 128],
+            'color_room_15': [72, 201, 176],
+            'alpha_room_0': 255.0,
+            'alpha_room_1': 255.0,
+            'alpha_room_2': 255.0,
+            'alpha_room_3': 255.0,
+            'alpha_room_4': 255.0,
+            'alpha_room_5': 255.0,
+            'alpha_room_6': 255.0,
+            'alpha_room_7': 255.0,
+            'alpha_room_8': 255.0,
+            'alpha_room_9': 255.0,
+            'alpha_room_10': 255.0,
+            'alpha_room_11': 255.0,
+            'alpha_room_12': 255.0,
+            'alpha_room_13': 255.0,
+            'alpha_room_14': 255.0,
+            'alpha_room_15': 255.0,
+            'offset_top': 0,
+            'offset_bottom': 0,
+            'offset_left': 10,
+            'offset_right': 0,
+            'rotate_image': '90',
+            'margins': '100',
+            'show_vac_status': False,
+            'vac_status_font': 'custom_components/mqtt_vacuum_camera/utils/fonts/FiraSans.ttf',
+            'vac_status_position': True,
+            'vac_status_size': 50.0,
+            'enable_www_snapshots': False,
+            'get_svg_file': False,
+            'trims_data': {
+                'trim_left': 0,
+                'trim_up': 0,
+                'trim_right': 0,
+                'trim_down': 0
+            },
+            'disable_floor': False,
+            'disable_wall': False,
+            'disable_robot': False,
+            'disable_charger': False,
+            'disable_virtual_walls': False,
+            'disable_restricted_areas': False,
+            'disable_no_mop_areas': False,
             'disable_obstacles': False,
-            'disable_path': False
+            'disable_path': False,
+            'disable_predicted_path': False,
+            'disable_go_to_target': False,
+            'disable_room_1': False,
+            'disable_room_2': False,
+            'disable_room_3': False,
+            'disable_room_4': False,
+            'disable_room_5': False,
+            'disable_room_6': False,
+            'disable_room_7': False,
+            'disable_room_8': False,
+            'disable_room_9': False,
+            'disable_room_10': False,
+            'disable_room_11': False,
+            'disable_room_12': False,
+            'disable_room_13': False,
+            'disable_room_14': False,
+            'disable_room_15': False
         }
 
         shared_data = CameraSharedManager("test_vacuum", device_info)
@@ -95,26 +169,6 @@ class TestRandImageHandler:
         # Try to generate an image from the JSON data
         try:
             _LOGGER.info("Attempting to generate image from JSON data...")
-            # Check if the JSON data has a charger position
-            if 'charger_location' not in self.test_data:
-                _LOGGER.info("No charger location in test data, adding a dummy one")
-                # Add a dummy charger position to avoid the error
-                self.test_data['charger_location'] = [{'points': [2526, 2554]}]
-
-            # Monkey patch the handler to handle the charger position correctly
-            original_draw_charger = handler.imd.async_draw_charger
-
-            async def patched_draw_charger(np_array, m_json, color_charger):
-                np_array, charger_pos_dict = await original_draw_charger(np_array, m_json, color_charger)
-                # Convert the dictionary to the expected format
-                if charger_pos_dict and 'x' in charger_pos_dict and 'y' in charger_pos_dict:
-                    # Return as a list-like object with indices 0 and 1 for x and y
-                    return np_array, [charger_pos_dict['x'], charger_pos_dict['y']]
-                return np_array, None
-
-            # Apply the monkey patch
-            handler.imd.async_draw_charger = patched_draw_charger
-
             self.image = await handler.get_image_from_rrm(self.test_data)
             _LOGGER.info("Successfully generated image from JSON data")
         except Exception as e:

@@ -2,18 +2,16 @@
 
 import hashlib
 import json
-import logging
-import numpy as np
 from dataclasses import dataclass
-from logging import getLogger
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, List, Optional
 
+import numpy as np
 from PIL import ImageOps
 
-from .types import ChargerPosition, ImageSize, NumpyArray, PilPNG, RobotPosition
-
-
-_LOGGER = getLogger(__name__)
+from .drawable import Drawable
+from .drawable_elements import DrawableElement, DrawingConfig
+from .enhanced_drawable import EnhancedDrawable
+from .types import LOGGER, ChargerPosition, ImageSize, NumpyArray, PilPNG, RobotPosition
 
 
 @dataclass
@@ -114,7 +112,7 @@ class BaseHandler:
             elif rotation in [90, 270]:
                 self.offset_y = (self.crop_img_size[0] - width) // 2
                 self.offset_x = self.crop_img_size[1] - height
-        _LOGGER.debug(
+        LOGGER.debug(
             "%s Image Coordinates Offsets (x,y): %s. %s",
             self.file_name,
             self.offset_x,
@@ -142,7 +140,7 @@ class BaseHandler:
                 self.offset_x = width - self.crop_img_size[0]
                 self.offset_y = height - self.crop_img_size[1]
 
-        _LOGGER.debug(
+        LOGGER.debug(
             "%s Image Coordinates Offsets (x,y): %s. %s",
             self.file_name,
             self.offset_x,
@@ -173,7 +171,7 @@ class BaseHandler:
                 self.offset_y = (self.crop_img_size[0] - width) // 2
                 self.offset_x = self.crop_img_size[1] - height
 
-        _LOGGER.debug(
+        LOGGER.debug(
             "%s Image Coordinates Offsets (x,y): %s. %s",
             self.file_name,
             self.offset_x,
@@ -205,7 +203,7 @@ class BaseHandler:
                 self.offset_y = (self.crop_img_size[0] - width) // 2
                 self.offset_x = self.crop_img_size[1] - height
 
-        _LOGGER.debug(
+        LOGGER.debug(
             "%s Image Coordinates Offsets (x,y): %s. %s",
             self.file_name,
             self.offset_x,
@@ -233,7 +231,7 @@ class BaseHandler:
                 self.offset_x = width - self.crop_img_size[0]
                 self.offset_y = height - self.crop_img_size[1]
 
-        _LOGGER.debug(
+        LOGGER.debug(
             "%s Image Coordinates Offsets (x,y): %s. %s",
             self.file_name,
             self.offset_x,
@@ -261,7 +259,7 @@ class BaseHandler:
                 self.offset_x = width - self.crop_img_size[0]
                 self.offset_y = height - self.crop_img_size[1]
 
-        _LOGGER.debug(
+        LOGGER.debug(
             "%s Image Coordinates Offsets (x,y): %s. %s",
             self.file_name,
             self.offset_x,
@@ -446,7 +444,7 @@ class BaseHandler:
                 }
                 id_count += 1
             if id_count > 1:
-                _LOGGER.debug("%s: Zones Properties updated.", self.file_name)
+                LOGGER.debug("%s: Zones Properties updated.", self.file_name)
         return zone_properties
 
     async def async_points_propriety(self, points_data) -> dict:
@@ -467,7 +465,7 @@ class BaseHandler:
                 }
                 id_count += 1
             if id_count > 1:
-                _LOGGER.debug("%s: Point Properties updated.", self.file_name)
+                LOGGER.debug("%s: Point Properties updated.", self.file_name)
         return point_properties
 
     @staticmethod
@@ -489,7 +487,7 @@ async def async_resize_image(params: ResizeParams):
         wsf, hsf = [int(x) for x in params.aspect_ratio.split(",")]
 
         if wsf == 0 or hsf == 0 or params.width <= 0 or params.height <= 0:
-            _LOGGER.warning(
+            LOGGER.warning(
                 "Invalid aspect ratio parameters: width=%s, height=%s, wsf=%s, hsf=%s. Returning original image.",
                 params.width,
                 params.height,
@@ -509,8 +507,8 @@ async def async_resize_image(params: ResizeParams):
             new_width = params.pil_img.width
             new_height = int(params.pil_img.width / new_aspect_ratio)
 
-        _LOGGER.debug("Resizing image to aspect ratio: %s, %s", wsf, hsf)
-        _LOGGER.debug("New image size: %s x %s", new_width, new_height)
+        LOGGER.debug("Resizing image to aspect ratio: %s, %s", wsf, hsf)
+        LOGGER.debug("New image size: %s x %s", new_width, new_height)
 
         if (params.crop_size is not None) and (params.offset_func is not None):
             offset = OffsetParams(wsf, hsf, new_width, new_height, params.is_rand)
@@ -544,50 +542,47 @@ def initialize_drawing_config(handler):
     Returns:
         Tuple of (DrawingConfig, Drawable, EnhancedDrawable)
     """
-    from .drawable import Drawable
-    from .drawable_elements import DrawableElement, DrawingConfig
-    from .enhanced_drawable import EnhancedDrawable
 
     # Initialize drawing configuration
     drawing_config = DrawingConfig()
 
-    # Get logger from the handler
-    _LOGGER = logging.getLogger(handler.__class__.__module__)
-
-    if hasattr(handler.shared, "device_info") and handler.shared.device_info is not None:
-        _LOGGER.info(
+    if (
+        hasattr(handler.shared, "device_info")
+        and handler.shared.device_info is not None
+    ):
+        LOGGER.info(
             "%s: Initializing drawing config from device_info", handler.file_name
         )
-        _LOGGER.info(
+        LOGGER.info(
             "%s: device_info contains disable_obstacles: %s",
             handler.file_name,
             "disable_obstacles" in handler.shared.device_info,
         )
-        _LOGGER.info(
+        LOGGER.info(
             "%s: device_info contains disable_path: %s",
             handler.file_name,
             "disable_path" in handler.shared.device_info,
         )
-        _LOGGER.info(
+        LOGGER.info(
             "%s: device_info contains disable_elements: %s",
             handler.file_name,
             "disable_elements" in handler.shared.device_info,
         )
 
         if "disable_obstacles" in handler.shared.device_info:
-            _LOGGER.info(
+            LOGGER.info(
                 "%s: disable_obstacles value: %s",
                 handler.file_name,
                 handler.shared.device_info["disable_obstacles"],
             )
         if "disable_path" in handler.shared.device_info:
-            _LOGGER.info(
+            LOGGER.info(
                 "%s: disable_path value: %s",
                 handler.file_name,
                 handler.shared.device_info["disable_path"],
             )
         if "disable_elements" in handler.shared.device_info:
-            _LOGGER.info(
+            LOGGER.info(
                 "%s: disable_elements value: %s",
                 handler.file_name,
                 handler.shared.device_info["disable_elements"],
@@ -596,12 +591,12 @@ def initialize_drawing_config(handler):
         drawing_config.update_from_device_info(handler.shared.device_info)
 
         # Verify elements are disabled
-        _LOGGER.info(
+        LOGGER.info(
             "%s: After initialization, PATH enabled: %s",
             handler.file_name,
             drawing_config.is_enabled(DrawableElement.PATH),
         )
-        _LOGGER.info(
+        LOGGER.info(
             "%s: After initialization, OBSTACLE enabled: %s",
             handler.file_name,
             drawing_config.is_enabled(DrawableElement.OBSTACLE),
@@ -738,7 +733,9 @@ def get_room_at_position(element_map, x, y, room_base=101):
     return None
 
 
-def update_element_map_with_robot(element_map, robot_position, robot_element=3, robot_radius=25):
+def update_element_map_with_robot(
+    element_map, robot_position, robot_element=3, robot_radius=25
+):
     """
     Update the element map with the robot position.
 
@@ -762,14 +759,18 @@ def update_element_map_with_robot(element_map, robot_position, robot_element=3, 
                     int(robot_position[0] + dx),
                     int(robot_position[1] + dy),
                 )
-                if (
-                    0 <= ry < element_map.shape[0]
-                    and 0 <= rx < element_map.shape[1]
-                ):
+                if 0 <= ry < element_map.shape[0] and 0 <= rx < element_map.shape[1]:
                     element_map[ry, rx] = robot_element
 
 
-def manage_drawable_elements(handler, action, element_code=None, element_codes=None, property_name=None, value=None):
+def manage_drawable_elements(
+    handler,
+    action,
+    element_code=None,
+    element_codes=None,
+    property_name=None,
+    value=None,
+):
     """
     Manage drawable elements (enable, disable, set elements, set properties).
 
@@ -793,11 +794,15 @@ def manage_drawable_elements(handler, action, element_code=None, element_codes=N
         handler.drawing_config.disable_element(element_code)
     elif action == "set_elements" and element_codes is not None:
         handler.drawing_config.set_elements(element_codes)
-    elif action == "set_property" and element_code is not None and property_name is not None:
+    elif (
+        action == "set_property"
+        and element_code is not None
+        and property_name is not None
+    ):
         handler.drawing_config.set_property(element_code, property_name, value)
 
 
-def handle_room_outline_error(file_name, room_id, error, logger=None):
+def handle_room_outline_error(file_name, room_id, error):
     """
     Handle errors during room outline extraction.
 
@@ -805,20 +810,22 @@ def handle_room_outline_error(file_name, room_id, error, logger=None):
         file_name: Name of the file for logging
         room_id: Room ID for logging
         error: The error that occurred
-        logger: Logger instance (optional)
 
     Returns:
         None
     """
-    _LOGGER = logger or logging.getLogger(__name__)
 
-    _LOGGER.warning(
+    LOGGER.warning(
         "%s: Failed to trace outline for room %s: %s",
-        file_name, str(room_id), str(error)
+        file_name,
+        str(room_id),
+        str(error),
     )
 
 
-async def async_extract_room_outline(room_mask, min_x, min_y, max_x, max_y, file_name, room_id_int, logger=None):
+async def async_extract_room_outline(
+    room_mask, min_x, min_y, max_x, max_y, file_name, room_id_int
+):
     """
     Extract the outline of a room from a binary mask.
 
@@ -830,13 +837,9 @@ async def async_extract_room_outline(room_mask, min_x, min_y, max_x, max_y, file
         max_y: Maximum y coordinate of the room
         file_name: Name of the file for logging
         room_id_int: Room ID for logging
-        logger: Logger instance (optional)
-
     Returns:
         List of (x, y) points forming the room outline
     """
-    # Use the provided logger or create a new one
-    _LOGGER = logger or logging.getLogger(__name__)
 
     # Get the dimensions of the mask
     height, width = room_mask.shape
@@ -874,24 +877,33 @@ async def async_extract_room_outline(room_mask, min_x, min_y, max_x, max_y, file
             is_boundary = False
             for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                 ny, nx = y + dy, x + dx
-                if (ny < 0 or ny >= height or nx < 0 or nx >= width or
-                    room_mask[ny, nx] == 0):
+                if (
+                    ny < 0
+                    or ny >= height
+                    or nx < 0
+                    or nx >= width
+                    or room_mask[ny, nx] == 0
+                ):
                     is_boundary = True
                     break
             if is_boundary:
                 boundary_points.append((x, y))
 
         # Log the number of boundary points found
-        _LOGGER.debug(
+        LOGGER.debug(
             "%s: Room %s has %d boundary points",
-            file_name, str(room_id_int), len(boundary_points)
+            file_name,
+            str(room_id_int),
+            len(boundary_points),
         )
 
         # If we found too few boundary points, use the rectangular outline
         if len(boundary_points) < 8:  # Need at least 8 points for a meaningful shape
-            _LOGGER.debug(
+            LOGGER.debug(
                 "%s: Room %s has too few boundary points (%d), using rectangular outline",
-                file_name, str(room_id_int), len(boundary_points)
+                file_name,
+                str(room_id_int),
+                len(boundary_points),
             )
             return rect_outline
 
@@ -903,7 +915,7 @@ async def async_extract_room_outline(room_mask, min_x, min_y, max_x, max_y, file
 
         # Calculate angles from centroid
         def calculate_angle(point):
-            return np.arctan2(point[1] - centroid_y, point[0] - centroid_x)
+            return np.arctan2(point[1] - int(centroid_y), point[0] - int(centroid_x))
 
         # Sort boundary points by angle
         boundary_points.sort(key=calculate_angle)
@@ -912,10 +924,12 @@ async def async_extract_room_outline(room_mask, min_x, min_y, max_x, max_y, file
         if len(boundary_points) > 20:
             # Take every Nth point to simplify
             step = len(boundary_points) // 20
-            simplified_outline = [boundary_points[i] for i in range(0, len(boundary_points), step)]
+            simplified_outline = [
+                boundary_points[i] for i in range(0, len(boundary_points), step)
+            ]
             # Make sure we have at least 8 points
             if len(simplified_outline) < 8:
-                simplified_outline = boundary_points[::len(boundary_points)//8]
+                simplified_outline = boundary_points[:: len(boundary_points) // 8]
         else:
             simplified_outline = boundary_points
 
@@ -926,16 +940,19 @@ async def async_extract_room_outline(room_mask, min_x, min_y, max_x, max_y, file
         # Convert NumPy int64 values to regular Python integers
         simplified_outline = [(int(x), int(y)) for x, y in simplified_outline]
 
-        _LOGGER.debug(
+        LOGGER.debug(
             "%s: Room %s outline has %d points",
-            file_name, str(room_id_int), len(simplified_outline)
+            file_name,
+            str(room_id_int),
+            len(simplified_outline),
         )
 
         return simplified_outline
 
     except (ValueError, IndexError, TypeError, ArithmeticError) as e:
-        _LOGGER.warning(
+        LOGGER.warning(
             "%s: Error tracing room outline: %s. Using rectangular outline instead.",
-            file_name, str(e)
+            file_name,
+            str(e),
         )
         return rect_outline

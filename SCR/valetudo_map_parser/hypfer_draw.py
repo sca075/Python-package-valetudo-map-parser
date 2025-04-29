@@ -252,27 +252,26 @@ class ImageDraw:
         except KeyError:
             _LOGGER.info("%s No obstacle found.", self.file_name)
             return np_array
-        else:
-            obstacle_positions = []
-            if obstacle_data:
-                for obstacle in obstacle_data:
-                    label = obstacle.get("metaData", {}).get("label")
-                    points = obstacle.get("points", [])
+        obstacle_positions = []
+        if obstacle_data:
+            for obstacle in obstacle_data:
+                label = obstacle.get("metaData", {}).get("label")
+                points = obstacle.get("points", [])
 
-                    if label and points:
-                        obstacle_pos = {
-                            "label": label,
-                            "points": {"x": points[0], "y": points[1]},
-                        }
-                        obstacle_positions.append(obstacle_pos)
+                if label and points:
+                    obstacle_pos = {
+                        "label": label,
+                        "points": {"x": points[0], "y": points[1]},
+                    }
+                    obstacle_positions.append(obstacle_pos)
 
-            # List of dictionaries containing label and points for each obstacle
-            # and draw obstacles on the map
-            if obstacle_positions:
-                await self.img_h.draw.async_draw_obstacles(
-                    np_array, obstacle_positions, color_no_go
-                )
-            return np_array
+        # List of dictionaries containing label and points for each obstacle
+        # and draw obstacles on the map
+        if obstacle_positions:
+            await self.img_h.draw.async_draw_obstacles(
+                np_array, obstacle_positions, color_no_go
+            )
+        return np_array
 
     async def async_draw_charger(
         self,
@@ -286,18 +285,17 @@ class ImageDraw:
         except KeyError:
             _LOGGER.warning("%s: No charger position found.", self.file_name)
             return np_array
-        else:
-            if charger_pos:
-                charger_pos = charger_pos[0]["points"]
-                self.img_h.charger_pos = {
-                    "x": charger_pos[0],
-                    "y": charger_pos[1],
-                }
-                np_array = await self.img_h.draw.battery_charger(
-                    np_array, charger_pos[0], charger_pos[1], color_charger
-                )
-                return np_array
+        if charger_pos:
+            charger_pos = charger_pos[0]["points"]
+            self.img_h.charger_pos = {
+                "x": charger_pos[0],
+                "y": charger_pos[1],
+            }
+            np_array = await self.img_h.draw.battery_charger(
+                np_array, charger_pos[0], charger_pos[1], color_charger
+            )
             return np_array
+        return np_array
 
     async def async_get_json_id(self, my_json: JsonType) -> str | None:
         """Return the JSON ID from the image."""

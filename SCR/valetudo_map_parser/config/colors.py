@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-import logging
 from enum import StrEnum
 from typing import Dict, List, Tuple
 
-
-_LOGGER = logging.getLogger(__name__)
-
-Color = Tuple[int, int, int, int]  # RGBA color definition
+from .types import LOGGER, Color
 
 
 class SupportedColor(StrEnum):
@@ -38,7 +34,7 @@ class DefaultColors:
 
     COLORS_RGB: Dict[str, Tuple[int, int, int]] = {
         SupportedColor.CHARGER: (255, 128, 0),
-        SupportedColor.PATH: (238, 247, 255),
+        SupportedColor.PATH: (50, 150, 255),  # More vibrant blue for better visibility
         SupportedColor.PREDICTED_PATH: (93, 109, 126),
         SupportedColor.WALLS: (255, 255, 0),
         SupportedColor.ROBOT: (255, 255, 204),
@@ -77,6 +73,11 @@ class DefaultColors:
     DEFAULT_ALPHA: Dict[str, float] = {
         f"alpha_{key}": 255.0 for key in COLORS_RGB.keys()
     }
+    # Override specific alpha values
+    DEFAULT_ALPHA.update({
+        "alpha_color_path": 200.0,  # Make path slightly transparent but still very visible
+        "alpha_color_wall": 150.0,  # Keep walls semi-transparent
+    })
     DEFAULT_ALPHA.update({f"alpha_room_{i}": 255.0 for i in range(16)})
 
     @classmethod
@@ -142,6 +143,57 @@ class ColorsManagment:
         """
         return (*rgb, int(alpha)) if rgb else (0, 0, 0, int(alpha))
 
+    @staticmethod
+    def blend_colors(background: Color, foreground: Color) -> Color:
+        """
+        Blend foreground color with background color based on alpha values.
+
+        This is used when drawing elements that overlap on the map.
+        The alpha channel determines how much of the foreground color is visible.
+
+        :param background: Background RGBA color (r,g,b,a)
+        :param foreground: Foreground RGBA color (r,g,b,a) to blend on top
+        :return: Blended RGBA color
+        """
+        # Extract components
+        bg_r, bg_g, bg_b, bg_a = background
+        fg_r, fg_g, fg_b, fg_a = foreground
+
+        # If foreground is fully opaque, just return it
+        if fg_a == 255:
+            return foreground
+
+        # If foreground is fully transparent, return background
+        if fg_a == 0:
+            return background
+
+        # Calculate alpha blending
+        # Convert alpha from [0-255] to [0-1] for calculations
+        fg_alpha = fg_a / 255.0
+        bg_alpha = bg_a / 255.0
+
+        # Calculate resulting alpha
+        out_alpha = fg_alpha + bg_alpha * (1 - fg_alpha)
+
+        # Avoid division by zero
+        if out_alpha < 0.0001:
+            return (0, 0, 0, 0)  # Fully transparent result
+
+        # Calculate blended RGB components
+        out_r = int((fg_r * fg_alpha + bg_r * bg_alpha * (1 - fg_alpha)) / out_alpha)
+        out_g = int((fg_g * fg_alpha + bg_g * bg_alpha * (1 - fg_alpha)) / out_alpha)
+        out_b = int((fg_b * fg_alpha + bg_b * bg_alpha * (1 - fg_alpha)) / out_alpha)
+
+        # Convert alpha back to [0-255] range
+        out_a = int(out_alpha * 255)
+
+        # Ensure values are in valid range
+        out_r = max(0, min(255, out_r))
+        out_g = max(0, min(255, out_g))
+        out_b = max(0, min(255, out_b))
+
+        return (out_r, out_g, out_b, out_a)
+
     def get_user_colors(self) -> List[Color]:
         """Return the list of RGBA colors for user-defined map elements."""
         return self.user_colors
@@ -163,7 +215,7 @@ class ColorsManagment:
             try:
                 return self.rooms_colors[room_index]
             except (IndexError, KeyError):
-                _LOGGER.warning("Room index %s not found, using default.", room_index)
+                LOGGER.warning("Room index %s not found, using default.", room_index)
                 r, g, b = DefaultColors.DEFAULT_ROOM_COLORS[f"color_room_{room_index}"]
                 a = DefaultColors.DEFAULT_ALPHA[f"alpha_room_{room_index}"]
                 return r, g, b, int(a)
@@ -173,7 +225,7 @@ class ColorsManagment:
             index = list(SupportedColor).index(supported_color)
             return self.user_colors[index]
         except (IndexError, KeyError, ValueError):
-            _LOGGER.warning(
+            LOGGER.warning(
                 "Color for %s not found. Returning default.", supported_color
             )
             return DefaultColors.get_rgba(supported_color, 255)  # Transparent fallback

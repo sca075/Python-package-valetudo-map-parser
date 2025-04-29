@@ -494,12 +494,3 @@ class RandImageData:
         except KeyError:
             return None
         return seg_ids
-
-    # @staticmethod
-    # def convert_negative_angle(angle: int) -> int:
-    #     """Convert negative angle to positive."""
-    #     angle_c = angle % 360  # Ensure angle is within 0-359
-    #     if angle_c < 0:
-    #         angle_c += 360  # Convert negative angle to positive
-    #     angle = angle_c + 180  # add offset
-    #     return angle

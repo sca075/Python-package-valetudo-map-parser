@@ -15,9 +15,7 @@ import numpy as np
 from PIL import Image
 
 from .config.auto_crop import AutoCrop
-from .config.drawable import Drawable
-from .config.drawable_elements import DrawableElement, DrawingConfig
-from .config.enhanced_drawable import EnhancedDrawable
+from .config.drawable_elements import DrawableElement
 from .config.types import (
     COLORS,
     DEFAULT_IMAGE_SIZE,
@@ -29,7 +27,17 @@ from .config.types import (
     RoomsProperties,
     RoomStore,
 )
-from .config.utils import BaseHandler, prepare_resize_params
+from .config.utils import (
+    BaseHandler,
+    get_element_at_position,
+    get_room_at_position,
+    handle_room_outline_error,
+    initialize_drawing_config,
+    manage_drawable_elements,
+    prepare_resize_params,
+    async_extract_room_outline,
+    update_element_map_with_robot,
+)
 from .map_data import RandImageData
 from .reimg_draw import ImageDraw
 
@@ -54,8 +62,9 @@ class ReImageHandler(BaseHandler, AutoCrop):
         self.data = RandImageData  # Image Data
 
         # Initialize drawing configuration using the shared utility function
-        from .config.utils import initialize_drawing_config
-        self.drawing_config, self.draw, self.enhanced_draw = initialize_drawing_config(self)
+        self.drawing_config, self.draw, self.enhanced_draw = initialize_drawing_config(
+            self
+        )
         self.element_map = None  # Map of element codes
         self.go_to = None  # Go to position data
         self.img_base_layer = None  # Base image layer
@@ -109,13 +118,14 @@ class ReImageHandler(BaseHandler, AutoCrop):
         num_room_pixels = np.sum(room_mask)
         _LOGGER.debug(
             "%s: Room %s mask has %d pixels",
-            self.file_name, str(room_id_int), int(num_room_pixels)
+            self.file_name,
+            str(room_id_int),
+            int(num_room_pixels),
         )
 
         # Use the shared utility function to extract the room outline
-        from .config.utils import async_extract_room_outline
         return await async_extract_room_outline(
-            room_mask, min_x, min_y, max_x, max_y, self.file_name, room_id_int, _LOGGER
+            room_mask, min_x, min_y, max_x, max_y, self.file_name, room_id_int
         )
 
     async def extract_room_properties(
@@ -140,72 +150,81 @@ class ReImageHandler(BaseHandler, AutoCrop):
             room_id_to_data = {room["id"]: room for room in room_data}
             self.rooms_pos = []
             room_properties = {}
-            if self.outlines:
-                for id_x, room_id in enumerate(unsorted_id):
-                    if room_id in room_id_to_data:
-                        room_info = room_id_to_data[room_id]
-                        name = room_info.get("name")
-                        # Calculate x and y min/max from outlines
-                        x_min = self.outlines[id_x][0][0]
-                        x_max = self.outlines[id_x][1][0]
-                        y_min = self.outlines[id_x][0][1]
-                        y_max = self.outlines[id_x][1][1]
+            if not self.outlines:
+                # Return empty data if no outlines are available
+                _LOGGER.debug("%s: No outlines available", self.file_name)
+                return None, None, None
 
-                        # Get rectangular corners as a fallback
-                        corners = self.get_corners(x_max, x_min, y_max, y_min)
+            # If we have outlines, proceed with processing
+            for id_x, room_id in enumerate(unsorted_id):
+                if room_id in room_id_to_data:
+                    room_info = room_id_to_data[room_id]
+                    name = room_info.get("name")
+                    # Calculate x and y min/max from outlines
+                    x_min = self.outlines[id_x][0][0]
+                    x_max = self.outlines[id_x][1][0]
+                    y_min = self.outlines[id_x][0][1]
+                    y_max = self.outlines[id_x][1][1]
 
-                        # Try to extract a more accurate room outline from the element map
-                        try:
-                            # Extract the room outline using the element map
-                            outline = await self.extract_room_outline_from_map(
-                                room_id, self.segment_data[id_x]
-                            )
-                            _LOGGER.debug(
-                                "%s: Traced outline for room %s with %d points",
-                                self.file_name,
-                                room_id,
-                                len(outline),
-                            )
-                        except (ValueError, IndexError, TypeError, ArithmeticError) as e:
-                            from .config.utils import handle_room_outline_error
-                            handle_room_outline_error(self.file_name, room_id, e, _LOGGER)
-                            outline = corners
+                    # Get rectangular corners as a fallback
+                    corners = self.get_corners(x_max, x_min, y_max, y_min)
 
-                        # rand256 vacuums accept int(room_id) or str(name)
-                        # the card will soon support int(room_id) but the camera will send name
-                        # this avoids the manual change of the values in the card.
-                        self.rooms_pos.append(
-                            {
-                                "name": name,
-                                "corners": corners,
-                            }
+                    # Try to extract a more accurate room outline from the element map
+                    try:
+                        # Extract the room outline using the element map
+                        outline = await self.extract_room_outline_from_map(
+                            room_id, self.segment_data[id_x]
                         )
-                        room_properties[int(room_id)] = {
-                            "number": int(room_id),
-                            "outline": outline,
+                        _LOGGER.debug(
+                            "%s: Traced outline for room %s with %d points",
+                            self.file_name,
+                            room_id,
+                            len(outline),
+                        )
+                    except (
+                        ValueError,
+                        IndexError,
+                        TypeError,
+                        ArithmeticError,
+                    ) as e:
+                        handle_room_outline_error(self.file_name, room_id, e)
+                        outline = corners
+
+                    # rand256 vacuums accept int(room_id) or str(name)
+                    # the card will soon support int(room_id) but the camera will send name
+                    # this avoids the manual change of the values in the card.
+                    self.rooms_pos.append(
+                        {
                             "name": name,
-                            "x": (x_min + x_max) // 2,
-                            "y": (y_min + y_max) // 2,
+                            "corners": corners,
                         }
-                # get the zones and points data
-                zone_properties = await self.async_zone_propriety(zones_data)
-                # get the points data
-                point_properties = await self.async_points_propriety(points_data)
-                if room_properties or zone_properties:
-                    extracted_data = [
-                        f"{len(room_properties)} Rooms" if room_properties else None,
-                        f"{len(zone_properties)} Zones" if zone_properties else None,
-                    ]
-                    extracted_data = ", ".join(filter(None, extracted_data))
-                    _LOGGER.debug("Extracted data: %s", extracted_data)
-                else:
-                    self.rooms_pos = None
-                    _LOGGER.debug(
-                        "%s: Rooms and Zones data not available!", self.file_name
                     )
-                rooms = RoomStore(self.file_name, room_properties)
-                _LOGGER.debug("Rooms Data: %s", rooms.get_rooms())
-                return room_properties, zone_properties, point_properties
+                    room_properties[int(room_id)] = {
+                        "number": int(room_id),
+                        "outline": outline,
+                        "name": name,
+                        "x": (x_min + x_max) // 2,
+                        "y": (y_min + y_max) // 2,
+                    }
+            # get the zones and points data
+            zone_properties = await self.async_zone_propriety(zones_data)
+            # get the points data
+            point_properties = await self.async_points_propriety(points_data)
+            if room_properties or zone_properties:
+                extracted_data = [
+                    f"{len(room_properties)} Rooms" if room_properties else None,
+                    f"{len(zone_properties)} Zones" if zone_properties else None,
+                ]
+                extracted_data = ", ".join(filter(None, extracted_data))
+                _LOGGER.debug("Extracted data: %s", extracted_data)
+            else:
+                self.rooms_pos = None
+                _LOGGER.debug(
+                    "%s: Rooms and Zones data not available!", self.file_name
+                )
+            rooms = RoomStore(self.file_name, room_properties)
+            _LOGGER.debug("Rooms Data: %s", rooms.get_rooms())
+            return room_properties, zone_properties, point_properties
         except (RuntimeError, ValueError) as e:
             _LOGGER.debug(
                 "No rooms Data or Error in extract_room_properties: %s",
@@ -270,6 +289,9 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 exc_info=True,
             )
             return None
+
+        # If we reach here without returning, return None
+        return None
 
     async def _setup_robot_and_image(
         self, m_json, size_x, size_y, colors, destinations
@@ -340,20 +362,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 img_np_array, m_json, colors["charger"]
             )
             # Update element map for charger position
-            if self.charger_pos:
-                charger_radius = 15
-                for dy in range(-charger_radius, charger_radius + 1):
-                    for dx in range(-charger_radius, charger_radius + 1):
-                        if dx * dx + dy * dy <= charger_radius * charger_radius:
-                            cx, cy = (
-                                int(self.charger_pos[0] + dx),
-                                int(self.charger_pos[1] + dy),
-                            )
-                            if (
-                                0 <= cy < self.element_map.shape[0]
-                                and 0 <= cx < self.element_map.shape[1]
-                            ):
-                                self.element_map[cy, cx] = DrawableElement.CHARGER
+            self._update_element_map_for_charger()
 
         # Draw zones if enabled
         if self.drawing_config.is_enabled(DrawableElement.RESTRICTED_AREA):
@@ -391,8 +400,9 @@ class ReImageHandler(BaseHandler, AutoCrop):
             )
 
             # Update element map for robot position
-            from .config.utils import update_element_map_with_robot
-            update_element_map_with_robot(self.element_map, robot_position, DrawableElement.ROBOT)
+            update_element_map_with_robot(
+                self.element_map, robot_position, DrawableElement.ROBOT
+            )
         img_np_array = await self.async_auto_trim_and_zoom_image(
             img_np_array,
             detect_colour=colors["background"],
@@ -461,46 +471,57 @@ class ReImageHandler(BaseHandler, AutoCrop):
         _LOGGER.debug("%s Changed room.. searching..", self.file_name)
         room_count = -1
         last_room = None
-        if self.rooms_pos:
-            if self.robot_in_room:
-                last_room = self.robot_in_room
-            for room in self.rooms_pos:
-                corners = room["corners"]
-                room_count += 1
-                self.robot_in_room = {
-                    "id": room_count,
-                    "left": corners[0][0],
-                    "right": corners[2][0],
-                    "up": corners[0][1],
-                    "down": corners[2][1],
-                    "room": room["name"],
-                }
-                # Check if the robot coordinates are inside the room's corners
-                if _check_robot_position(robot_x, robot_y):
-                    temp = {
-                        "x": robot_x,
-                        "y": robot_y,
-                        "angle": angle,
-                        "in_room": self.robot_in_room["room"],
-                    }
-                    _LOGGER.debug(
-                        "%s is in %s", self.file_name, self.robot_in_room["room"]
-                    )
-                    del room, corners, robot_x, robot_y  # free memory.
-                    return temp
-            del room, corners  # free memory.
-            _LOGGER.debug(
-                "%s: Not located within Camera Rooms coordinates.", self.file_name
-            )
-            self.zooming = False
-            self.robot_in_room = last_room
-            temp = {
+
+        # If no rooms data is available, return a default position
+        if not self.rooms_pos:
+            _LOGGER.debug("%s: No rooms data available", self.file_name)
+            return {
                 "x": robot_x,
                 "y": robot_y,
                 "angle": angle,
-                "in_room": self.robot_in_room["room"],
+                "in_room": "unknown"
             }
-            return temp
+
+        # If rooms data is available, search for the room
+        if self.robot_in_room:
+            last_room = self.robot_in_room
+        for room in self.rooms_pos:
+            corners = room["corners"]
+            room_count += 1
+            self.robot_in_room = {
+                "id": room_count,
+                "left": corners[0][0],
+                "right": corners[2][0],
+                "up": corners[0][1],
+                "down": corners[2][1],
+                "room": room["name"],
+            }
+            # Check if the robot coordinates are inside the room's corners
+            if _check_robot_position(robot_x, robot_y):
+                temp = {
+                    "x": robot_x,
+                    "y": robot_y,
+                    "angle": angle,
+                    "in_room": self.robot_in_room["room"],
+                }
+                _LOGGER.debug(
+                    "%s is in %s", self.file_name, self.robot_in_room["room"]
+                )
+                del room, corners, robot_x, robot_y  # free memory.
+                return temp
+        # After checking all rooms and not finding a match
+        _LOGGER.debug(
+            "%s: Not located within Camera Rooms coordinates.", self.file_name
+        )
+        self.zooming = False
+        self.robot_in_room = last_room
+        temp = {
+            "x": robot_x,
+            "y": robot_y,
+            "angle": angle,
+            "in_room": self.robot_in_room["room"] if self.robot_in_room else "unknown",
+        }
+        return temp
 
     def get_calibration_data(self, rotation_angle: int = 0) -> Any:
         """Return the map calibration data."""
@@ -532,27 +553,47 @@ class ReImageHandler(BaseHandler, AutoCrop):
 
     def disable_element(self, element_code: DrawableElement) -> None:
         """Disable drawing of a specific element."""
-        from .config.utils import manage_drawable_elements
         manage_drawable_elements(self, "disable", element_code=element_code)
 
     def set_elements(self, element_codes: list[DrawableElement]) -> None:
         """Enable only the specified elements, disable all others."""
-        from .config.utils import manage_drawable_elements
         manage_drawable_elements(self, "set_elements", element_codes=element_codes)
 
     def set_element_property(
         self, element_code: DrawableElement, property_name: str, value
     ) -> None:
         """Set a drawing property for an element."""
-        from .config.utils import manage_drawable_elements
-        manage_drawable_elements(self, "set_property", element_code=element_code, property_name=property_name, value=value)
+        manage_drawable_elements(
+            self,
+            "set_property",
+            element_code=element_code,
+            property_name=property_name,
+            value=value,
+        )
 
     def get_element_at_position(self, x: int, y: int) -> DrawableElement:
         """Get the element code at a specific position."""
-        from .config.utils import get_element_at_position
         return get_element_at_position(self.element_map, x, y)
 
     def get_room_at_position(self, x: int, y: int) -> int:
         """Get the room ID at a specific position, or None if not a room."""
-        from .config.utils import get_room_at_position
         return get_room_at_position(self.element_map, x, y, DrawableElement.ROOM_1)
+
+    def _update_element_map_for_charger(self):
+        """Helper method to update the element map for the charger position."""
+        if not self.charger_pos or self.element_map is None:
+            return
+
+        charger_radius = 15
+        # Handle both dictionary format {'x': x, 'y': y} and list format [x, y]
+        charger_x = self.charger_pos.get('x') if isinstance(self.charger_pos, dict) else self.charger_pos[0]
+        charger_y = self.charger_pos.get('y') if isinstance(self.charger_pos, dict) else self.charger_pos[1]
+
+        for dy in range(-charger_radius, charger_radius + 1):
+            for dx in range(-charger_radius, charger_radius + 1):
+                # Check if the point is within the circular charger area
+                if dx * dx + dy * dy <= charger_radius * charger_radius:
+                    cx, cy = int(charger_x + dx), int(charger_y + dy)
+                    # Check if the coordinates are within the element map bounds
+                    if (0 <= cy < self.element_map.shape[0] and 0 <= cx < self.element_map.shape[1]):
+                        self.element_map[cy, cx] = DrawableElement.CHARGER

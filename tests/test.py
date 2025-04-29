@@ -4,14 +4,20 @@ import asyncio
 import json
 import logging
 import os
+import sys
 import cProfile
 import pstats
+import numpy as np
 
+# Add the project root directory to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Now import from SCR package
 from SCR.valetudo_map_parser.config.colors_man import ColorsManagment
-from SCR.valetudo_map_parser.config.drawable_elements import DrawableElement
 from SCR.valetudo_map_parser.config.shared import CameraSharedManager
 from SCR.valetudo_map_parser.config.types import RoomStore
 from SCR.valetudo_map_parser.hypfer_handler import HypferMapImageHandler
+from tests.element_map_visualizer import ElementMapVisualizer
 
 # Configure logging
 logging.basicConfig(
@@ -46,16 +52,16 @@ class TestImageHandler:
             'vacuum_map': 'valetudo/rockrobo',
             'vacuum_identifiers': {('mqtt', 'rockrobo')},
             'coordinator': "<custom_components.mqtt_vacuum_camera.coordinator.MQTTVacuumCoordinator object>",
-            'is_rand256': True,
+            'is_rand256': False,
             'unsub_options_update_listener': "<function ConfigEntry.add_update_listener.<locals>.<lambda>>",
             'alpha_background': 255.0,
             'alpha_charger': 255.0,
             'alpha_go_to': 255.0,
-            'alpha_move': 150.0,
+            'alpha_move': 200.0,  # Higher alpha for better visibility
             'alpha_no_go': 125.0,
             'alpha_robot': 255.0,
             'alpha_text': 255.0,
-            'alpha_wall': 115.0,  # Testing with a lower alpha value
+            'alpha_wall': 150.0,  # Testing with a lower alpha value
             'alpha_zone_clean': 125.0,
             'aspect_ratio': '16, 9',
             'auto_zoom': True,
@@ -63,7 +69,7 @@ class TestImageHandler:
             'color_background': [0, 125, 255],
             'color_charger': [255, 128, 0],
             'color_go_to': [0, 255, 0],
-            'color_move': [238, 247, 255],
+            'color_move': [50, 150, 255],  # More vibrant blue for better visibility
             'color_no_go': [255, 0, 0],
             'color_robot': [255, 255, 204],
             'color_text': [164, 25, 25],
@@ -119,21 +125,17 @@ class TestImageHandler:
                 'trim_right': 3974,
                 'trim_down': 3474
             },
-            # Element visibility controls
-            # Base elements
-            'disable_floor': False,           # Show floor
-            'disable_wall': False,            # Show walls
-            'disable_robot': False,           # Show robot
-            'disable_charger': False,         # Show charger
-            'disable_virtual_walls': False,   # Show virtual walls
-            'disable_restricted_areas': False, # Show restricted areas
-            'disable_no_mop_areas': False,    # Show no-mop areas
-            'disable_obstacles': False,        # Hide obstacles
-            'disable_path': False,             # Hide path
-            'disable_predicted_path': False,  # Show predicted path
-            'disable_go_to_target': False,    # Show go-to target
-
-            # Room visibility (all rooms visible by default)
+            'disable_floor': False,
+            'disable_wall': False,
+            'disable_robot': False,
+            'disable_charger': False,
+            'disable_virtual_walls': False,
+            'disable_restricted_areas': False,
+            'disable_no_mop_areas': False,
+            'disable_obstacles': False,
+            'disable_path': False,
+            'disable_predicted_path': False,
+            'disable_go_to_target': False,
             'disable_room_1': False,
             'disable_room_2': False,
             'disable_room_3': False,
@@ -163,80 +165,11 @@ class TestImageHandler:
 
         handler = HypferMapImageHandler(shared)
 
-        # Demonstrate the drawable element selection system
-        _LOGGER.info("Testing drawable element selection system...")
-
-        # First, check which elements are disabled based on device_info
-        _LOGGER.info("Checking elements disabled from device_info:")
-        _LOGGER.info(f"PATH element enabled: {handler.drawing_config.is_enabled(DrawableElement.PATH)}")
-        _LOGGER.info(f"OBSTACLE element enabled: {handler.drawing_config.is_enabled(DrawableElement.OBSTACLE)}")
-
         # Get the image with elements disabled from device_info
         self.image = await handler.async_get_image_from_json(self.test_data)
-        _LOGGER.info("Created image with elements disabled from device_info")
-
-        # Show what elements can be disabled
-        _LOGGER.info("\nAvailable elements that can be disabled:")
-        for element in DrawableElement:
-            _LOGGER.info(f"  - {element.name}: {element.value} (enabled: {handler.drawing_config.is_enabled(element)})")
-
-        # Example 1: Re-enable path to see the difference
-        _LOGGER.info("\nExample 1: Re-enabling path to see the difference")
-
-        # Enable the path
-        handler.enable_element(DrawableElement.PATH)
-        _LOGGER.info(f"PATH element enabled: {handler.drawing_config.is_enabled(DrawableElement.PATH)}")
-
-        # Verify that the PATH element is enabled
-        if not handler.drawing_config.is_enabled(DrawableElement.PATH):
-            _LOGGER.warning("PATH element is still disabled after calling enable_element!")
-            # Force enable it
-            handler.drawing_config._enabled_elements[DrawableElement.PATH] = True
-            _LOGGER.info(f"Forced PATH element to be enabled: {handler.drawing_config.is_enabled(DrawableElement.PATH)}")
-
-        # Get a new image with path enabled
-        self.image = await handler.async_get_image_from_json(self.test_data)
-        _LOGGER.info("Created image with path re-enabled")
-
-        # Disable the path again to match device_info
-        handler.disable_element(DrawableElement.PATH)
-        _LOGGER.info(f"PATH element disabled again: {not handler.drawing_config.is_enabled(DrawableElement.PATH)}")
-
-        # Example 2: Disable all room segments except room 1
-        _LOGGER.info("\nExample 2: Disabling multiple room segments")
-        # First re-enable everything
-        for element in DrawableElement:
-            handler.enable_element(element)
-
-        # Then disable rooms 2-15
-        for room_id in range(2, 16):
-            room_element = getattr(DrawableElement, f"ROOM_{room_id}")
-            handler.disable_element(room_element)
-        _LOGGER.info("Disabled all rooms except Room 1")
-
-        # Get a new image with only room 1 visible
-        self.image = await handler.async_get_image_from_json(self.test_data)
-        _LOGGER.info("Created image with only Room 1 visible")
-
-        # Example 3: Change the color of a specific element
-        _LOGGER.info("\nExample 3: Changing element properties")
-        # First re-enable everything
-        for element in DrawableElement:
-            handler.enable_element(element)
-
-        # Change the color of the robot
-        handler.set_element_property(DrawableElement.ROBOT, "color", (255, 0, 0, 255))  # Bright red
-        _LOGGER.info("Changed robot color to bright red")
-
-        # Get a new image with the red robot
-        self.image = await handler.async_get_image_from_json(self.test_data)
-        _LOGGER.info("Created image with red robot")
-
-        # Restore all elements and default properties for final image
-        _LOGGER.info("\nRestoring all elements to default")
-        # Re-initialize the handler to reset all properties
-        handler = HypferMapImageHandler(shared)
-        self.image = await handler.async_get_image_from_json(self.test_data)
+        if self.image is None:
+            _LOGGER.error("Failed to generate image from JSON data")
+            return
 
         _LOGGER.info(f"Calibration_data: {handler.get_calibration_data()}")
         _LOGGER.info(f"Image size: {self.image.size}")
@@ -246,6 +179,30 @@ class TestImageHandler:
         count = store.get_rooms_count()
         _LOGGER.info(f"Room Store Properties: {count}")
         _LOGGER.info(f"Trims update: {shared.trims.to_dict()}")
+
+        # Check if element_map exists and what it contains
+        if hasattr(handler.shared, 'element_map'):
+            _LOGGER.info(f"Element map exists: {type(handler.shared.element_map)}")
+            if handler.shared.element_map is not None:
+                _LOGGER.info(f"Element map shape: {handler.shared.element_map.shape}")
+                _LOGGER.info(f"Element map dtype: {handler.shared.element_map.dtype}")
+                _LOGGER.info(f"Element map min: {handler.shared.element_map.min()}, max: {handler.shared.element_map.max()}")
+                # Analyze the element map in more detail
+                element_map = handler.shared.element_map
+                _LOGGER.info(f"Element map shape: {element_map.shape}")
+                _LOGGER.info(f"Element map non-zero count: {np.count_nonzero(element_map)}")
+                _LOGGER.info(f"Element map zero count: {np.size(element_map) - np.count_nonzero(element_map)}")
+                _LOGGER.info(f"Element map percentage non-zero: {np.count_nonzero(element_map) / np.size(element_map) * 100:.2f}%")
+
+                # Visualize the element map
+                # ElementMapVisualizer.visualize_element_map(element_map, "element_map_hypfer.png")
+            else:
+                _LOGGER.warning("Element map is None")
+        else:
+            _LOGGER.warning("No element_map attribute in handler.shared")
+        _LOGGER.info("Element map visualization complete")
+
+
         self.image.show()
 
 
@@ -266,7 +223,7 @@ def __main__():
         loop.close()
 
         # Save profiling data
-        profile_output = "profile_output.prof"
+        profile_output = "hypfer_profile_output.prof"
         profiler.dump_stats(profile_output)
 
         # Print profiling summary

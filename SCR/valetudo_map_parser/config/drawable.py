@@ -220,12 +220,16 @@ class Drawable:
         """
         Join the coordinates creating a continuous line (path).
         """
+        import logging
+        _LOGGER = logging.getLogger(__name__)
+        _LOGGER.debug("Drawing lines with %d coordinates, width %d, color %s", len(coords), width, color)
         for coord in coords:
             x0, y0 = coord[0]
             try:
                 x1, y1 = coord[1]
             except IndexError:
                 x1, y1 = x0, y0
+            _LOGGER.debug("Drawing line from (%d, %d) to (%d, %d)", x0, y0, x1, y1)
             dx = abs(x1 - x0)
             dy = abs(y1 - y0)
             sx = 1 if x0 < x1 else -1
