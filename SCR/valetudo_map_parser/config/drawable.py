@@ -174,11 +174,47 @@ class Drawable:
         y2: int,
         color: Color,
         width: int = 3,
+        blend: bool = True,
     ) -> NumpyArray:
         """
         Draw a line on a NumPy array (layer) from point A to B using Bresenham's algorithm.
+
+        Args:
+            layer: The numpy array to draw on
+            x1, y1: Start point coordinates
+            x2, y2: End point coordinates
+            color: Color to draw with
+            width: Width of the line
+            blend: Whether to blend the color with the background
         """
+        from .colors import ColorsManagment
+
         x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+
+        # Sample background color at the endpoints and blend with foreground color if requested
+        if blend:
+            # Sample at start point
+            if 0 <= y1 < layer.shape[0] and 0 <= x1 < layer.shape[1]:
+                start_blended_color = ColorsManagment.sample_and_blend_color(layer, x1, y1, color)
+            else:
+                start_blended_color = color
+
+            # Sample at end point
+            if 0 <= y2 < layer.shape[0] and 0 <= x2 < layer.shape[1]:
+                end_blended_color = ColorsManagment.sample_and_blend_color(layer, x2, y2, color)
+            else:
+                end_blended_color = color
+
+            # Use the average of the two blended colors
+            blended_color = (
+                (start_blended_color[0] + end_blended_color[0]) // 2,
+                (start_blended_color[1] + end_blended_color[1]) // 2,
+                (start_blended_color[2] + end_blended_color[2]) // 2,
+                (start_blended_color[3] + end_blended_color[3]) // 2
+            )
+        else:
+            blended_color = color
+
         dx = abs(x2 - x1)
         dy = abs(y2 - y1)
         sx = 1 if x1 < x2 else -1
@@ -189,7 +225,7 @@ class Drawable:
             for i in range(-width // 2, (width + 1) // 2):
                 for j in range(-width // 2, (width + 1) // 2):
                     if 0 <= x1 + i < layer.shape[1] and 0 <= y1 + j < layer.shape[0]:
-                        layer[y1 + j, x1 + i] = color
+                        layer[y1 + j, x1 + i] = blended_color
             if x1 == x2 and y1 == y2:
                 break
             e2 = 2 * err
@@ -221,6 +257,8 @@ class Drawable:
         Join the coordinates creating a continuous line (path).
         """
         import logging
+        from .colors import ColorsManagment
+
         _LOGGER = logging.getLogger(__name__)
         _LOGGER.debug("Drawing lines with %d coordinates, width %d, color %s", len(coords), width, color)
         for coord in coords:
@@ -230,6 +268,27 @@ class Drawable:
             except IndexError:
                 x1, y1 = x0, y0
             _LOGGER.debug("Drawing line from (%d, %d) to (%d, %d)", x0, y0, x1, y1)
+
+            # Sample background color at the endpoints and blend with foreground color
+            # This is more efficient than sampling at every pixel
+            if 0 <= y0 < arr.shape[0] and 0 <= x0 < arr.shape[1]:
+                start_blended_color = ColorsManagment.sample_and_blend_color(arr, x0, y0, color)
+            else:
+                start_blended_color = color
+
+            if 0 <= y1 < arr.shape[0] and 0 <= x1 < arr.shape[1]:
+                end_blended_color = ColorsManagment.sample_and_blend_color(arr, x1, y1, color)
+            else:
+                end_blended_color = color
+
+            # Use the average of the two blended colors
+            blended_color = (
+                (start_blended_color[0] + end_blended_color[0]) // 2,
+                (start_blended_color[1] + end_blended_color[1]) // 2,
+                (start_blended_color[2] + end_blended_color[2]) // 2,
+                (start_blended_color[3] + end_blended_color[3]) // 2
+            )
+
             dx = abs(x1 - x0)
             dy = abs(y1 - y0)
             sx = 1 if x0 < x1 else -1
@@ -252,8 +311,9 @@ class Drawable:
                 x, y = pixel
                 for i in range(width):
                     for j in range(width):
-                        if 0 <= x + i < arr.shape[1] and 0 <= y + j < arr.shape[0]:
-                            arr[y + j, x + i] = color
+                        px, py = x + i, y + j
+                        if 0 <= px < arr.shape[1] and 0 <= py < arr.shape[0]:
+                            arr[py, px] = blended_color
         return arr
 
     @staticmethod
@@ -360,8 +420,10 @@ class Drawable:
     @staticmethod
     async def zones(layers: NumpyArray, coordinates, color: Color) -> NumpyArray:
         """
-        Draw the zones on the input layer.
+        Draw the zones on the input layer with color blending.
         """
+        from .colors import ColorsManagment
+
         dot_radius = 1  # Number of pixels for the dot
         dot_spacing = 4  # Space between dots
         for zone in coordinates:
@@ -370,10 +432,22 @@ class Drawable:
             max_x = max(points[::2])
             min_y = min(points[1::2])
             max_y = max(points[1::2])
+
+            # Sample a point from the zone to get the background color
+            # Use the center of the zone for sampling
+            sample_x = (min_x + max_x) // 2
+            sample_y = (min_y + max_y) // 2
+
+            # Blend the color with the background color at the sample point
+            if 0 <= sample_y < layers.shape[0] and 0 <= sample_x < layers.shape[1]:
+                blended_color = ColorsManagment.sample_and_blend_color(layers, sample_x, sample_y, color)
+            else:
+                blended_color = color
+
             for y in range(min_y, max_y, dot_spacing):
                 for x in range(min_x, max_x, dot_spacing):
                     for _ in range(dot_radius):
-                        layers = Drawable._ellipse(layers, (x, y), dot_radius, color)
+                        layers = Drawable._ellipse(layers, (x, y), dot_radius, blended_color)
         return layers
 
     @staticmethod

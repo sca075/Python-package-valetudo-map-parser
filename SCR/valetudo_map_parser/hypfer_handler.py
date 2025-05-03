@@ -26,11 +26,8 @@ from .config.types import (
 )
 from .config.utils import (
     BaseHandler,
-    blend_colors,
-    blend_pixel,
     get_element_at_position,
     get_room_at_position,
-    handle_room_outline_error,
     initialize_drawing_config,
     manage_drawable_elements,
     prepare_resize_params,
@@ -159,26 +156,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                         x_max,
                         y_max,
                     ) = await self.data.async_get_rooms_coordinates(pixels, pixel_size)
-
-                    # Get rectangular corners as a fallback
                     corners = self.get_corners(x_max, x_min, y_max, y_min)
-
-                    # Try to extract a more accurate room outline from the element map
-                    try:
-                        # Extract the room outline using the element map
-                        outline = await self.extract_room_outline_from_map(
-                            segment_id, pixels, pixel_size
-                        )
-                        LOGGER.debug(
-                            "%s: Traced outline for room %s with %d points",
-                            self.file_name,
-                            segment_id,
-                            len(outline),
-                        )
-                    except (ValueError, IndexError, TypeError, ArithmeticError) as e:
-                        handle_room_outline_error(self.file_name, segment_id, e)
-                        outline = corners
-
                     room_id = str(segment_id)
                     self.rooms_pos.append(
                         {
@@ -188,7 +166,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                     )
                     room_properties[room_id] = {
                         "number": segment_id,
-                        "outline": outline,  # Use the detailed outline from the element map
+                        "outline": corners,
                         "name": name,
                         "x": ((x_min + x_max) // 2),
                         "y": ((y_min + y_max) // 2),
@@ -597,28 +575,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         """Get the room ID at a specific position, or None if not a room."""
         return get_room_at_position(self.shared.element_map, x, y, DrawableElement.ROOM_1)
 
-    @staticmethod
-    def blend_colors(base_color, overlay_color):
-        """
-        Blend two RGBA colors, considering alpha channels.
-
-        Args:
-            base_color: The base RGBA color
-            overlay_color: The overlay RGBA color to blend on top
-
-        Returns:
-            The blended RGBA color
-        """
-        return blend_colors(base_color, overlay_color)
-
-    def blend_pixel(self, array, x, y, color, element):
-        """
-        Blend a pixel color with the existing color at the specified position.
-        Also updates the element map if the new element has higher z-index.
-        """
-        return blend_pixel(
-            array, x, y, color, element, self.shared.element_map, self.drawing_config
-        )
 
     @staticmethod
     async def async_copy_array(original_array):

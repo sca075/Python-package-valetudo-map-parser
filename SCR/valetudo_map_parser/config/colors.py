@@ -194,6 +194,34 @@ class ColorsManagment:
 
         return (out_r, out_g, out_b, out_a)
 
+    @staticmethod
+    def sample_and_blend_color(array, x: int, y: int, foreground: Color) -> Color:
+        """
+        Sample the background color from the array at coordinates (x,y) and blend with foreground color.
+
+        Args:
+            array: The RGBA numpy array representing the image
+            x, y: Coordinates to sample the background color from
+            foreground: Foreground RGBA color (r,g,b,a) to blend on top
+
+        Returns:
+            Blended RGBA color
+        """
+        # Ensure coordinates are within bounds
+        if array is None:
+            return foreground
+
+        height, width = array.shape[:2]
+        if not (0 <= y < height and 0 <= x < width):
+            return foreground  # Return foreground if coordinates are out of bounds
+
+        # Sample background color from the array
+        # The array is in RGBA format with shape (height, width, 4)
+        background = tuple(array[y, x])
+
+        # Blend the colors
+        return ColorsManagment.blend_colors(background, foreground)
+
     def get_user_colors(self) -> List[Color]:
         """Return the list of RGBA colors for user-defined map elements."""
         return self.user_colors

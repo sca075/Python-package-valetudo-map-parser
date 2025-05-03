@@ -130,7 +130,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
 
     async def extract_room_properties(
         self, json_data: JsonType, destinations: JsonType
-    ) -> RoomsProperties:
+    ) -> tuple[RoomsProperties, Any, Any]:
         """Extract the room properties."""
         unsorted_id = RandImageData.get_rrm_segments_ids(json_data)
         size_x, size_y = RandImageData.get_rrm_image_size(json_data)
@@ -153,7 +153,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
             if not self.outlines:
                 # Return empty data if no outlines are available
                 _LOGGER.debug("%s: No outlines available", self.file_name)
-                return None, None, None
+                return None, None, None  # Return empty data for all three return values
 
             # If we have outlines, proceed with processing
             for id_x, room_id in enumerate(unsorted_id):
@@ -231,7 +231,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 e,
                 exc_info=True,
             )
-            return None, None, None
+            return None, None, None  # Return empty data in case of error
 
     async def get_image_from_rrm(
         self,
@@ -427,7 +427,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
 
     async def get_rooms_attributes(
         self, destinations: JsonType = None
-    ) -> RoomsProperties:
+    ) -> tuple[RoomsProperties, Any, Any]:
         """Return the rooms attributes."""
         if self.room_propriety:
             return self.room_propriety
