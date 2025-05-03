@@ -52,7 +52,7 @@ class TestRandImageHandler:
             'alpha_background': 255.0,
             'alpha_charger': 255.0,
             'alpha_go_to': 255.0,
-            'alpha_move': 50.0,
+            'alpha_move': 150.0,
             'alpha_no_go': 125.0,
             'alpha_robot': 255.0,
             'alpha_text': 255.0,

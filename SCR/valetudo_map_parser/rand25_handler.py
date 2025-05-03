@@ -170,25 +170,25 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     corners = self.get_corners(x_max, x_min, y_max, y_min)
 
                     # Try to extract a more accurate room outline from the element map
-                    #try:
+                    try:
                         # Extract the room outline using the element map
-                        #outline = await self.extract_room_outline_from_map(
-                            #room_id, self.segment_data[id_x]
-                        #)
-                        #_LOGGER.debug(
-                            #"%s: Traced outline for room %s with %d points",
-                            #self.file_name,
-                            #room_id,
-                            #len(outline),
-                        #)
-                    #except (
-                        #ValueError,
-                        #IndexError,
-                        #TypeError,
-                        #ArithmeticError,
-                    #) as e:
-                        #handle_room_outline_error(self.file_name, room_id, e)
-                        #outline = corners
+                        outline = await self.extract_room_outline_from_map(
+                            room_id, self.segment_data[id_x]
+                        )
+                        _LOGGER.debug(
+                            "%s: Traced outline for room %s with %d points",
+                            self.file_name,
+                            room_id,
+                            len(outline),
+                        )
+                    except (
+                        ValueError,
+                        IndexError,
+                        TypeError,
+                        ArithmeticError,
+                    ) as e:
+                        handle_room_outline_error(self.file_name, room_id, e)
+                        outline = corners
 
                     # rand256 vacuums accept int(room_id) or str(name)
                     # the card will soon support int(room_id) but the camera will send name

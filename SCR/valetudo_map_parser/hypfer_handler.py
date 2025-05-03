@@ -575,7 +575,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         """Get the room ID at a specific position, or None if not a room."""
         return get_room_at_position(self.shared.element_map, x, y, DrawableElement.ROOM_1)
 
-
     @staticmethod
     async def async_copy_array(original_array):
         """Copy the array."""
