@@ -1,7 +1,7 @@
 """Valetudo map parser.
 Version: 0.1.9"""
 
-from .config.colors import ColorsManagment
+from .config.colors import ColorsManagement
 from .config.drawable import Drawable
 from .config.drawable_elements import DrawableElement, DrawingConfig
 from .config.enhanced_drawable import EnhancedDrawable
@@ -25,7 +25,7 @@ __all__ = [
     "RRMapParser",
     "CameraShared",
     "CameraSharedManager",
-    "ColorsManagment",
+    "ColorsManagement",
     "Drawable",
     "DrawableElement",
     "DrawingConfig",

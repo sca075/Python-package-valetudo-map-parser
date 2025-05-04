@@ -456,7 +456,7 @@ class ColorsManagement:
         out_g = max(0, min(255, out_g))
         out_b = max(0, min(255, out_b))
 
-        return Color(out_r, out_g, out_b, out_a)
+        return [out_r, out_g, out_b, out_a]
 
     @staticmethod
     def sample_and_blend_color(array, x: int, y: int, foreground: Color) -> Color:

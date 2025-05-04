@@ -7,7 +7,7 @@ import os
 import cProfile
 import pstats
 
-from SCR.valetudo_map_parser.config.colors import ColorsManagment
+from SCR.valetudo_map_parser.config.colors import ColorsManagement
 from SCR.valetudo_map_parser.config.drawable_elements import DrawableElement
 from SCR.valetudo_map_parser.config.shared import CameraSharedManager
 from SCR.valetudo_map_parser.config.types import RoomStore
@@ -153,7 +153,7 @@ class TestRandImageHandler:
         shared.vacuum_state = "docked"
         _LOGGER.debug(f"Shared instance trims: {shared.trims}")
 
-        colors = ColorsManagment(shared)
+        colors = ColorsManagement(shared)
         colors.set_initial_colours(device_info)
 
         _LOGGER.debug(f"Colors initialized: {shared.user_colors}")

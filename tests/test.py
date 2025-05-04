@@ -13,7 +13,7 @@ import numpy as np
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Now import from SCR package
-from SCR.valetudo_map_parser.config.colors import ColorsManagment
+from SCR.valetudo_map_parser.config.colors import ColorsManagement
 from SCR.valetudo_map_parser.config.shared import CameraSharedManager
 from SCR.valetudo_map_parser.config.types import RoomStore
 from SCR.valetudo_map_parser.hypfer_handler import HypferMapImageHandler
@@ -158,7 +158,7 @@ class TestImageHandler:
         shared.vacuum_state = "docked"
         _LOGGER.debug(f"Shared instance trims: {shared.trims}")
 
-        colors = ColorsManagment(shared)
+        colors = ColorsManagement(shared)
         colors.set_initial_colours(device_info)
 
         _LOGGER.debug(f"Colors initialized: {shared.user_colors}")
