@@ -139,7 +139,6 @@ color_array = [
 ]
 
 
-
 class SupportedColor(StrEnum):
     """Color of a supported map element."""
 

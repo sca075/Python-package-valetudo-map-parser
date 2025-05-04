@@ -2,8 +2,8 @@
 
 from typing import Tuple, Optional
 
-from SCR.valetudo_map_parser.config.colors import ColorsManagement
-from SCR.valetudo_map_parser.config.types import NumpyArray, Color
+from .colors import ColorsManagement
+from .types import NumpyArray, Color
 
 
 def get_blended_color(
@@ -35,9 +35,7 @@ def get_blended_color(
         start_blended_color = color
 
     if 0 <= y1 < arr.shape[0] and 0 <= x1 < arr.shape[1]:
-        end_blended_color = ColorsManagement.sample_and_blend_color(
-            arr, x1, y1, color
-        )
+        end_blended_color = ColorsManagement.sample_and_blend_color(arr, x1, y1, color)
     else:
         end_blended_color = color
 

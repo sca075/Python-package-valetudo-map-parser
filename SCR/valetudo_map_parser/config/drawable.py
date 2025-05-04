@@ -75,7 +75,7 @@ class Drawable:
                 # Get the region to update
                 region_slice = (
                     slice(row, row + pixel_size),
-                    slice(col + i * pixel_size, col + (i + 1) * pixel_size)
+                    slice(col + i * pixel_size, col + (i + 1) * pixel_size),
                 )
 
                 if need_blending:
@@ -84,8 +84,10 @@ class Drawable:
                     center_x = col + i * pixel_size + pixel_size // 2
 
                     # Only blend if coordinates are valid
-                    if (0 <= center_y < image_array.shape[0] and
-                        0 <= center_x < image_array.shape[1]):
+                    if (
+                        0 <= center_y < image_array.shape[0]
+                        and 0 <= center_x < image_array.shape[1]
+                    ):
                         # Get blended color
                         blended_color = ColorsManagement.sample_and_blend_color(
                             image_array, center_x, center_y, full_color
@@ -296,9 +298,11 @@ class Drawable:
             for x, y in zip(x_coords, y_coords):
                 for i in range(-half_width, half_width + 1):
                     for j in range(-half_width, half_width + 1):
-                        if (i*i + j*j <= half_width*half_width and  # Make it round
-                            0 <= x + i < layer.shape[1] and
-                            0 <= y + j < layer.shape[0]):
+                        if (
+                            i * i + j * j <= half_width * half_width  # Make it round
+                            and 0 <= x + i < layer.shape[1]
+                            and 0 <= y + j < layer.shape[0]
+                        ):
                             layer[y + j, x + i] = blended_color
 
         return layer
@@ -371,7 +375,7 @@ class Drawable:
         dist_sq = (y_indices - y) ** 2 + (x_indices - x) ** 2
 
         # Create masks for the circle and outline
-        circle_mask = dist_sq <= radius ** 2
+        circle_mask = dist_sq <= radius**2
 
         # Apply the fill color
         image[min_y:max_y, min_x:max_x][circle_mask] = color
@@ -468,7 +472,7 @@ class Drawable:
             adjusted_points = [(p[0] - min_x, p[1] - min_y) for p in points]
 
             # Create a grid of coordinates and use it to test all points at once
-            y_indices, x_indices = np.mgrid[0:mask.shape[0], 0:mask.shape[1]]
+            y_indices, x_indices = np.mgrid[0 : mask.shape[0], 0 : mask.shape[1]]
 
             # Test each point in the grid
             for i in range(mask.shape[0]):
@@ -476,7 +480,7 @@ class Drawable:
                     mask[i, j] = Drawable.point_inside(j, i, adjusted_points)
 
             # Apply the fill color to the masked region
-            arr[min_y:max_y+1, min_x:max_x+1][mask] = fill_color
+            arr[min_y : max_y + 1, min_x : max_x + 1][mask] = fill_color
 
         return arr
 
@@ -530,7 +534,7 @@ class Drawable:
                     y_indices, x_indices = np.ogrid[y_min:y_max, x_min:x_max]
 
                     # Create a circular mask
-                    mask = (y_indices - y)**2 + (x_indices - x)**2 <= dot_radius**2
+                    mask = (y_indices - y) ** 2 + (x_indices - x) ** 2 <= dot_radius**2
 
                     # Apply the color to the masked region
                     layers[y_min:y_max, x_min:x_max][mask] = blended_color
@@ -607,8 +611,12 @@ class Drawable:
         y2 = int(tmp_y + r_cover * math.cos(a2))
 
         # Draw the direction line
-        if (0 <= x1 < tmp_width and 0 <= y1 < tmp_height and
-            0 <= x2 < tmp_width and 0 <= y2 < tmp_height):
+        if (
+            0 <= x1 < tmp_width
+            and 0 <= y1 < tmp_height
+            and 0 <= x2 < tmp_width
+            and 0 <= y2 < tmp_height
+        ):
             tmp_layer = Drawable._line(tmp_layer, x1, y1, x2, y2, outline, width=1)
 
         # Draw the lidar indicator
@@ -694,14 +702,14 @@ class Drawable:
         # Get image dimensions
         height, width = image.shape[:2]
 
-        if element_type == 'circle':
+        if element_type == "circle":
             # Extract circle centers and radii
             centers = []
             radii = []
             for elem in elements:
-                if isinstance(elem, dict) and 'center' in elem and 'radius' in elem:
-                    centers.append(elem['center'])
-                    radii.append(elem['radius'])
+                if isinstance(elem, dict) and "center" in elem and "radius" in elem:
+                    centers.append(elem["center"])
+                    radii.append(elem["radius"])
                 elif isinstance(elem, (list, tuple)) and len(elem) >= 3:
                     # Format: (x, y, radius)
                     centers.append((elem[0], elem[1]))
@@ -709,7 +717,9 @@ class Drawable:
 
             # Process circles with the same radius together
             for radius in set(radii):
-                same_radius_centers = [centers[i] for i in range(len(centers)) if radii[i] == radius]
+                same_radius_centers = [
+                    centers[i] for i in range(len(centers)) if radii[i] == radius
+                ]
                 if same_radius_centers:
                     # Create a combined mask for all circles with this radius
                     mask = np.zeros((height, width), dtype=bool)
@@ -725,20 +735,22 @@ class Drawable:
                             y_indices, x_indices = np.ogrid[min_y:max_y, min_x:max_x]
 
                             # Add this circle to the mask
-                            circle_mask = (y_indices - cy)**2 + (x_indices - cx)**2 <= radius**2
+                            circle_mask = (y_indices - cy) ** 2 + (
+                                x_indices - cx
+                            ) ** 2 <= radius**2
                             mask[min_y:max_y, min_x:max_x] |= circle_mask
 
                     # Apply color to all circles at once
                     image[mask] = color
 
-        elif element_type == 'line':
+        elif element_type == "line":
             # Extract line endpoints
             lines = []
             widths = []
             for elem in elements:
-                if isinstance(elem, dict) and 'start' in elem and 'end' in elem:
-                    lines.append((elem['start'], elem['end']))
-                    widths.append(elem.get('width', 1))
+                if isinstance(elem, dict) and "start" in elem and "end" in elem:
+                    lines.append((elem["start"], elem["end"]))
+                    widths.append(elem.get("width", 1))
                 elif isinstance(elem, (list, tuple)) and len(elem) >= 4:
                     # Format: (x1, y1, x2, y2, [width])
                     lines.append(((elem[0], elem[1]), (elem[2], elem[3])))
@@ -746,19 +758,25 @@ class Drawable:
 
             # Process lines with the same width together
             for width in set(widths):
-                same_width_lines = [lines[i] for i in range(len(lines)) if widths[i] == width]
+                same_width_lines = [
+                    lines[i] for i in range(len(lines)) if widths[i] == width
+                ]
                 if same_width_lines:
                     # Create a combined mask for all lines with this width
                     mask = np.zeros((height, width), dtype=bool)
 
                     # Draw all lines into the mask
-                    for (start, end) in same_width_lines:
+                    for start, end in same_width_lines:
                         x1, y1 = start
                         x2, y2 = end
 
                         # Skip invalid lines
-                        if not (0 <= x1 < width and 0 <= y1 < height and
-                                0 <= x2 < width and 0 <= y2 < height):
+                        if not (
+                            0 <= x1 < width
+                            and 0 <= y1 < height
+                            and 0 <= x2 < width
+                            and 0 <= y2 < height
+                        ):
                             continue
 
                         # Use Bresenham's algorithm to get line points
@@ -783,8 +801,12 @@ class Drawable:
                                 max_x = min(width, x + half_width + 1)
 
                                 # Create a circular brush
-                                y_indices, x_indices = np.ogrid[min_y:max_y, min_x:max_x]
-                                brush = (y_indices - y)**2 + (x_indices - x)**2 <= half_width**2
+                                y_indices, x_indices = np.ogrid[
+                                    min_y:max_y, min_x:max_x
+                                ]
+                                brush = (y_indices - y) ** 2 + (
+                                    x_indices - x
+                                ) ** 2 <= half_width**2
                                 mask[min_y:max_y, min_x:max_x] |= brush
 
                     # Apply color to all lines at once
@@ -826,20 +848,16 @@ class Drawable:
                     )
 
                 # Add to centers list with radius
-                centers.append({
-                    'center': (x, y),
-                    'radius': 6,
-                    'color': obstacle_color
-                })
+                centers.append({"center": (x, y), "radius": 6, "color": obstacle_color})
             except (KeyError, TypeError):
                 continue
 
         # Draw each obstacle with its blended color
         if centers:
             for obstacle in centers:
-                cx, cy = obstacle['center']
-                radius = obstacle['radius']
-                obs_color = obstacle['color']
+                cx, cy = obstacle["center"]
+                radius = obstacle["radius"]
+                obs_color = obstacle["color"]
 
                 # Create a small mask for the obstacle
                 min_y = max(0, cy - radius)
@@ -851,7 +869,7 @@ class Drawable:
                 y_indices, x_indices = np.ogrid[min_y:max_y, min_x:max_x]
 
                 # Create a circular mask
-                mask = (y_indices - cy)**2 + (x_indices - cx)**2 <= radius**2
+                mask = (y_indices - cy) ** 2 + (x_indices - cx) ** 2 <= radius**2
 
                 # Apply the color to the masked region
                 image[min_y:max_y, min_x:max_x][mask] = obs_color
