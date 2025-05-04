@@ -63,14 +63,14 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         self.imd = ImDraw(self)  # Image Draw class.
         self.color_grey = (128, 128, 128, 255)
         self.file_name = self.shared.file_name  # file name of the vacuum.
-        self.element_map_manager = OptimizedElementMapGenerator(self.drawing_config,
-                                                       self.shared)  # Map of element codes
+        self.element_map_manager = OptimizedElementMapGenerator(
+            self.drawing_config, self.shared
+        )  # Map of element codes
 
     @staticmethod
     def get_corners(x_max, x_min, y_max, y_min):
         """Get the corners of the room."""
         return [(x_min, y_min), (x_max, y_min), (x_max, y_max), (x_min, y_max)]
-
 
     async def extract_room_outline_from_map(self, room_id_int, pixels, pixel_size):
         """Extract the outline of a room using the pixel data and element map.
@@ -231,7 +231,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                     img_np_array = await self.draw.create_empty_image(
                         size_x, size_y, colors["background"]
                     )
-
 
                     LOGGER.info("%s: Drawing map with color blending", self.file_name)
 
@@ -451,9 +450,14 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                     )
 
                     # Update element map for robot position
-                    if hasattr(self.shared, 'element_map') and self.shared.element_map is not None:
+                    if (
+                        hasattr(self.shared, "element_map")
+                        and self.shared.element_map is not None
+                    ):
                         update_element_map_with_robot(
-                            self.shared.element_map, robot_position, DrawableElement.ROBOT
+                            self.shared.element_map,
+                            robot_position,
+                            DrawableElement.ROBOT,
                         )
                 # Resize the image
                 img_np_array = await self.async_auto_trim_and_zoom_image(
@@ -468,21 +472,35 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                 LOGGER.warning("%s: Image array is None.", self.file_name)
                 return None
             # Debug logging for element map creation
-            LOGGER.info("%s: Frame number: %d, has element_map: %s",
-                       self.file_name, self.frame_number, hasattr(self.shared, 'element_map'))
+            LOGGER.info(
+                "%s: Frame number: %d, has element_map: %s",
+                self.file_name,
+                self.frame_number,
+                hasattr(self.shared, "element_map"),
+            )
 
             if (self.shared.element_map is None) and (self.frame_number == 1):
                 # Create element map for tracking what's drawn where
-                LOGGER.info("%s: Creating element map with shape: %s",
-                           self.file_name, img_np_array.shape)
+                LOGGER.info(
+                    "%s: Creating element map with shape: %s",
+                    self.file_name,
+                    img_np_array.shape,
+                )
 
                 # Generate the element map directly from JSON data
                 # This will create a cropped element map containing only the non-zero elements
                 LOGGER.info("%s: Generating element map from JSON data", self.file_name)
-                self.shared.element_map = await self.element_map_manager.async_generate_from_json(m_json)
+                self.shared.element_map = (
+                    await self.element_map_manager.async_generate_from_json(m_json)
+                )
 
-                LOGGER.info("%s: Element map created with shape: %s",
-                           self.file_name, self.shared.element_map.shape if self.shared.element_map is not None else None)
+                LOGGER.info(
+                    "%s: Element map created with shape: %s",
+                    self.file_name,
+                    self.shared.element_map.shape
+                    if self.shared.element_map is not None
+                    else None,
+                )
             # Convert the numpy array to a PIL image
             pil_img = Image.fromarray(img_np_array, mode="RGBA")
             del img_np_array
@@ -573,7 +591,9 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
 
     def get_room_at_position(self, x: int, y: int) -> int | None:
         """Get the room ID at a specific position, or None if not a room."""
-        return get_room_at_position(self.shared.element_map, x, y, DrawableElement.ROOM_1)
+        return get_room_at_position(
+            self.shared.element_map, x, y, DrawableElement.ROOM_1
+        )
 
     @staticmethod
     async def async_copy_array(original_array):

@@ -31,7 +31,6 @@ from .config.utils import (
     BaseHandler,
     get_element_at_position,
     get_room_at_position,
-    handle_room_outline_error,
     initialize_drawing_config,
     manage_drawable_elements,
     prepare_resize_params,
@@ -130,7 +129,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
 
     async def extract_room_properties(
         self, json_data: JsonType, destinations: JsonType
-    ) -> tuple[RoomsProperties, Any, Any]:
+    ) -> RoomsProperties:
         """Extract the room properties."""
         unsorted_id = RandImageData.get_rrm_segments_ids(json_data)
         size_x, size_y = RandImageData.get_rrm_image_size(json_data)
@@ -150,88 +149,62 @@ class ReImageHandler(BaseHandler, AutoCrop):
             room_id_to_data = {room["id"]: room for room in room_data}
             self.rooms_pos = []
             room_properties = {}
-            if not self.outlines:
-                # Return empty data if no outlines are available
-                _LOGGER.debug("%s: No outlines available", self.file_name)
-                return None, None, None  # Return empty data for all three return values
-
-            # If we have outlines, proceed with processing
-            for id_x, room_id in enumerate(unsorted_id):
-                if room_id in room_id_to_data:
-                    room_info = room_id_to_data[room_id]
-                    name = room_info.get("name")
-                    # Calculate x and y min/max from outlines
-                    x_min = self.outlines[id_x][0][0]
-                    x_max = self.outlines[id_x][1][0]
-                    y_min = self.outlines[id_x][0][1]
-                    y_max = self.outlines[id_x][1][1]
-
-                    # Get rectangular corners as a fallback
-                    corners = self.get_corners(x_max, x_min, y_max, y_min)
-
-                    # Try to extract a more accurate room outline from the element map
-                    try:
-                        # Extract the room outline using the element map
-                        outline = await self.extract_room_outline_from_map(
-                            room_id, self.segment_data[id_x]
+            if self.outlines:
+                for id_x, room_id in enumerate(unsorted_id):
+                    if room_id in room_id_to_data:
+                        room_info = room_id_to_data[room_id]
+                        name = room_info.get("name")
+                        # Calculate x and y min/max from outlines
+                        x_min = self.outlines[id_x][0][0]
+                        x_max = self.outlines[id_x][1][0]
+                        y_min = self.outlines[id_x][0][1]
+                        y_max = self.outlines[id_x][1][1]
+                        corners = self.get_corners(x_max, x_min, y_max, y_min)
+                        # rand256 vacuums accept int(room_id) or str(name)
+                        # the card will soon support int(room_id) but the camera will send name
+                        # this avoids the manual change of the values in the card.
+                        self.rooms_pos.append(
+                            {
+                                "name": name,
+                                "corners": corners,
+                            }
                         )
-                        _LOGGER.debug(
-                            "%s: Traced outline for room %s with %d points",
-                            self.file_name,
-                            room_id,
-                            len(outline),
-                        )
-                    except (
-                        ValueError,
-                        IndexError,
-                        TypeError,
-                        ArithmeticError,
-                    ) as e:
-                        handle_room_outline_error(self.file_name, room_id, e)
-                        outline = corners
-
-                    # rand256 vacuums accept int(room_id) or str(name)
-                    # the card will soon support int(room_id) but the camera will send name
-                    # this avoids the manual change of the values in the card.
-                    self.rooms_pos.append(
-                        {
+                        room_properties[int(room_id)] = {
+                            "number": int(room_id),
+                            "outline": corners,
                             "name": name,
-                            "corners": corners,
+                            "x": (x_min + x_max) // 2,
+                            "y": (y_min + y_max) // 2,
                         }
+                # get the zones and points data
+                zone_properties = await self.async_zone_propriety(zones_data)
+                # get the points data
+                point_properties = await self.async_points_propriety(points_data)
+                if room_properties or zone_properties:
+                    extracted_data = [
+                        f"{len(room_properties)} Rooms" if room_properties else None,
+                        f"{len(zone_properties)} Zones" if zone_properties else None,
+                    ]
+                    extracted_data = ", ".join(filter(None, extracted_data))
+                    _LOGGER.debug("Extracted data: %s", extracted_data)
+                else:
+                    self.rooms_pos = None
+                    _LOGGER.debug(
+                        "%s: Rooms and Zones data not available!", self.file_name
                     )
-                    room_properties[int(room_id)] = {
-                        "number": int(room_id),
-                        "outline": outline,
-                        "name": name,
-                        "x": (x_min + x_max) // 2,
-                        "y": (y_min + y_max) // 2,
-                    }
-            # get the zones and points data
-            zone_properties = await self.async_zone_propriety(zones_data)
-            # get the points data
-            point_properties = await self.async_points_propriety(points_data)
-            if room_properties or zone_properties:
-                extracted_data = [
-                    f"{len(room_properties)} Rooms" if room_properties else None,
-                    f"{len(zone_properties)} Zones" if zone_properties else None,
-                ]
-                extracted_data = ", ".join(filter(None, extracted_data))
-                _LOGGER.debug("Extracted data: %s", extracted_data)
+                rooms = RoomStore(self.file_name, room_properties)
+                _LOGGER.debug("Rooms Data: %s", rooms.get_rooms())
+                return room_properties, zone_properties, point_properties
             else:
-                self.rooms_pos = None
-                _LOGGER.debug(
-                    "%s: Rooms and Zones data not available!", self.file_name
-                )
-            rooms = RoomStore(self.file_name, room_properties)
-            _LOGGER.debug("Rooms Data: %s", rooms.get_rooms())
-            return room_properties, zone_properties, point_properties
+                _LOGGER.debug("%s: No outlines available", self.file_name)
+                return None, None, None
         except (RuntimeError, ValueError) as e:
             _LOGGER.debug(
                 "No rooms Data or Error in extract_room_properties: %s",
                 e,
                 exc_info=True,
             )
-            return None, None, None  # Return empty data in case of error
+            return None, None, None
 
     async def get_image_from_rrm(
         self,
@@ -475,12 +448,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
         # If no rooms data is available, return a default position
         if not self.rooms_pos:
             _LOGGER.debug("%s: No rooms data available", self.file_name)
-            return {
-                "x": robot_x,
-                "y": robot_y,
-                "angle": angle,
-                "in_room": "unknown"
-            }
+            return {"x": robot_x, "y": robot_y, "angle": angle, "in_room": "unknown"}
 
         # If rooms data is available, search for the room
         if self.robot_in_room:
@@ -504,9 +472,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     "angle": angle,
                     "in_room": self.robot_in_room["room"],
                 }
-                _LOGGER.debug(
-                    "%s is in %s", self.file_name, self.robot_in_room["room"]
-                )
+                _LOGGER.debug("%s is in %s", self.file_name, self.robot_in_room["room"])
                 del room, corners, robot_x, robot_y  # free memory.
                 return temp
         # After checking all rooms and not finding a match
@@ -586,8 +552,16 @@ class ReImageHandler(BaseHandler, AutoCrop):
 
         charger_radius = 15
         # Handle both dictionary format {'x': x, 'y': y} and list format [x, y]
-        charger_x = self.charger_pos.get('x') if isinstance(self.charger_pos, dict) else self.charger_pos[0]
-        charger_y = self.charger_pos.get('y') if isinstance(self.charger_pos, dict) else self.charger_pos[1]
+        charger_x = (
+            self.charger_pos.get("x")
+            if isinstance(self.charger_pos, dict)
+            else self.charger_pos[0]
+        )
+        charger_y = (
+            self.charger_pos.get("y")
+            if isinstance(self.charger_pos, dict)
+            else self.charger_pos[1]
+        )
 
         for dy in range(-charger_radius, charger_radius + 1):
             for dx in range(-charger_radius, charger_radius + 1):
@@ -595,5 +569,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 if dx * dx + dy * dy <= charger_radius * charger_radius:
                     cx, cy = int(charger_x + dx), int(charger_y + dy)
                     # Check if the coordinates are within the element map bounds
-                    if (0 <= cy < self.element_map.shape[0] and 0 <= cx < self.element_map.shape[1]):
+                    if (0 <= cy < self.element_map.shape[0]) and (
+                        0 <= cx < self.element_map.shape[1]
+                    ):
                         self.element_map[cy, cx] = DrawableElement.CHARGER

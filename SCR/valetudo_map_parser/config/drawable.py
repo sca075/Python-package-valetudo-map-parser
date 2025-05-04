@@ -13,11 +13,11 @@ import asyncio
 import logging
 import math
 
-# cv2 is imported but not used directly in this file
-# It's needed for other modules that import from here
 import numpy as np
 from PIL import ImageDraw, ImageFont
+from scipy import ndimage
 
+from .colors import ColorsManagement
 from .types import Color, NumpyArray, PilPNG, Point, Tuple, Union
 
 
@@ -187,7 +187,6 @@ class Drawable:
             width: Width of the line
             blend: Whether to blend the color with the background
         """
-        from .colors import ColorsManagment
 
         x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
 
@@ -195,13 +194,17 @@ class Drawable:
         if blend:
             # Sample at start point
             if 0 <= y1 < layer.shape[0] and 0 <= x1 < layer.shape[1]:
-                start_blended_color = ColorsManagment.sample_and_blend_color(layer, x1, y1, color)
+                start_blended_color = ColorsManagement.sample_and_blend_color(
+                    layer, x1, y1, color
+                )
             else:
                 start_blended_color = color
 
             # Sample at end point
             if 0 <= y2 < layer.shape[0] and 0 <= x2 < layer.shape[1]:
-                end_blended_color = ColorsManagment.sample_and_blend_color(layer, x2, y2, color)
+                end_blended_color = ColorsManagement.sample_and_blend_color(
+                    layer, x2, y2, color
+                )
             else:
                 end_blended_color = color
 
@@ -210,7 +213,7 @@ class Drawable:
                 (start_blended_color[0] + end_blended_color[0]) // 2,
                 (start_blended_color[1] + end_blended_color[1]) // 2,
                 (start_blended_color[2] + end_blended_color[2]) // 2,
-                (start_blended_color[3] + end_blended_color[3]) // 2
+                (start_blended_color[3] + end_blended_color[3]) // 2,
             )
         else:
             blended_color = color
@@ -256,28 +259,27 @@ class Drawable:
         """
         Join the coordinates creating a continuous line (path).
         """
-        import logging
-        from .colors import ColorsManagment
 
-        _LOGGER = logging.getLogger(__name__)
-        _LOGGER.debug("Drawing lines with %d coordinates, width %d, color %s", len(coords), width, color)
         for coord in coords:
             x0, y0 = coord[0]
             try:
                 x1, y1 = coord[1]
             except IndexError:
                 x1, y1 = x0, y0
-            _LOGGER.debug("Drawing line from (%d, %d) to (%d, %d)", x0, y0, x1, y1)
 
             # Sample background color at the endpoints and blend with foreground color
             # This is more efficient than sampling at every pixel
             if 0 <= y0 < arr.shape[0] and 0 <= x0 < arr.shape[1]:
-                start_blended_color = ColorsManagment.sample_and_blend_color(arr, x0, y0, color)
+                start_blended_color = ColorsManagement.sample_and_blend_color(
+                    arr, x0, y0, color
+                )
             else:
                 start_blended_color = color
 
             if 0 <= y1 < arr.shape[0] and 0 <= x1 < arr.shape[1]:
-                end_blended_color = ColorsManagment.sample_and_blend_color(arr, x1, y1, color)
+                end_blended_color = ColorsManagement.sample_and_blend_color(
+                    arr, x1, y1, color
+                )
             else:
                 end_blended_color = color
 
@@ -286,7 +288,7 @@ class Drawable:
                 (start_blended_color[0] + end_blended_color[0]) // 2,
                 (start_blended_color[1] + end_blended_color[1]) // 2,
                 (start_blended_color[2] + end_blended_color[2]) // 2,
-                (start_blended_color[3] + end_blended_color[3]) // 2
+                (start_blended_color[3] + end_blended_color[3]) // 2,
             )
 
             dx = abs(x1 - x0)
@@ -422,7 +424,6 @@ class Drawable:
         """
         Draw the zones on the input layer with color blending.
         """
-        from .colors import ColorsManagment
 
         dot_radius = 1  # Number of pixels for the dot
         dot_spacing = 4  # Space between dots
@@ -440,14 +441,18 @@ class Drawable:
 
             # Blend the color with the background color at the sample point
             if 0 <= sample_y < layers.shape[0] and 0 <= sample_x < layers.shape[1]:
-                blended_color = ColorsManagment.sample_and_blend_color(layers, sample_x, sample_y, color)
+                blended_color = ColorsManagement.sample_and_blend_color(
+                    layers, sample_x, sample_y, color
+                )
             else:
                 blended_color = color
 
             for y in range(min_y, max_y, dot_spacing):
                 for x in range(min_x, max_x, dot_spacing):
                     for _ in range(dot_radius):
-                        layers = Drawable._ellipse(layers, (x, y), dot_radius, blended_color)
+                        layers = Drawable._ellipse(
+                            layers, (x, y), dot_radius, blended_color
+                        )
         return layers
 
     @staticmethod
@@ -542,7 +547,7 @@ class Drawable:
 
     @staticmethod
     async def async_draw_obstacles(
-        image: np.ndarray, obstacle_info_list, color: Tuple[int, int, int, int]
+        image: np.ndarray, obstacle_info_list, color: Color
     ) -> np.ndarray:
         """
         Optimized async version of draw_obstacles using asyncio.gather().
@@ -592,3 +597,60 @@ class Drawable:
             else:
                 draw.text((x, y), text, font=font, fill=color)
             x += draw.textlength(text, font=default_font)
+
+    @staticmethod
+    def draw_filled_polygon(image_array, vertices, color):
+        """
+        Draw a filled polygon on the image array using scipy.ndimage.
+
+        Args:
+            image_array: NumPy array of shape (height, width, 4) containing RGBA image data
+            vertices: List of (x,y) tuples defining the polygon vertices
+            color: RGBA color tuple to fill the polygon with
+
+        Returns:
+            Modified image array with the filled polygon
+        """
+        if len(vertices) < 3:
+            return image_array  # Need at least 3 points for a polygon
+
+        height, width = image_array.shape[:2]
+
+        # Create a mask for the polygon
+        polygon_mask = np.zeros((height, width), dtype=bool)
+
+        # Convert vertices to numpy arrays for processing
+        vertices_array = np.array(vertices)
+        x_coords = vertices_array[:, 0]
+        y_coords = vertices_array[:, 1]
+
+        # Clip coordinates to image boundaries
+        x_coords = np.clip(x_coords, 0, width - 1)
+        y_coords = np.clip(y_coords, 0, height - 1)
+
+        # Create a polygon using scipy.ndimage
+        # First create the boundary
+        for i in range(len(vertices)):
+            x1, y1 = int(x_coords[i]), int(y_coords[i])
+            x2, y2 = (
+                int(x_coords[(i + 1) % len(vertices)]),
+                int(y_coords[(i + 1) % len(vertices)]),
+            )
+
+            # Draw line between consecutive vertices
+            length = max(abs(x2 - x1), abs(y2 - y1)) * 2
+            if length == 0:
+                continue
+
+            t = np.linspace(0, 1, length)
+            x = np.round(x1 * (1 - t) + x2 * t).astype(int)
+            y = np.round(y1 * (1 - t) + y2 * t).astype(int)
+
+            # Add boundary points to mask
+            polygon_mask[y, x] = True
+
+        # Fill the polygon using scipy.ndimage.binary_fill_holes
+        filled_polygon = ndimage.binary_fill_holes(polygon_mask)
+
+        # Apply color to the filled polygon
+        return ColorsManagement.batch_blend_colors(image_array, filled_polygon, color)
