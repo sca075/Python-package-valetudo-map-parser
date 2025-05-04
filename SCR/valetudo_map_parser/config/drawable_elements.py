@@ -344,7 +344,9 @@ class ElementMapGenerator:
             self.element_map = existing_element_map
 
         # Check if this is a Valetudo map or a Rand256 map
-        is_valetudo = "size" in json_data and "pixelSize" in json_data and "layers" in json_data
+        is_valetudo = (
+            "size" in json_data and "pixelSize" in json_data and "layers" in json_data
+        )
         is_rand256 = "image" in json_data and "map_data" in json_data
 
         # Debug logging
@@ -362,7 +364,9 @@ class ElementMapGenerator:
                     size_y = map_size.get("height", 0)
                 else:
                     # If map_size is a number, use it for both dimensions
-                    pixel_size = json_data.get("pixelSize", 5)  # Default to 5mm per pixel
+                    pixel_size = json_data.get(
+                        "pixelSize", 5
+                    )  # Default to 5mm per pixel
                     size_x = int(map_size // pixel_size)
                     size_y = int(map_size // pixel_size)
                 self.element_map = np.zeros((size_y, size_x), dtype=np.int32)
@@ -387,16 +391,24 @@ class ElementMapGenerator:
             # Calculate scale factor based on pixel size (normalize to 5mm standard)
             # This helps handle maps with different scales
             scale_factor = pixel_size if pixel_size != 0 else 1.0
-            LOGGER.info(f"Map dimensions: {size_x}x{size_y}, pixel size: {pixel_size}mm, scale factor: {scale_factor:.2f}")
+            LOGGER.info(
+                f"Map dimensions: {size_x}x{size_y}, pixel size: {pixel_size}mm, scale factor: {scale_factor:.2f}"
+            )
 
             # Ensure element_map is properly initialized with the correct dimensions
-            if self.element_map is None or self.element_map.shape[0] == 0 or self.element_map.shape[1] == 0:
+            if (
+                self.element_map is None
+                or self.element_map.shape[0] == 0
+                or self.element_map.shape[1] == 0
+            ):
                 # For now, create a full-sized element map to ensure coordinates match
                 # We'll resize it at the end for efficiency
                 map_width = int(size_x // pixel_size) if pixel_size != 0 else size_x
                 map_height = int(size_y // pixel_size) if pixel_size != 0 else size_y
 
-                LOGGER.info(f"Creating element map with dimensions: {map_width}x{map_height}")
+                LOGGER.info(
+                    f"Creating element map with dimensions: {map_width}x{map_height}"
+                )
                 self.element_map = np.zeros((map_height, map_width), dtype=np.int32)
                 self.element_map[:] = DrawableElement.FLOOR
 
@@ -410,14 +422,18 @@ class ElementMapGenerator:
                     if "segments" in layer:
                         segments = layer["segments"]
                     else:
-                        segments = [layer]  # Some formats have segment data directly in the layer
+                        segments = [
+                            layer
+                        ]  # Some formats have segment data directly in the layer
 
                     for segment in segments:
                         # Get room ID and check if it's enabled
                         if "id" in segment:
                             room_id = segment["id"]
                             room_id_int = int(room_id)
-                        elif "metaData" in segment and "segmentId" in segment["metaData"]:
+                        elif (
+                            "metaData" in segment and "segmentId" in segment["metaData"]
+                        ):
                             # Handle Hypfer format
                             room_id = segment["metaData"]["segmentId"]
                             room_id_int = int(room_id)
@@ -426,8 +442,12 @@ class ElementMapGenerator:
                             continue
 
                         # Skip if room is disabled
-                        room_element = getattr(DrawableElement, f"ROOM_{room_id_int}", None)
-                        if room_element is None or not self.drawing_config.is_enabled(room_element):
+                        room_element = getattr(
+                            DrawableElement, f"ROOM_{room_id_int}", None
+                        )
+                        if room_element is None or not self.drawing_config.is_enabled(
+                            room_element
+                        ):
                             continue
 
                         # Room element code was already retrieved above
@@ -449,18 +469,27 @@ class ElementMapGenerator:
                                         region_row_end = row + pixel_size
 
                                         # Update element map for this region
-                                        if region_row_start < size_y and region_col_start < size_x:
+                                        if (
+                                            region_row_start < size_y
+                                            and region_col_start < size_x
+                                        ):
                                             # Ensure we stay within bounds
                                             end_row = min(region_row_end, size_y)
                                             end_col = min(region_col_end, size_x)
 
                                             # Set element code for this region
                                             # Only set pixels that are not already set (floor is 1)
-                                            region = self.element_map[region_row_start:end_row, region_col_start:end_col]
+                                            region = self.element_map[
+                                                region_row_start:end_row,
+                                                region_col_start:end_col,
+                                            ]
                                             mask = region == DrawableElement.FLOOR
                                             region[mask] = room_element
 
-                            elif "compressedPixels" in segment and segment["compressedPixels"]:
+                            elif (
+                                "compressedPixels" in segment
+                                and segment["compressedPixels"]
+                            ):
                                 # Compressed pixel format (used in Valetudo)
                                 compressed_pixels = segment["compressedPixels"]
                                 i = 0
@@ -468,8 +497,8 @@ class ElementMapGenerator:
 
                                 while i < len(compressed_pixels):
                                     x = compressed_pixels[i]
-                                    y = compressed_pixels[i+1]
-                                    count = compressed_pixels[i+2]
+                                    y = compressed_pixels[i + 1]
+                                    count = compressed_pixels[i + 2]
                                     pixel_count += count
 
                                     # Set element code for this run of pixels
@@ -481,8 +510,12 @@ class ElementMapGenerator:
                                     i += 3
 
                                 # Debug: Log that we're adding room pixels
-                                LOGGER.info(f"Adding room {room_id_int} pixels to element map with code {room_element}")
-                                LOGGER.info(f"Room {room_id_int} has {len(compressed_pixels)//3} compressed runs with {pixel_count} total pixels")
+                                LOGGER.info(
+                                    f"Adding room {room_id_int} pixels to element map with code {room_element}"
+                                )
+                                LOGGER.info(
+                                    f"Room {room_id_int} has {len(compressed_pixels) // 3} compressed runs with {pixel_count} total pixels"
+                                )
 
                 # Process walls
                 elif layer_type == "wall":
@@ -507,14 +540,20 @@ class ElementMapGenerator:
                                 region_row_end = row + pixel_size
 
                                 # Update element map for this region
-                                if region_row_start < size_y and region_col_start < size_x:
+                                if (
+                                    region_row_start < size_y
+                                    and region_col_start < size_x
+                                ):
                                     # Ensure we stay within bounds
                                     end_row = min(region_row_end, size_y)
                                     end_col = min(region_col_end, size_x)
 
                                     # Set element code for this region
                                     # Only set pixels that are not already set (floor is 1)
-                                    region = self.element_map[region_row_start:end_row, region_col_start:end_col]
+                                    region = self.element_map[
+                                        region_row_start:end_row,
+                                        region_col_start:end_col,
+                                    ]
                                     mask = region == DrawableElement.FLOOR
                                     region[mask] = DrawableElement.WALL
 
@@ -526,8 +565,8 @@ class ElementMapGenerator:
 
                         while i < len(compressed_pixels):
                             x = compressed_pixels[i]
-                            y = compressed_pixels[i+1]
-                            count = compressed_pixels[i+2]
+                            y = compressed_pixels[i + 1]
+                            count = compressed_pixels[i + 2]
                             pixel_count += count
 
                             # Set element code for this run of pixels
@@ -539,8 +578,12 @@ class ElementMapGenerator:
                             i += 3
 
                         # Debug: Log that we're adding wall pixels
-                        LOGGER.info(f"Adding wall pixels to element map with code {DrawableElement.WALL}")
-                        LOGGER.info(f"Wall layer has {len(compressed_pixels)//3} compressed runs with {pixel_count} total pixels")
+                        LOGGER.info(
+                            f"Adding wall pixels to element map with code {DrawableElement.WALL}"
+                        )
+                        LOGGER.info(
+                            f"Wall layer has {len(compressed_pixels) // 3} compressed runs with {pixel_count} total pixels"
+                        )
 
         elif is_rand256:
             # Get map dimensions from the Rand256 JSON data
@@ -565,7 +608,9 @@ class ElementMapGenerator:
                     # Get room element code (ROOM_1, ROOM_2, etc.)
                     room_element = None
                     if 0 < room_id_int <= 15:
-                        room_element = getattr(DrawableElement, f"ROOM_{room_id_int}", None)
+                        room_element = getattr(
+                            DrawableElement, f"ROOM_{room_id_int}", None
+                        )
 
                     if room_element is not None and "coordinates" in room:
                         # Process coordinates for this room
@@ -588,7 +633,9 @@ class ElementMapGenerator:
                     # Get room element code (ROOM_1, ROOM_2, etc.)
                     room_element = None
                     if 0 < room_id_int <= 15:
-                        room_element = getattr(DrawableElement, f"ROOM_{room_id_int}", None)
+                        room_element = getattr(
+                            DrawableElement, f"ROOM_{room_id_int}", None
+                        )
 
                     if room_element is not None and coordinates:
                         # Process individual coordinates
@@ -625,21 +672,27 @@ class ElementMapGenerator:
             crop_max_x = min(self.element_map.shape[1] - 1, max_x + margin)
 
             # Log the cropping information
-            LOGGER.info(f"Cropping element map from {self.element_map.shape} to bounding box: "
-                       f"({crop_min_x}, {crop_min_y}) to ({crop_max_x}, {crop_max_y})")
-            LOGGER.info(f"Cropped dimensions: {crop_max_x - crop_min_x + 1}x{crop_max_y - crop_min_y + 1}")
+            LOGGER.info(
+                f"Cropping element map from {self.element_map.shape} to bounding box: "
+                f"({crop_min_x}, {crop_min_y}) to ({crop_max_x}, {crop_max_y})"
+            )
+            LOGGER.info(
+                f"Cropped dimensions: {crop_max_x - crop_min_x + 1}x{crop_max_y - crop_min_y + 1}"
+            )
 
             # Create a new, smaller array with just the non-zero region
-            cropped_map = self.element_map[crop_min_y:crop_max_y+1, crop_min_x:crop_max_x+1].copy()
+            cropped_map = self.element_map[
+                crop_min_y : crop_max_y + 1, crop_min_x : crop_max_x + 1
+            ].copy()
 
             # Store the cropping coordinates in the shared data for later reference
             if self.shared:
                 self.shared.element_map_crop = {
-                    'min_x': crop_min_x,
-                    'min_y': crop_min_y,
-                    'max_x': crop_max_x,
-                    'max_y': crop_max_y,
-                    'original_shape': self.element_map.shape
+                    "min_x": crop_min_x,
+                    "min_y": crop_min_y,
+                    "max_x": crop_max_x,
+                    "max_y": crop_max_y,
+                    "original_shape": self.element_map.shape,
                 }
 
             # Replace the element map with the cropped version
@@ -648,8 +701,12 @@ class ElementMapGenerator:
             # Now resize the element map to reduce its dimensions
             # Calculate the resize factor based on the current size
             resize_factor = 5  # Reduce to 1/5 of the current size
-            new_height = max(self.element_map.shape[0] // resize_factor, 50)  # Ensure minimum size
-            new_width = max(self.element_map.shape[1] // resize_factor, 50)   # Ensure minimum size
+            new_height = max(
+                self.element_map.shape[0] // resize_factor, 50
+            )  # Ensure minimum size
+            new_width = max(
+                self.element_map.shape[1] // resize_factor, 50
+            )  # Ensure minimum size
 
             # Create a resized element map
             resized_map = np.zeros((new_height, new_width), dtype=np.int32)
@@ -670,13 +727,17 @@ class ElementMapGenerator:
 
             # Store the resize information in shared data
             if self.shared:
-                if hasattr(self.shared, 'element_map_crop'):
-                    self.shared.element_map_crop['resize_factor'] = resize_factor
-                    self.shared.element_map_crop['resized_shape'] = resized_map.shape
-                    self.shared.element_map_crop['original_cropped_shape'] = self.element_map.shape
+                if hasattr(self.shared, "element_map_crop"):
+                    self.shared.element_map_crop["resize_factor"] = resize_factor
+                    self.shared.element_map_crop["resized_shape"] = resized_map.shape
+                    self.shared.element_map_crop["original_cropped_shape"] = (
+                        self.element_map.shape
+                    )
 
             # Log the resizing information
-            LOGGER.info(f"Resized element map from {self.element_map.shape} to {resized_map.shape} (1/{resize_factor} of cropped size)")
+            LOGGER.info(
+                f"Resized element map from {self.element_map.shape} to {resized_map.shape} (1/{resize_factor} of cropped size)"
+            )
 
             # Replace the element map with the resized version
             self.element_map = resized_map
@@ -709,7 +770,7 @@ class ElementMapGenerator:
 
         # Get calibration points if available
         calibration_points = None
-        if hasattr(self.shared, 'attr_calibration_points'):
+        if hasattr(self.shared, "attr_calibration_points"):
             calibration_points = self.shared.attr_calibration_points
 
         if calibration_points and len(calibration_points) >= 4:
@@ -717,9 +778,9 @@ class ElementMapGenerator:
             image_points = []
             vacuum_points = []
             for point in calibration_points:
-                if 'map' in point and 'vacuum' in point:
-                    image_points.append((point['map']['x'], point['map']['y']))
-                    vacuum_points.append((point['vacuum']['x'], point['vacuum']['y']))
+                if "map" in point and "vacuum" in point:
+                    image_points.append((point["map"]["x"], point["map"]["y"]))
+                    vacuum_points.append((point["vacuum"]["x"], point["vacuum"]["y"]))
 
             if len(image_points) >= 2:
                 # Calculate scaling factors
@@ -734,35 +795,54 @@ class ElementMapGenerator:
                 vac_y_max = max(p[1] for p in vacuum_points)
 
                 # Normalize the input coordinates to 0-1 range in image space
-                norm_x = (x - img_x_min) / (img_x_max - img_x_min) if img_x_max > img_x_min else 0
-                norm_y = (y - img_y_min) / (img_y_max - img_y_min) if img_y_max > img_y_min else 0
+                norm_x = (
+                    (x - img_x_min) / (img_x_max - img_x_min)
+                    if img_x_max > img_x_min
+                    else 0
+                )
+                norm_y = (
+                    (y - img_y_min) / (img_y_max - img_y_min)
+                    if img_y_max > img_y_min
+                    else 0
+                )
 
                 # Map to vacuum coordinates
                 vac_x = vac_x_min + norm_x * (vac_x_max - vac_x_min)
                 vac_y = vac_y_min + norm_y * (vac_y_max - vac_y_min)
 
-                LOGGER.debug(f"Mapped image ({x}, {y}) to vacuum ({vac_x:.1f}, {vac_y:.1f})")
+                LOGGER.debug(
+                    f"Mapped image ({x}, {y}) to vacuum ({vac_x:.1f}, {vac_y:.1f})"
+                )
 
                 # Now map from vacuum coordinates to element map coordinates
                 # This depends on how the element map was created
-                if hasattr(self.shared, 'element_map_crop') and self.shared.element_map_crop:
+                if (
+                    hasattr(self.shared, "element_map_crop")
+                    and self.shared.element_map_crop
+                ):
                     crop_info = self.shared.element_map_crop
 
                     # Adjust for cropping
-                    if 'min_x' in crop_info and 'min_y' in crop_info:
-                        elem_x = int(vac_x - crop_info['min_x'])
-                        elem_y = int(vac_y - crop_info['min_y'])
+                    if "min_x" in crop_info and "min_y" in crop_info:
+                        elem_x = int(vac_x - crop_info["min_x"])
+                        elem_y = int(vac_y - crop_info["min_y"])
 
                         # Adjust for resizing
-                        if 'resize_factor' in crop_info and 'original_cropped_shape' in crop_info and 'resized_shape' in crop_info:
-                            orig_h, orig_w = crop_info['original_cropped_shape']
-                            resized_h, resized_w = crop_info['resized_shape']
+                        if (
+                            "resize_factor" in crop_info
+                            and "original_cropped_shape" in crop_info
+                            and "resized_shape" in crop_info
+                        ):
+                            orig_h, orig_w = crop_info["original_cropped_shape"]
+                            resized_h, resized_w = crop_info["resized_shape"]
 
                             # Scale to resized coordinates
                             elem_x = int(elem_x * resized_w / orig_w)
                             elem_y = int(elem_y * resized_h / orig_h)
 
-                        LOGGER.debug(f"Mapped vacuum ({vac_x:.1f}, {vac_y:.1f}) to element map ({elem_x}, {elem_y})")
+                        LOGGER.debug(
+                            f"Mapped vacuum ({vac_x:.1f}, {vac_y:.1f}) to element map ({elem_x}, {elem_y})"
+                        )
 
                         # Check bounds and return element
                         height, width = self.element_map.shape
@@ -782,19 +862,23 @@ class ElementMapGenerator:
             The name of the element (e.g., 'FLOOR', 'WALL', 'ROOM_1', etc.)
         """
         if element_code is None:
-            return 'NONE'
+            return "NONE"
 
         # Check if it's a room
         if element_code >= 100:
             room_number = element_code - 100
-            return f'ROOM_{room_number}'
+            return f"ROOM_{room_number}"
 
         # Check standard elements
         for name, code in vars(DrawableElement).items():
-            if not name.startswith('_') and isinstance(code, int) and code == element_code:
+            if (
+                not name.startswith("_")
+                and isinstance(code, int)
+                and code == element_code
+            ):
                 return name
 
-        return f'UNKNOWN_{element_code}'
+        return f"UNKNOWN_{element_code}"
 
     def get_element_at_position(self, x: int, y: int, is_image_coords: bool = False):
         """Get the element code at the specified position in the element map.
@@ -814,7 +898,11 @@ class ElementMapGenerator:
         # If coordinates are from the image, convert them to element map coordinates first
         if is_image_coords and self.shared:
             # Get image dimensions
-            if hasattr(self.shared, 'image_size') and self.shared.image_size is not None and len(self.shared.image_size) >= 2:
+            if (
+                hasattr(self.shared, "image_size")
+                and self.shared.image_size is not None
+                and len(self.shared.image_size) >= 2
+            ):
                 image_width = self.shared.image_size[0]
                 image_height = self.shared.image_size[1]
             else:
@@ -823,8 +911,14 @@ class ElementMapGenerator:
                 image_height = 1824
 
             # Get original element map dimensions (before resizing)
-            if hasattr(self.shared, 'element_map_crop') and self.shared.element_map_crop is not None and 'original_cropped_shape' in self.shared.element_map_crop:
-                original_map_height, original_map_width = self.shared.element_map_crop['original_cropped_shape']
+            if (
+                hasattr(self.shared, "element_map_crop")
+                and self.shared.element_map_crop is not None
+                and "original_cropped_shape" in self.shared.element_map_crop
+            ):
+                original_map_height, original_map_width = self.shared.element_map_crop[
+                    "original_cropped_shape"
+                ]
             else:
                 # Estimate based on typical values
                 original_map_width = 1310
@@ -842,22 +936,24 @@ class ElementMapGenerator:
             x = int((x + x_offset) * x_scale_to_map)
             y = int((y + y_offset) * y_scale_to_map)
 
-            LOGGER.debug(f"Converted image coordinates ({x}, {y}) to element map coordinates")
+            LOGGER.debug(
+                f"Converted image coordinates ({x}, {y}) to element map coordinates"
+            )
 
         # Adjust coordinates if the element map has been cropped and resized
-        if self.shared and hasattr(self.shared, 'element_map_crop'):
+        if self.shared and hasattr(self.shared, "element_map_crop"):
             # Get the crop information
             crop_info = self.shared.element_map_crop
 
             # Adjust coordinates to the cropped map
-            x_cropped = x - crop_info['min_x']
-            y_cropped = y - crop_info['min_y']
+            x_cropped = x - crop_info["min_x"]
+            y_cropped = y - crop_info["min_y"]
 
             # If the map has been resized, adjust coordinates further
-            if 'resize_factor' in crop_info:
-                resize_factor = crop_info['resize_factor']
-                original_cropped_shape = crop_info.get('original_cropped_shape')
-                resized_shape = crop_info.get('resized_shape')
+            if "resize_factor" in crop_info:
+                resize_factor = crop_info["resize_factor"]
+                original_cropped_shape = crop_info.get("original_cropped_shape")
+                resized_shape = crop_info.get("resized_shape")
 
                 if original_cropped_shape and resized_shape:
                     # Calculate scaling factors

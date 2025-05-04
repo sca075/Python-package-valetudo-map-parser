@@ -7,7 +7,7 @@ import os
 import cProfile
 import pstats
 
-from SCR.valetudo_map_parser.config.colors_man import ColorsManagment
+from SCR.valetudo_map_parser.config.colors import ColorsManagment
 from SCR.valetudo_map_parser.config.drawable_elements import DrawableElement
 from SCR.valetudo_map_parser.config.shared import CameraSharedManager
 from SCR.valetudo_map_parser.config.types import RoomStore
@@ -161,11 +161,6 @@ class TestRandImageHandler:
         # Create a handler instance
         handler = ReImageHandler(shared)
 
-        # Test the drawable element system
-        _LOGGER.info("Testing drawable element system...")
-        _LOGGER.info(f"PATH element enabled: {handler.drawing_config.is_enabled(DrawableElement.PATH)}")
-        _LOGGER.info(f"OBSTACLE element enabled: {handler.drawing_config.is_enabled(DrawableElement.OBSTACLE)}")
-
         # Try to generate an image from the JSON data
         try:
             _LOGGER.info("Attempting to generate image from JSON data...")
@@ -173,32 +168,21 @@ class TestRandImageHandler:
             _LOGGER.info("Successfully generated image from JSON data")
         except Exception as e:
             _LOGGER.warning(f"Error generating image from JSON: {e}")
-            # Fall back to a simple test image if generation fails
-            from PIL import Image
-            self.image = Image.new('RGBA', (300, 300), (0, 125, 255, 255))
-            _LOGGER.info("Created fallback test image")
-
-        # Show available elements
-        _LOGGER.info("\nAvailable elements that can be disabled:")
-        for element in DrawableElement:
-            _LOGGER.info(f"  - {element.name}: {element.value} (enabled: {handler.drawing_config.is_enabled(element)})")
-
-        # Test enabling/disabling elements
-        _LOGGER.info("\nTesting element enabling/disabling")
-        handler.enable_element(DrawableElement.PATH)
-        _LOGGER.info(f"PATH element enabled: {handler.drawing_config.is_enabled(DrawableElement.PATH)}")
-
-        handler.disable_element(DrawableElement.PATH)
-        _LOGGER.info(f"PATH element disabled: {not handler.drawing_config.is_enabled(DrawableElement.PATH)}")
-
-        # Test changing element properties
-        _LOGGER.info("\nTesting changing element properties")
-        handler.set_element_property(DrawableElement.ROBOT, "color", (255, 0, 0, 255))
-        _LOGGER.info("Changed robot color to bright red")
 
         # Display image size and other properties
         _LOGGER.info(f"Image size: {self.image.size}")
         _LOGGER.info(f"Trims update: {shared.trims.to_dict()}")
+        _LOGGER.info(f"Calibration_data: {handler.get_calibration_data()}")
+        _LOGGER.info(await handler.get_rooms_attributes({
+            "spots":[{"name":"test_point","coordinates":[25566,27289]}],
+            "zones":[{"name":"test_zone","coordinates":[[20809,25919,22557,26582,1]]}],
+            "rooms":[{"name":"Bathroom","id":19},
+                     {"name":"Bedroom","id":20},
+                     {"name":"Entrance","id":18},
+                     {"name":"Kitchen","id":17},
+                     {"name":"Living Room","id":16}],
+                     "updated":1746298038728})
+                     )
 
         # Show the image
         self.image.show()

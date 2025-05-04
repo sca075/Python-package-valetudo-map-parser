@@ -13,7 +13,7 @@ import numpy as np
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Now import from SCR package
-from SCR.valetudo_map_parser.config.colors_man import ColorsManagment
+from SCR.valetudo_map_parser.config.colors import ColorsManagment
 from SCR.valetudo_map_parser.config.shared import CameraSharedManager
 from SCR.valetudo_map_parser.config.types import RoomStore
 from SCR.valetudo_map_parser.hypfer_handler import HypferMapImageHandler
