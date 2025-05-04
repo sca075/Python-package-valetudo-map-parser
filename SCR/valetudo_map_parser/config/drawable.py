@@ -3,21 +3,22 @@ Collections of Drawing Utility
 Drawable is part of the Image_Handler
 used functions to draw the elements on the Numpy Array
 that is actually our camera frame.
-Version: v2024.12.0
+Version: v0.1.10
 Refactored for clarity, consistency, and optimized parameter usage.
+Optimized with NumPy and SciPy for better performance.
 """
 
 from __future__ import annotations
 
-import asyncio
+
 import logging
 import math
 
 import numpy as np
 from PIL import ImageDraw, ImageFont
-from scipy import ndimage
 
 from .colors import ColorsManagement
+from .color_utils import get_blended_color
 from .types import Color, NumpyArray, PilPNG, Point, Tuple, Union
 
 
@@ -62,6 +63,9 @@ class Drawable:
         # Create the full color with alpha
         full_color = color if len(color) == 4 else (*color, 255)
 
+        # Check if we need to blend colors (alpha < 255)
+        need_blending = alpha < 255
+
         # Loop through pixels to find min and max coordinates
         for x, y, z in pixels:
             col = x * pixel_size
@@ -69,13 +73,31 @@ class Drawable:
             # Draw pixels as blocks
             for i in range(z):
                 # Get the region to update
-                region = image_array[
-                    row : row + pixel_size,
-                    col + i * pixel_size : col + (i + 1) * pixel_size,
-                ]
+                region_slice = (
+                    slice(row, row + pixel_size),
+                    slice(col + i * pixel_size, col + (i + 1) * pixel_size)
+                )
 
-                # Simple direct assignment - ignore alpha for now to ensure visibility
-                region[:] = full_color
+                if need_blending:
+                    # Sample the center of the region for blending
+                    center_y = row + pixel_size // 2
+                    center_x = col + i * pixel_size + pixel_size // 2
+
+                    # Only blend if coordinates are valid
+                    if (0 <= center_y < image_array.shape[0] and
+                        0 <= center_x < image_array.shape[1]):
+                        # Get blended color
+                        blended_color = ColorsManagement.sample_and_blend_color(
+                            image_array, center_x, center_y, full_color
+                        )
+                        # Apply blended color to the region
+                        image_array[region_slice] = blended_color
+                    else:
+                        # Use original color if out of bounds
+                        image_array[region_slice] = full_color
+                else:
+                    # No blending needed, use direct assignment
+                    image_array[region_slice] = full_color
 
         return image_array
 
@@ -83,14 +105,44 @@ class Drawable:
     async def battery_charger(
         layers: NumpyArray, x: int, y: int, color: Color
     ) -> NumpyArray:
-        """Draw the battery charger on the input layer."""
+        """Draw the battery charger on the input layer with color blending."""
+        # Check if coordinates are within bounds
+        height, width = layers.shape[:2]
+        if not (0 <= x < width and 0 <= y < height):
+            return layers
+
+        # Calculate charger dimensions
         charger_width = 10
         charger_height = 20
-        start_row = y - charger_height // 2
-        end_row = start_row + charger_height
-        start_col = x - charger_width // 2
-        end_col = start_col + charger_width
-        layers[start_row:end_row, start_col:end_col] = color
+        start_row = max(0, y - charger_height // 2)
+        end_row = min(height, start_row + charger_height)
+        start_col = max(0, x - charger_width // 2)
+        end_col = min(width, start_col + charger_width)
+
+        # Skip if charger is completely outside the image
+        if start_row >= end_row or start_col >= end_col:
+            return layers
+
+        # Extract alpha from color
+        alpha = color[3] if len(color) == 4 else 255
+
+        # Check if we need to blend colors (alpha < 255)
+        if alpha < 255:
+            # Sample the center of the charger for blending
+            center_y = (start_row + end_row) // 2
+            center_x = (start_col + end_col) // 2
+
+            # Get blended color
+            blended_color = ColorsManagement.sample_and_blend_color(
+                layers, center_x, center_y, color
+            )
+
+            # Apply blended color
+            layers[start_row:end_row, start_col:end_col] = blended_color
+        else:
+            # No blending needed, use direct assignment
+            layers[start_row:end_row, start_col:end_col] = color
+
         return layers
 
     @staticmethod
@@ -100,8 +152,34 @@ class Drawable:
         """
         Draw a flag centered at specified coordinates on the input layer.
         It uses the rotation angle of the image to orient the flag.
+        Includes color blending for better visual integration.
         """
-        pole_color: Color = (0, 0, 255, 255)  # Blue for the pole
+        # Check if coordinates are within bounds
+        height, width = layer.shape[:2]
+        x, y = center
+        if not (0 <= x < width and 0 <= y < height):
+            return layer
+
+        # Get blended colors for flag and pole
+        flag_alpha = flag_color[3] if len(flag_color) == 4 else 255
+        pole_color_base = (0, 0, 255)  # Blue for the pole
+        pole_alpha = 255
+
+        # Blend flag color if needed
+        if flag_alpha < 255:
+            flag_color = ColorsManagement.sample_and_blend_color(
+                layer, x, y, flag_color
+            )
+
+        # Create pole color with alpha
+        pole_color: Color = (*pole_color_base, pole_alpha)
+
+        # Blend pole color if needed
+        if pole_alpha < 255:
+            pole_color = ColorsManagement.sample_and_blend_color(
+                layer, x, y, pole_color
+            )
+
         flag_size = 50
         pole_width = 6
         # Adjust flag coordinates based on rotation angle
@@ -174,10 +252,9 @@ class Drawable:
         y2: int,
         color: Color,
         width: int = 3,
-        blend: bool = True,
     ) -> NumpyArray:
         """
-        Draw a line on a NumPy array (layer) from point A to B using Bresenham's algorithm.
+        Draw a line on a NumPy array (layer) from point A to B using vectorized operations.
 
         Args:
             layer: The numpy array to draw on
@@ -185,59 +262,45 @@ class Drawable:
             x2, y2: End point coordinates
             color: Color to draw with
             width: Width of the line
-            blend: Whether to blend the color with the background
         """
-
+        # Ensure coordinates are integers
         x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
 
-        # Sample background color at the endpoints and blend with foreground color if requested
-        if blend:
-            # Sample at start point
-            if 0 <= y1 < layer.shape[0] and 0 <= x1 < layer.shape[1]:
-                start_blended_color = ColorsManagement.sample_and_blend_color(
-                    layer, x1, y1, color
-                )
-            else:
-                start_blended_color = color
+        # Get blended color for the line
+        blended_color = get_blended_color(x1, y1, x2, y2, layer, color)
 
-            # Sample at end point
-            if 0 <= y2 < layer.shape[0] and 0 <= x2 < layer.shape[1]:
-                end_blended_color = ColorsManagement.sample_and_blend_color(
-                    layer, x2, y2, color
-                )
-            else:
-                end_blended_color = color
-
-            # Use the average of the two blended colors
-            blended_color = (
-                (start_blended_color[0] + end_blended_color[0]) // 2,
-                (start_blended_color[1] + end_blended_color[1]) // 2,
-                (start_blended_color[2] + end_blended_color[2]) // 2,
-                (start_blended_color[3] + end_blended_color[3]) // 2,
-            )
-        else:
-            blended_color = color
-
-        dx = abs(x2 - x1)
-        dy = abs(y2 - y1)
-        sx = 1 if x1 < x2 else -1
-        sy = 1 if y1 < y2 else -1
-        err = dx - dy
-        while True:
-            # Draw a rectangle at the current coordinates with the specified width
+        # Calculate line length
+        length = max(abs(x2 - x1), abs(y2 - y1))
+        if length == 0:  # Handle case of a single point
+            # Draw a dot with the specified width
             for i in range(-width // 2, (width + 1) // 2):
                 for j in range(-width // 2, (width + 1) // 2):
                     if 0 <= x1 + i < layer.shape[1] and 0 <= y1 + j < layer.shape[0]:
                         layer[y1 + j, x1 + i] = blended_color
-            if x1 == x2 and y1 == y2:
-                break
-            e2 = 2 * err
-            if e2 > -dy:
-                err -= dy
-                x1 += sx
-            if e2 < dx:
-                err += dx
-                y1 += sy
+            return layer
+
+        # Create parametric points along the line
+        t = np.linspace(0, 1, length * 2)  # Double the points for smoother lines
+        x_coords = np.round(x1 * (1 - t) + x2 * t).astype(int)
+        y_coords = np.round(y1 * (1 - t) + y2 * t).astype(int)
+
+        # Draw the line with the specified width
+        if width == 1:
+            # Fast path for width=1
+            for x, y in zip(x_coords, y_coords):
+                if 0 <= x < layer.shape[1] and 0 <= y < layer.shape[0]:
+                    layer[y, x] = blended_color
+        else:
+            # For thicker lines, draw a rectangle at each point
+            half_width = width // 2
+            for x, y in zip(x_coords, y_coords):
+                for i in range(-half_width, half_width + 1):
+                    for j in range(-half_width, half_width + 1):
+                        if (i*i + j*j <= half_width*half_width and  # Make it round
+                            0 <= x + i < layer.shape[1] and
+                            0 <= y + j < layer.shape[0]):
+                            layer[y + j, x + i] = blended_color
+
         return layer
 
     @staticmethod
@@ -258,8 +321,8 @@ class Drawable:
     async def lines(arr: NumpyArray, coords, width: int, color: Color) -> NumpyArray:
         """
         Join the coordinates creating a continuous line (path).
+        Optimized with vectorized operations for better performance.
         """
-
         for coord in coords:
             x0, y0 = coord[0]
             try:
@@ -267,55 +330,16 @@ class Drawable:
             except IndexError:
                 x1, y1 = x0, y0
 
-            # Sample background color at the endpoints and blend with foreground color
-            # This is more efficient than sampling at every pixel
-            if 0 <= y0 < arr.shape[0] and 0 <= x0 < arr.shape[1]:
-                start_blended_color = ColorsManagement.sample_and_blend_color(
-                    arr, x0, y0, color
-                )
-            else:
-                start_blended_color = color
+            # Skip if coordinates are the same
+            if x0 == x1 and y0 == y1:
+                continue
 
-            if 0 <= y1 < arr.shape[0] and 0 <= x1 < arr.shape[1]:
-                end_blended_color = ColorsManagement.sample_and_blend_color(
-                    arr, x1, y1, color
-                )
-            else:
-                end_blended_color = color
+            # Get blended color for this line segment
+            blended_color = get_blended_color(x0, y0, x1, y1, arr, color)
 
-            # Use the average of the two blended colors
-            blended_color = (
-                (start_blended_color[0] + end_blended_color[0]) // 2,
-                (start_blended_color[1] + end_blended_color[1]) // 2,
-                (start_blended_color[2] + end_blended_color[2]) // 2,
-                (start_blended_color[3] + end_blended_color[3]) // 2,
-            )
+            # Use the optimized line drawing method
+            arr = Drawable._line(arr, x0, y0, x1, y1, blended_color, width)
 
-            dx = abs(x1 - x0)
-            dy = abs(y1 - y0)
-            sx = 1 if x0 < x1 else -1
-            sy = 1 if y0 < y1 else -1
-            err = dx - dy
-            line_pixels: list[Tuple[int, int]] = []
-            while True:
-                line_pixels.append((x0, y0))
-                if x0 == x1 and y0 == y1:
-                    break
-                e2 = 2 * err
-                if e2 > -dy:
-                    err -= dy
-                    x0 += sx
-                if e2 < dx:
-                    err += dx
-                    y0 += sy
-            # Draw filled rectangles for each pixel in the line
-            for pixel in line_pixels:
-                x, y = pixel
-                for i in range(width):
-                    for j in range(width):
-                        px, py = x + i, y + j
-                        if 0 <= px < arr.shape[1] and 0 <= py < arr.shape[0]:
-                            arr[py, px] = blended_color
         return arr
 
     @staticmethod
@@ -329,17 +353,35 @@ class Drawable:
     ) -> NumpyArray:
         """
         Draw a filled circle on the image using NumPy.
+        Optimized to only process the bounding box of the circle.
         """
         y, x = center
-        rr, cc = np.ogrid[: image.shape[0], : image.shape[1]]
-        circle = (rr - x) ** 2 + (cc - y) ** 2 <= radius**2
-        image[circle] = color
-        if outline_width > 0:
-            outer_circle = (rr - x) ** 2 + (cc - y) ** 2 <= (
-                radius + outline_width
-            ) ** 2
-            outline_mask = outer_circle & ~circle
-            image[outline_mask] = outline_color
+        height, width = image.shape[:2]
+
+        # Calculate the bounding box of the circle
+        min_y = max(0, y - radius - outline_width)
+        max_y = min(height, y + radius + outline_width + 1)
+        min_x = max(0, x - radius - outline_width)
+        max_x = min(width, x + radius + outline_width + 1)
+
+        # Create coordinate arrays for the bounding box
+        y_indices, x_indices = np.ogrid[min_y:max_y, min_x:max_x]
+
+        # Calculate distances from center
+        dist_sq = (y_indices - y) ** 2 + (x_indices - x) ** 2
+
+        # Create masks for the circle and outline
+        circle_mask = dist_sq <= radius ** 2
+
+        # Apply the fill color
+        image[min_y:max_y, min_x:max_x][circle_mask] = color
+
+        # Draw the outline if needed
+        if outline_width > 0 and outline_color is not None:
+            outer_mask = dist_sq <= (radius + outline_width) ** 2
+            outline_mask = outer_mask & ~circle_mask
+            image[min_y:max_y, min_x:max_x][outline_mask] = outline_color
+
         return image
 
     @staticmethod
@@ -395,7 +437,9 @@ class Drawable:
     ) -> NumpyArray:
         """
         Draw the outline of a polygon on the array using _line, and optionally fill it.
+        Uses NumPy vectorized operations for improved performance.
         """
+        # Draw the outline
         for i, _ in enumerate(points):
             current_point = points[i]
             next_point = points[(i + 1) % len(points)]
@@ -408,31 +452,53 @@ class Drawable:
                 outline_color,
                 width,
             )
-            if fill_color is not None:
-                min_x = min(p[0] for p in points)
-                max_x = max(p[0] for p in points)
-                min_y = min(p[1] for p in points)
-                max_y = max(p[1] for p in points)
-                for x in range(min_x, max_x + 1):
-                    for y in range(min_y, max_y + 1):
-                        if Drawable.point_inside(x, y, points):
-                            arr[y, x] = fill_color
+
+        # Fill the polygon if a fill color is provided
+        if fill_color is not None:
+            # Get the bounding box of the polygon
+            min_x = max(0, min(p[0] for p in points))
+            max_x = min(arr.shape[1] - 1, max(p[0] for p in points))
+            min_y = max(0, min(p[1] for p in points))
+            max_y = min(arr.shape[0] - 1, max(p[1] for p in points))
+
+            # Create a mask for the polygon region
+            mask = np.zeros((max_y - min_y + 1, max_x - min_x + 1), dtype=bool)
+
+            # Adjust points to the mask's coordinate system
+            adjusted_points = [(p[0] - min_x, p[1] - min_y) for p in points]
+
+            # Create a grid of coordinates and use it to test all points at once
+            y_indices, x_indices = np.mgrid[0:mask.shape[0], 0:mask.shape[1]]
+
+            # Test each point in the grid
+            for i in range(mask.shape[0]):
+                for j in range(mask.shape[1]):
+                    mask[i, j] = Drawable.point_inside(j, i, adjusted_points)
+
+            # Apply the fill color to the masked region
+            arr[min_y:max_y+1, min_x:max_x+1][mask] = fill_color
+
         return arr
 
     @staticmethod
     async def zones(layers: NumpyArray, coordinates, color: Color) -> NumpyArray:
         """
         Draw the zones on the input layer with color blending.
+        Optimized with NumPy vectorized operations for better performance.
         """
-
         dot_radius = 1  # Number of pixels for the dot
         dot_spacing = 4  # Space between dots
+
         for zone in coordinates:
             points = zone["points"]
-            min_x = min(points[::2])
-            max_x = max(points[::2])
-            min_y = min(points[1::2])
-            max_y = max(points[1::2])
+            min_x = max(0, min(points[::2]))
+            max_x = min(layers.shape[1] - 1, max(points[::2]))
+            min_y = max(0, min(points[1::2]))
+            max_y = min(layers.shape[0] - 1, max(points[1::2]))
+
+            # Skip if zone is outside the image
+            if min_x >= max_x or min_y >= max_y:
+                continue
 
             # Sample a point from the zone to get the background color
             # Use the center of the zone for sampling
@@ -447,12 +513,28 @@ class Drawable:
             else:
                 blended_color = color
 
-            for y in range(min_y, max_y, dot_spacing):
-                for x in range(min_x, max_x, dot_spacing):
-                    for _ in range(dot_radius):
-                        layers = Drawable._ellipse(
-                            layers, (x, y), dot_radius, blended_color
-                        )
+            # Create a grid of dot centers
+            x_centers = np.arange(min_x, max_x, dot_spacing)
+            y_centers = np.arange(min_y, max_y, dot_spacing)
+
+            # Draw dots at each grid point
+            for y in y_centers:
+                for x in x_centers:
+                    # Create a small mask for the dot
+                    y_min = max(0, y - dot_radius)
+                    y_max = min(layers.shape[0], y + dot_radius + 1)
+                    x_min = max(0, x - dot_radius)
+                    x_max = min(layers.shape[1], x + dot_radius + 1)
+
+                    # Create coordinate arrays for the dot
+                    y_indices, x_indices = np.ogrid[y_min:y_max, x_min:x_max]
+
+                    # Create a circular mask
+                    mask = (y_indices - y)**2 + (x_indices - x)**2 <= dot_radius**2
+
+                    # Apply the color to the masked region
+                    layers[y_min:y_max, x_min:x_max][mask] = blended_color
+
         return layers
 
     @staticmethod
@@ -466,27 +548,56 @@ class Drawable:
     ) -> NumpyArray:
         """
         Draw the robot on a smaller array to reduce memory cost.
+        Optimized with NumPy vectorized operations for better performance.
         """
-        top_left_x = x - 26
-        top_left_y = y - 26
-        bottom_right_x = top_left_x + 52
-        bottom_right_y = top_left_y + 52
-        tmp_layer = layers[top_left_y:bottom_right_y, top_left_x:bottom_right_x].copy()
-        tmp_x, tmp_y = 26, 26
+        # Ensure coordinates are within bounds
+        height, width = layers.shape[:2]
+        if not (0 <= x < width and 0 <= y < height):
+            return layers
+
+        # Calculate the bounding box for the robot
         radius = 25
+        box_size = radius * 2 + 2  # Add a small margin
+
+        # Calculate the region to draw on
+        top_left_x = max(0, x - radius - 1)
+        top_left_y = max(0, y - radius - 1)
+        bottom_right_x = min(width, x + radius + 1)
+        bottom_right_y = min(height, y + radius + 1)
+
+        # Skip if the robot is completely outside the image
+        if top_left_x >= bottom_right_x or top_left_y >= bottom_right_y:
+            return layers
+
+        # Create a temporary layer for the robot
+        tmp_width = bottom_right_x - top_left_x
+        tmp_height = bottom_right_y - top_left_y
+        tmp_layer = layers[top_left_y:bottom_right_y, top_left_x:bottom_right_x].copy()
+
+        # Calculate the robot center in the temporary layer
+        tmp_x = x - top_left_x
+        tmp_y = y - top_left_y
+
+        # Calculate robot parameters
         r_scaled = radius // 11
         r_cover = r_scaled * 12
         lidar_angle = np.deg2rad(angle + 90)
         r_lidar = r_scaled * 3
         r_button = r_scaled * 1
+
+        # Set colors based on robot state
         if robot_state == "error":
             outline = Drawable.ERROR_OUTLINE
             fill = Drawable.ERROR_COLOR
         else:
             outline = (fill[0] // 2, fill[1] // 2, fill[2] // 2, fill[3])
+
+        # Draw the main robot body
         tmp_layer = Drawable._filled_circle(
-            tmp_layer, (tmp_x, tmp_y), radius, fill, outline, 1
+            tmp_layer, (tmp_y, tmp_x), radius, fill, outline, 1
         )
+
+        # Draw the robot direction indicator
         angle -= 90
         a1 = ((angle + 90) - 80) / 180 * math.pi
         a2 = ((angle + 90) + 80) / 180 * math.pi
@@ -494,18 +605,31 @@ class Drawable:
         y1 = int(tmp_y + r_cover * math.cos(a1))
         x2 = int(tmp_x - r_cover * math.sin(a2))
         y2 = int(tmp_y + r_cover * math.cos(a2))
-        tmp_layer = Drawable._line(tmp_layer, x1, y1, x2, y2, outline, width=1)
+
+        # Draw the direction line
+        if (0 <= x1 < tmp_width and 0 <= y1 < tmp_height and
+            0 <= x2 < tmp_width and 0 <= y2 < tmp_height):
+            tmp_layer = Drawable._line(tmp_layer, x1, y1, x2, y2, outline, width=1)
+
+        # Draw the lidar indicator
         lidar_x = int(tmp_x + 15 * np.cos(lidar_angle))
         lidar_y = int(tmp_y + 15 * np.sin(lidar_angle))
-        tmp_layer = Drawable._filled_circle(
-            tmp_layer, (lidar_x, lidar_y), r_lidar, outline
-        )
+        if 0 <= lidar_x < tmp_width and 0 <= lidar_y < tmp_height:
+            tmp_layer = Drawable._filled_circle(
+                tmp_layer, (lidar_y, lidar_x), r_lidar, outline
+            )
+
+        # Draw the button indicator
         butt_x = int(tmp_x - 20 * np.cos(lidar_angle))
         butt_y = int(tmp_y - 20 * np.sin(lidar_angle))
-        tmp_layer = Drawable._filled_circle(
-            tmp_layer, (butt_x, butt_y), r_button, outline
-        )
-        layers = Drawable.overlay_robot(layers, tmp_layer, x, y)
+        if 0 <= butt_x < tmp_width and 0 <= butt_y < tmp_height:
+            tmp_layer = Drawable._filled_circle(
+                tmp_layer, (butt_y, butt_x), r_button, outline
+            )
+
+        # Copy the robot layer back to the main layer
+        layers[top_left_y:bottom_right_y, top_left_x:bottom_right_x] = tmp_layer
+
         return layers
 
     @staticmethod
@@ -546,23 +670,192 @@ class Drawable:
         return image
 
     @staticmethod
+    def batch_draw_elements(
+        image: np.ndarray,
+        elements: list,
+        element_type: str,
+        color: Color,
+    ) -> np.ndarray:
+        """
+        Efficiently draw multiple elements of the same type at once.
+
+        Args:
+            image: The image array to draw on
+            elements: List of element data (coordinates, etc.)
+            element_type: Type of element to draw ('circle', 'line', etc.)
+            color: Color to use for drawing
+
+        Returns:
+            Modified image array
+        """
+        if not elements or len(elements) == 0:
+            return image
+
+        # Get image dimensions
+        height, width = image.shape[:2]
+
+        if element_type == 'circle':
+            # Extract circle centers and radii
+            centers = []
+            radii = []
+            for elem in elements:
+                if isinstance(elem, dict) and 'center' in elem and 'radius' in elem:
+                    centers.append(elem['center'])
+                    radii.append(elem['radius'])
+                elif isinstance(elem, (list, tuple)) and len(elem) >= 3:
+                    # Format: (x, y, radius)
+                    centers.append((elem[0], elem[1]))
+                    radii.append(elem[2])
+
+            # Process circles with the same radius together
+            for radius in set(radii):
+                same_radius_centers = [centers[i] for i in range(len(centers)) if radii[i] == radius]
+                if same_radius_centers:
+                    # Create a combined mask for all circles with this radius
+                    mask = np.zeros((height, width), dtype=bool)
+                    for cx, cy in same_radius_centers:
+                        if 0 <= cx < width and 0 <= cy < height:
+                            # Calculate circle bounds
+                            min_y = max(0, cy - radius)
+                            max_y = min(height, cy + radius + 1)
+                            min_x = max(0, cx - radius)
+                            max_x = min(width, cx + radius + 1)
+
+                            # Create coordinate arrays for the circle
+                            y_indices, x_indices = np.ogrid[min_y:max_y, min_x:max_x]
+
+                            # Add this circle to the mask
+                            circle_mask = (y_indices - cy)**2 + (x_indices - cx)**2 <= radius**2
+                            mask[min_y:max_y, min_x:max_x] |= circle_mask
+
+                    # Apply color to all circles at once
+                    image[mask] = color
+
+        elif element_type == 'line':
+            # Extract line endpoints
+            lines = []
+            widths = []
+            for elem in elements:
+                if isinstance(elem, dict) and 'start' in elem and 'end' in elem:
+                    lines.append((elem['start'], elem['end']))
+                    widths.append(elem.get('width', 1))
+                elif isinstance(elem, (list, tuple)) and len(elem) >= 4:
+                    # Format: (x1, y1, x2, y2, [width])
+                    lines.append(((elem[0], elem[1]), (elem[2], elem[3])))
+                    widths.append(elem[4] if len(elem) > 4 else 1)
+
+            # Process lines with the same width together
+            for width in set(widths):
+                same_width_lines = [lines[i] for i in range(len(lines)) if widths[i] == width]
+                if same_width_lines:
+                    # Create a combined mask for all lines with this width
+                    mask = np.zeros((height, width), dtype=bool)
+
+                    # Draw all lines into the mask
+                    for (start, end) in same_width_lines:
+                        x1, y1 = start
+                        x2, y2 = end
+
+                        # Skip invalid lines
+                        if not (0 <= x1 < width and 0 <= y1 < height and
+                                0 <= x2 < width and 0 <= y2 < height):
+                            continue
+
+                        # Use Bresenham's algorithm to get line points
+                        length = max(abs(x2 - x1), abs(y2 - y1))
+                        if length == 0:
+                            continue
+
+                        t = np.linspace(0, 1, length * 2)
+                        x_coords = np.round(x1 * (1 - t) + x2 * t).astype(int)
+                        y_coords = np.round(y1 * (1 - t) + y2 * t).astype(int)
+
+                        # Add line points to mask
+                        for x, y in zip(x_coords, y_coords):
+                            if width == 1:
+                                mask[y, x] = True
+                            else:
+                                # For thicker lines
+                                half_width = width // 2
+                                min_y = max(0, y - half_width)
+                                max_y = min(height, y + half_width + 1)
+                                min_x = max(0, x - half_width)
+                                max_x = min(width, x + half_width + 1)
+
+                                # Create a circular brush
+                                y_indices, x_indices = np.ogrid[min_y:max_y, min_x:max_x]
+                                brush = (y_indices - y)**2 + (x_indices - x)**2 <= half_width**2
+                                mask[min_y:max_y, min_x:max_x] |= brush
+
+                    # Apply color to all lines at once
+                    image[mask] = color
+
+        return image
+
+    @staticmethod
     async def async_draw_obstacles(
         image: np.ndarray, obstacle_info_list, color: Color
     ) -> np.ndarray:
         """
-        Optimized async version of draw_obstacles using asyncio.gather().
+        Optimized async version of draw_obstacles using batch processing.
+        Includes color blending for better visual integration.
         """
+        if not obstacle_info_list:
+            return image
 
-        def extract_centers(obs_list) -> np.ndarray:
-            return np.array(
-                [[obs["points"]["x"], obs["points"]["y"]] for obs in obs_list],
-                dtype=np.int32,
-            )
+        # Extract alpha from color
+        alpha = color[3] if len(color) == 4 else 255
+        need_blending = alpha < 255
 
-        centers = await asyncio.get_running_loop().run_in_executor(
-            None, extract_centers, obstacle_info_list
-        )
-        Drawable.draw_filled_circle(image, centers, 6, color)
+        # Extract obstacle centers and prepare for batch processing
+        centers = []
+        for obs in obstacle_info_list:
+            try:
+                x = obs["points"]["x"]
+                y = obs["points"]["y"]
+
+                # Skip if coordinates are out of bounds
+                if not (0 <= x < image.shape[1] and 0 <= y < image.shape[0]):
+                    continue
+
+                # Apply color blending if needed
+                obstacle_color = color
+                if need_blending:
+                    obstacle_color = ColorsManagement.sample_and_blend_color(
+                        image, x, y, color
+                    )
+
+                # Add to centers list with radius
+                centers.append({
+                    'center': (x, y),
+                    'radius': 6,
+                    'color': obstacle_color
+                })
+            except (KeyError, TypeError):
+                continue
+
+        # Draw each obstacle with its blended color
+        if centers:
+            for obstacle in centers:
+                cx, cy = obstacle['center']
+                radius = obstacle['radius']
+                obs_color = obstacle['color']
+
+                # Create a small mask for the obstacle
+                min_y = max(0, cy - radius)
+                max_y = min(image.shape[0], cy + radius + 1)
+                min_x = max(0, cx - radius)
+                max_x = min(image.shape[1], cx + radius + 1)
+
+                # Create coordinate arrays for the circle
+                y_indices, x_indices = np.ogrid[min_y:max_y, min_x:max_x]
+
+                # Create a circular mask
+                mask = (y_indices - cy)**2 + (x_indices - cx)**2 <= radius**2
+
+                # Apply the color to the masked region
+                image[min_y:max_y, min_x:max_x][mask] = obs_color
+
         return image
 
     @staticmethod
@@ -597,60 +890,3 @@ class Drawable:
             else:
                 draw.text((x, y), text, font=font, fill=color)
             x += draw.textlength(text, font=default_font)
-
-    @staticmethod
-    def draw_filled_polygon(image_array, vertices, color):
-        """
-        Draw a filled polygon on the image array using scipy.ndimage.
-
-        Args:
-            image_array: NumPy array of shape (height, width, 4) containing RGBA image data
-            vertices: List of (x,y) tuples defining the polygon vertices
-            color: RGBA color tuple to fill the polygon with
-
-        Returns:
-            Modified image array with the filled polygon
-        """
-        if len(vertices) < 3:
-            return image_array  # Need at least 3 points for a polygon
-
-        height, width = image_array.shape[:2]
-
-        # Create a mask for the polygon
-        polygon_mask = np.zeros((height, width), dtype=bool)
-
-        # Convert vertices to numpy arrays for processing
-        vertices_array = np.array(vertices)
-        x_coords = vertices_array[:, 0]
-        y_coords = vertices_array[:, 1]
-
-        # Clip coordinates to image boundaries
-        x_coords = np.clip(x_coords, 0, width - 1)
-        y_coords = np.clip(y_coords, 0, height - 1)
-
-        # Create a polygon using scipy.ndimage
-        # First create the boundary
-        for i in range(len(vertices)):
-            x1, y1 = int(x_coords[i]), int(y_coords[i])
-            x2, y2 = (
-                int(x_coords[(i + 1) % len(vertices)]),
-                int(y_coords[(i + 1) % len(vertices)]),
-            )
-
-            # Draw line between consecutive vertices
-            length = max(abs(x2 - x1), abs(y2 - y1)) * 2
-            if length == 0:
-                continue
-
-            t = np.linspace(0, 1, length)
-            x = np.round(x1 * (1 - t) + x2 * t).astype(int)
-            y = np.round(y1 * (1 - t) + y2 * t).astype(int)
-
-            # Add boundary points to mask
-            polygon_mask[y, x] = True
-
-        # Fill the polygon using scipy.ndimage.binary_fill_holes
-        filled_polygon = ndimage.binary_fill_holes(polygon_mask)
-
-        # Apply color to the filled polygon
-        return ColorsManagement.batch_blend_colors(image_array, filled_polygon, color)
