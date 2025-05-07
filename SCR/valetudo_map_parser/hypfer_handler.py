@@ -9,12 +9,10 @@ from __future__ import annotations
 
 import json
 
-import numpy as np
 from PIL import Image
 
 from .config.auto_crop import AutoCrop
 from .config.drawable_elements import DrawableElement
-from .config.optimized_element_map import OptimizedElementMapGenerator
 from .config.shared import CameraShared
 from .config.types import (
     COLORS,
@@ -22,19 +20,15 @@ from .config.types import (
     CalibrationPoints,
     Colors,
     RoomsProperties,
-    RoomStore,
 )
 from .config.utils import (
     BaseHandler,
-    get_element_at_position,
-    get_room_at_position,
     initialize_drawing_config,
     manage_drawable_elements,
     prepare_resize_params,
-    update_element_map_with_robot,
 )
-from .config.room_outline import extract_room_outline_with_scipy
 from .hypfer_draw import ImageDraw as ImDraw
+from .hypfer_rooms_handler import HypferRoomsHandler
 from .map_data import ImageData
 
 
@@ -63,123 +57,62 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         self.imd = ImDraw(self)  # Image Draw class.
         self.color_grey = (128, 128, 128, 255)
         self.file_name = self.shared.file_name  # file name of the vacuum.
-        self.element_map_manager = OptimizedElementMapGenerator(
-            self.drawing_config, self.shared
-        )  # Map of element codes
+        self.rooms_handler = HypferRoomsHandler(
+            self.file_name, self.drawing_config
+        )  # Room data handler
 
     @staticmethod
     def get_corners(x_max, x_min, y_max, y_min):
         """Get the corners of the room."""
         return [(x_min, y_min), (x_max, y_min), (x_max, y_max), (x_min, y_max)]
 
-    async def extract_room_outline_from_map(self, room_id_int, pixels, pixel_size):
-        """Extract the outline of a room using the pixel data and element map.
-
-        Args:
-            room_id_int: The room ID as an integer
-            pixels: List of pixel coordinates in the format [[x, y, z], ...]
-            pixel_size: Size of each pixel
-
-        Returns:
-            List of points forming the outline of the room
-        """
-        # Calculate x and y min/max from compressed pixels for rectangular fallback
-        x_values = []
-        y_values = []
-        for x, y, z in pixels:
-            for i in range(z):
-                x_values.append(x + i * pixel_size)
-                y_values.append(y)
-
-        if not x_values or not y_values:
-            return []
-
-        min_x, max_x = min(x_values), max(x_values)
-        min_y, max_y = min(y_values), max(y_values)
-
-        # If we don't have an element map, return a rectangular outline
-        if not hasattr(self, "element_map") or self.shared.element_map is None:
-            # Return rectangular outline
-            return [(min_x, min_y), (max_x, min_y), (max_x, max_y), (min_x, max_y)]
-
-        # Create a binary mask for this room using the pixel data
-        # This is more reliable than using the element_map since we're directly using the pixel data
-        height, width = self.shared.element_map.shape
-        room_mask = np.zeros((height, width), dtype=np.uint8)
-
-        # Fill the mask with room pixels using the pixel data
-        for x, y, z in pixels:
-            for i in range(z):
-                px = x + i * pixel_size
-                py = y
-                # Make sure we're within bounds
-                if 0 <= py < height and 0 <= px < width:
-                    # Mark a pixel_size x pixel_size block in the mask
-                    for dx in range(pixel_size):
-                        for dy in range(pixel_size):
-                            if py + dy < height and px + dx < width:
-                                room_mask[py + dy, px + dx] = 1
-
-        # Debug log to check if we have any room pixels
-        num_room_pixels = np.sum(room_mask)
-        LOGGER.debug(
-            "%s: Room %s mask has %d pixels",
-            self.file_name,
-            str(room_id_int),
-            int(num_room_pixels),
-        )
-
-        # Use the scipy-based room outline extraction
-        return await extract_room_outline_with_scipy(
-            room_mask, min_x, min_y, max_x, max_y, self.file_name, room_id_int
-        )
-
     async def async_extract_room_properties(self, json_data) -> RoomsProperties:
         """Extract room properties from the JSON data."""
 
-        room_properties = {}
-        self.rooms_pos = []
-        pixel_size = json_data.get("pixelSize", [])
-
-        for layer in json_data.get("layers", []):
-            if layer["__class"] == "MapLayer":
-                meta_data = layer.get("metaData", {})
-                segment_id = meta_data.get("segmentId")
-                if segment_id is not None:
-                    name = meta_data.get("name")
-                    compressed_pixels = layer.get("compressedPixels", [])
-                    pixels = self.data.sublist(compressed_pixels, 3)
-                    # Calculate x and y min/max from compressed pixels
-                    (
-                        x_min,
-                        y_min,
-                        x_max,
-                        y_max,
-                    ) = await self.data.async_get_rooms_coordinates(pixels, pixel_size)
-                    corners = self.get_corners(x_max, x_min, y_max, y_min)
-                    room_id = str(segment_id)
-                    self.rooms_pos.append(
-                        {
-                            "name": name,
-                            "corners": corners,
-                        }
-                    )
-                    room_properties[room_id] = {
-                        "number": segment_id,
-                        "outline": corners,
-                        "name": name,
-                        "x": ((x_min + x_max) // 2),
-                        "y": ((y_min + y_max) // 2),
-                    }
-        if room_properties:
-            rooms = RoomStore(self.file_name, room_properties)
-            LOGGER.debug(
-                "%s: Rooms data extracted! %s", self.file_name, rooms.get_rooms()
-            )
-        else:
-            LOGGER.debug("%s: Rooms data not available!", self.file_name)
-            self.rooms_pos = None
-        return room_properties
+        return await self.rooms_handler.async_extract_room_properties(json_data)
+        # room_properties = {}
+        # self.rooms_pos = []
+        # pixel_size = json_data.get("pixelSize", [])
+        #
+        # for layer in json_data.get("layers", []):
+        #     if layer["__class"] == "MapLayer":
+        #         meta_data = layer.get("metaData", {})
+        #         segment_id = meta_data.get("segmentId")
+        #         if segment_id is not None:
+        #             name = meta_data.get("name")
+        #             compressed_pixels = layer.get("compressedPixels", [])
+        #             pixels = self.data.sublist(compressed_pixels, 3)
+        #             # Calculate x and y min/max from compressed pixels
+        #             (
+        #                 x_min,
+        #                 y_min,
+        #                 x_max,
+        #                 y_max,
+        #             ) = await self.data.async_get_rooms_coordinates(pixels, pixel_size)
+        #             corners = self.get_corners(x_max, x_min, y_max, y_min)
+        #             room_id = str(segment_id)
+        #             self.rooms_pos.append(
+        #                 {
+        #                     "name": name,
+        #                     "corners": corners,
+        #                 }
+        #             )
+        #             room_properties[room_id] = {
+        #                 "number": segment_id,
+        #                 "outline": corners,
+        #                 "name": name,
+        #                 "x": ((x_min + x_max) // 2),
+        #                 "y": ((y_min + y_max) // 2),
+        #             }
+        # if room_properties:
+        #     rooms = RoomStore(self.file_name, room_properties)
+        #     LOGGER.debug(
+        #         "%s: Rooms data extracted! %s", self.file_name, rooms.get_rooms()
+        #     )
+        # else:
+        #     LOGGER.debug("%s: Rooms data not available!", self.file_name)
+        #     self.rooms_pos = None
+        # return room_properties
 
     # noinspection PyUnresolvedReferences,PyUnboundLocalVariable
     async def async_get_image_from_json(
@@ -471,36 +404,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
             if img_np_array is None:
                 LOGGER.warning("%s: Image array is None.", self.file_name)
                 return None
-            # Debug logging for element map creation
-            LOGGER.info(
-                "%s: Frame number: %d, has element_map: %s",
-                self.file_name,
-                self.frame_number,
-                hasattr(self.shared, "element_map"),
-            )
 
-            if (self.shared.element_map is None) and (self.frame_number == 1):
-                # Create element map for tracking what's drawn where
-                LOGGER.info(
-                    "%s: Creating element map with shape: %s",
-                    self.file_name,
-                    img_np_array.shape,
-                )
-
-                # Generate the element map directly from JSON data
-                # This will create a cropped element map containing only the non-zero elements
-                LOGGER.info("%s: Generating element map from JSON data", self.file_name)
-                self.shared.element_map = (
-                    await self.element_map_manager.async_generate_from_json(m_json)
-                )
-
-                LOGGER.info(
-                    "%s: Element map created with shape: %s",
-                    self.file_name,
-                    self.shared.element_map.shape
-                    if self.shared.element_map is not None
-                    else None,
-                )
             # Convert the numpy array to a PIL image
             pil_img = Image.fromarray(img_np_array, mode="RGBA")
             del img_np_array
@@ -582,17 +486,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
             element_code=element_code,
             property_name=property_name,
             value=value,
-        )
-
-    def get_element_at_position(self, x: int, y: int) -> DrawableElement | None:
-        """Get the element code at a specific position."""
-
-        return get_element_at_position(self.shared.element_map, x, y)
-
-    def get_room_at_position(self, x: int, y: int) -> int | None:
-        """Get the room ID at a specific position, or None if not a room."""
-        return get_room_at_position(
-            self.shared.element_map, x, y, DrawableElement.ROOM_1
         )
 
     @staticmethod

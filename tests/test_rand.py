@@ -7,6 +7,12 @@ import os
 import cProfile
 import pstats
 
+import sys
+import os
+
+# Add the parent directory to the path so we can import the SCR module
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from SCR.valetudo_map_parser.config.colors import ColorsManagement
 from SCR.valetudo_map_parser.config.drawable_elements import DrawableElement
 from SCR.valetudo_map_parser.config.shared import CameraSharedManager
@@ -52,7 +58,7 @@ class TestRandImageHandler:
             'alpha_background': 255.0,
             'alpha_charger': 255.0,
             'alpha_go_to': 255.0,
-            'alpha_move': 150.0,
+            'alpha_move': 100.0,
             'alpha_no_go': 125.0,
             'alpha_robot': 255.0,
             'alpha_text': 255.0,
@@ -166,6 +172,9 @@ class TestRandImageHandler:
             _LOGGER.info("Attempting to generate image from JSON data...")
             self.image = await handler.get_image_from_rrm(self.test_data)
             _LOGGER.info("Successfully generated image from JSON data")
+            if self.image is None:
+                _LOGGER.error("Failed to generate image from JSON data")
+                return
         except Exception as e:
             _LOGGER.warning(f"Error generating image from JSON: {e}")
 

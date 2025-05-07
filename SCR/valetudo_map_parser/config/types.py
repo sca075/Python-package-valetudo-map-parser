@@ -8,7 +8,7 @@ import json
 import logging
 import threading
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union, TypedDict
 
 import numpy as np
 from PIL import Image
@@ -19,17 +19,12 @@ DEFAULT_ROOMS = 1
 LOGGER = logging.getLogger(__package__)
 
 
-Color = Union[Tuple[int, int, int], Tuple[int, int, int, int]]
-Colors = Dict[str, Color]
-CalibrationPoints = list[dict[str, Any]]
-RobotPosition = dict[str, int | float]
-ChargerPosition = dict[str, Any]
-RoomsProperties = dict[str, dict[str, int | list[tuple[Any, Any]]]]
-ImageSize = dict[str, int | list[int]]
-JsonType = Any  # json.loads() return type is Any
-PilPNG = Image.Image
-NumpyArray = np.ndarray
-Point = Tuple[int, int]
+class RoomProperty(TypedDict):
+    number: int
+    outline: list[tuple[int, int]]
+    name: str
+    x: int
+    y: int
 
 
 # pylint: disable=no-member
@@ -77,20 +72,8 @@ class TrimCropData:
 
 
 class RoomStore:
-    """
-    Singleton RoomStore per vacuum_id.
-
-    This class stores room data (a dictionary) for each vacuum.
-    Calling RoomStore(vacuum_id, rooms_data) creates a new instance for that vacuum_id if it doesn't exist,
-    or returns the existing one (optionally updating the data if rooms_data is provided).
-    """
-
     _instances: Dict[str, "RoomStore"] = {}
     _lock = threading.Lock()
-
-    # Declare instance attributes for static analysis tools like Pylint
-    vacuum_id: str
-    vacuums_data: dict
 
     def __new__(cls, vacuum_id: str, rooms_data: Optional[dict] = None) -> "RoomStore":
         with cls._lock:
@@ -100,25 +83,17 @@ class RoomStore:
                 instance.vacuums_data = rooms_data or {}
                 cls._instances[vacuum_id] = instance
             else:
-                # Update the instance's data if new rooms_data is provided.
                 if rooms_data is not None:
                     cls._instances[vacuum_id].vacuums_data = rooms_data
         return cls._instances[vacuum_id]
 
     def get_rooms(self) -> dict:
-        """Return the stored rooms data."""
         return self.vacuums_data
 
     def set_rooms(self, rooms_data: dict) -> None:
-        """Update the stored rooms data."""
         self.vacuums_data = rooms_data
 
     def get_rooms_count(self) -> int:
-        """
-        Return the number of rooms stored for this vacuum.
-        This is simply the number of keys in the vacuums_data dictionary.
-        If no data is stored, return the default number of rooms.
-        """
         if isinstance(self.vacuums_data, dict):
             count = len(self.vacuums_data)
             return count if count > 0 else DEFAULT_ROOMS
@@ -126,7 +101,6 @@ class RoomStore:
 
     @classmethod
     def get_all_instances(cls) -> Dict[str, "RoomStore"]:
-        """Return all active RoomStore instances (useful for debugging)."""
         return cls._instances
 
 
@@ -219,6 +193,18 @@ class SnapshotStore:
         async with self._lock:
             self.vacuum_json_data[vacuum_id] = json_data
 
+
+Color = Union[Tuple[int, int, int], Tuple[int, int, int, int]]
+Colors = Dict[str, Color]
+CalibrationPoints = list[dict[str, Any]]
+RobotPosition = dict[str, int | float]
+ChargerPosition = dict[str, Any]
+RoomsProperties = dict[str, RoomProperty]
+ImageSize = dict[str, int | list[int]]
+JsonType = Any  # json.loads() return type is Any
+PilPNG = Image.Image
+NumpyArray = np.ndarray
+Point = Tuple[int, int]
 
 CAMERA_STORAGE = "valetudo_camera"
 ATTR_ROTATE = "rotate_image"

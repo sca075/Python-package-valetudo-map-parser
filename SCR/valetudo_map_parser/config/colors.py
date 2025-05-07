@@ -407,61 +407,56 @@ class ColorsManagement:
     def blend_colors(background: Color, foreground: Color) -> Color:
         """
         Blend foreground color with background color based on alpha values.
-
-        This is used when drawing elements that overlap on the map.
-        The alpha channel determines how much of the foreground color is visible.
-        Uses optimized calculations for better performance.
+        Optimized version with more fast paths and simplified calculations.
 
         :param background: Background RGBA color (r,g,b,a)
         :param foreground: Foreground RGBA color (r,g,b,a) to blend on top
         :return: Blended RGBA color
         """
-        # Extract components
-        bg_r, bg_g, bg_b, bg_a = background
-        fg_r, fg_g, fg_b, fg_a = foreground
+        # Fast paths for common cases
+        fg_a = foreground[3]
 
-        # Fast path for common cases
-        if fg_a == 255:
+        if fg_a == 255:  # Fully opaque foreground
             return foreground
-        if fg_a == 0:
+
+        if fg_a == 0:  # Fully transparent foreground
             return background
 
-        # Calculate alpha blending
-        # Convert alpha from [0-255] to [0-1] for calculations
-        fg_alpha = fg_a / 255.0
-        bg_alpha = bg_a / 255.0
+        bg_a = background[3]
+        if bg_a == 0:  # Fully transparent background
+            return foreground
 
-        # Calculate resulting alpha
-        out_alpha = fg_alpha + bg_alpha * (1 - fg_alpha)
+        # Extract components (only after fast paths)
+        bg_r, bg_g, bg_b = background[:3]
+        fg_r, fg_g, fg_b = foreground[:3]
 
-        # Avoid division by zero
-        if out_alpha < 0.0001:
-            return Color[0, 0, 0, 0]  # Fully transparent result
+        # Pre-calculate the blend factor once (avoid repeated division)
+        blend = fg_a / 255.0
+        inv_blend = 1.0 - blend
 
-        # Calculate blended RGB components
-        # Using a more efficient calculation method
-        alpha_ratio = fg_alpha / out_alpha
-        inv_alpha_ratio = 1.0 - alpha_ratio
+        # Simple linear interpolation for RGB channels
+        # This is faster than the previous implementation
+        out_r = int(fg_r * blend + bg_r * inv_blend)
+        out_g = int(fg_g * blend + bg_g * inv_blend)
+        out_b = int(fg_b * blend + bg_b * inv_blend)
 
-        out_r = int(fg_r * alpha_ratio + bg_r * inv_alpha_ratio)
-        out_g = int(fg_g * alpha_ratio + bg_g * inv_alpha_ratio)
-        out_b = int(fg_b * alpha_ratio + bg_b * inv_alpha_ratio)
+        # Alpha blending - simplified calculation
+        out_a = int(fg_a + bg_a * inv_blend)
 
-        # Convert alpha back to [0-255] range
-        out_a = int(out_alpha * 255)
-
-        # Ensure values are in valid range (using min/max for efficiency)
-        out_r = max(0, min(255, out_r))
-        out_g = max(0, min(255, out_g))
-        out_b = max(0, min(255, out_b))
+        # No need for min/max checks as the blend math keeps values in range
+        # when input values are valid (0-255)
 
         return [out_r, out_g, out_b, out_a]
+
+    # Cache for recently sampled background colors
+    _bg_color_cache = {}
+    _cache_size = 1024  # Limit cache size to avoid memory issues
 
     @staticmethod
     def sample_and_blend_color(array, x: int, y: int, foreground: Color) -> Color:
         """
         Sample the background color from the array at coordinates (x,y) and blend with foreground color.
-        Uses scipy.ndimage for efficient sampling when appropriate.
+        Optimized version with caching and faster sampling.
 
         Args:
             array: The RGBA numpy array representing the image
@@ -472,52 +467,42 @@ class ColorsManagement:
         Returns:
             Blended RGBA color
         """
-        # Ensure coordinates are within bounds
-        if array is None:
-            return foreground
-
-        height, width = array.shape[:2]
-        if not (0 <= y < height and 0 <= x < width):
-            return foreground  # Return foreground if coordinates are out of bounds
-
-        # Fast path for fully opaque foreground
+        # Fast path for fully opaque foreground - no need to sample or blend
         if foreground[3] == 255:
             return foreground
 
-        # The array is in RGBA format with shape (height, width, 4)
-        try:
-            # Use scipy.ndimage for sampling with boundary handling
-            # This is more efficient for large arrays and handles edge cases better
-            if (
-                array.size > 1000000
-            ):  # Only use for larger arrays where the overhead is worth it
-                # Create coordinates array for the sampling point
-                coordinates = np.array([[y, x]])
+        # Ensure array exists
+        if array is None:
+            return foreground
 
-                # Sample each channel separately with nearest neighbor interpolation
-                # This is faster than sampling all channels at once for large arrays
-                r = ndimage.map_coordinates(
-                    array[..., 0], coordinates.T, order=0, mode="nearest"
-                )[0]
-                g = ndimage.map_coordinates(
-                    array[..., 1], coordinates.T, order=0, mode="nearest"
-                )[0]
-                b = ndimage.map_coordinates(
-                    array[..., 2], coordinates.T, order=0, mode="nearest"
-                )[0]
-                a = ndimage.map_coordinates(
-                    array[..., 3], coordinates.T, order=0, mode="nearest"
-                )[0]
-                background = (int(r), int(g), int(b), int(a))
-            else:
-                # For smaller arrays, direct indexing is faster
-                background = tuple(array[y, x])
-        except (IndexError, ValueError):
-            # Fallback to direct indexing if ndimage fails
+        # Check if coordinates are within bounds
+        height, width = array.shape[:2]
+        if not (0 <= y < height and 0 <= x < width):
+            return foreground
+
+        # Check cache for this coordinate
+        cache_key = (id(array), x, y)
+        cache = ColorsManagement._bg_color_cache
+
+        if cache_key in cache:
+            background = cache[cache_key]
+        else:
+            # Sample the background color using direct indexing (fastest method)
             try:
-                background = tuple(array[y, x])
+                background = tuple(map(int, array[y, x]))
+
+                # Update cache (with simple LRU-like behavior)
+                if len(cache) >= ColorsManagement._cache_size:
+                    # Remove a random entry if cache is full
+                    cache.pop(next(iter(cache)))
+                cache[cache_key] = background
+
             except (IndexError, ValueError):
                 return foreground
+
+        # Fast path for fully transparent foreground
+        if foreground[3] == 0:
+            return background
 
         # Blend the colors
         return ColorsManagement.blend_colors(background, foreground)

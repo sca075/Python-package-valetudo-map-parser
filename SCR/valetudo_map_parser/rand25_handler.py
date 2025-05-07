@@ -29,13 +29,10 @@ from .config.types import (
 )
 from .config.utils import (
     BaseHandler,
-    get_element_at_position,
-    get_room_at_position,
     initialize_drawing_config,
     manage_drawable_elements,
     prepare_resize_params,
     async_extract_room_outline,
-    update_element_map_with_robot,
 )
 from .map_data import RandImageData
 from .reimg_draw import ImageDraw
@@ -64,7 +61,6 @@ class ReImageHandler(BaseHandler, AutoCrop):
         self.drawing_config, self.draw, self.enhanced_draw = initialize_drawing_config(
             self
         )
-        self.element_map = None  # Map of element codes
         self.go_to = None  # Go to position data
         self.img_base_layer = None  # Base image layer
         self.img_rotate = shared_data.image_rotate  # Image rotation
@@ -96,36 +92,8 @@ class ReImageHandler(BaseHandler, AutoCrop):
         min_x, max_x = min(x_values), max(x_values)
         min_y, max_y = min(y_values), max(y_values)
 
-        # If we don't have an element map, return a rectangular outline
-        if not hasattr(self, "element_map") or self.element_map is None:
-            # Return rectangular outline
-            return [(min_x, min_y), (max_x, min_y), (max_x, max_y), (min_x, max_y)]
-
-        # Create a binary mask for this room using the pixel data
-        # This is more reliable than using the element_map since we're directly using the pixel data
-        height, width = self.element_map.shape
-        room_mask = np.zeros((height, width), dtype=np.uint8)
-
-        # Fill the mask with room pixels using the pixel data
-        for x, y, _ in pixels:  # Using _ instead of z since z is unused
-            # Make sure we're within bounds
-            if 0 <= y < height and 0 <= x < width:
-                # Mark a pixel at this position
-                room_mask[y, x] = 1
-
-        # Debug log to check if we have any room pixels
-        num_room_pixels = np.sum(room_mask)
-        _LOGGER.debug(
-            "%s: Room %s mask has %d pixels",
-            self.file_name,
-            str(room_id_int),
-            int(num_room_pixels),
-        )
-
-        # Use the shared utility function to extract the room outline
-        return await async_extract_room_outline(
-            room_mask, min_x, min_y, max_x, max_y, self.file_name, room_id_int
-        )
+        # Always return a rectangular outline since element_map is removed
+        return [(min_x, min_y), (max_x, min_y), (max_x, max_y), (min_x, max_y)]
 
     async def extract_room_properties(
         self, json_data: JsonType, destinations: JsonType
@@ -322,20 +290,11 @@ class ReImageHandler(BaseHandler, AutoCrop):
     async def _draw_map_elements(
         self, img_np_array, m_json, colors, robot_position, robot_position_angle
     ):
-        # Create element map for tracking what's drawn where if it doesn't exist
-        if self.element_map is None:
-            self.element_map = np.zeros(
-                (img_np_array.shape[0], img_np_array.shape[1]), dtype=np.int32
-            )
-            self.element_map[:] = DrawableElement.FLOOR
-
         # Draw charger if enabled
         if self.drawing_config.is_enabled(DrawableElement.CHARGER):
             img_np_array, self.charger_pos = await self.imd.async_draw_charger(
                 img_np_array, m_json, colors["charger"]
             )
-            # Update element map for charger position
-            self._update_element_map_for_charger()
 
         # Draw zones if enabled
         if self.drawing_config.is_enabled(DrawableElement.RESTRICTED_AREA):
@@ -372,10 +331,6 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 img_np_array, robot_position, robot_position_angle, robot_color
             )
 
-            # Update element map for robot position
-            update_element_map_with_robot(
-                self.element_map, robot_position, DrawableElement.ROBOT
-            )
         img_np_array = await self.async_auto_trim_and_zoom_image(
             img_np_array,
             detect_colour=colors["background"],
@@ -536,40 +491,3 @@ class ReImageHandler(BaseHandler, AutoCrop):
             property_name=property_name,
             value=value,
         )
-
-    def get_element_at_position(self, x: int, y: int) -> DrawableElement:
-        """Get the element code at a specific position."""
-        return get_element_at_position(self.element_map, x, y)
-
-    def get_room_at_position(self, x: int, y: int) -> int:
-        """Get the room ID at a specific position, or None if not a room."""
-        return get_room_at_position(self.element_map, x, y, DrawableElement.ROOM_1)
-
-    def _update_element_map_for_charger(self):
-        """Helper method to update the element map for the charger position."""
-        if not self.charger_pos or self.element_map is None:
-            return
-
-        charger_radius = 15
-        # Handle both dictionary format {'x': x, 'y': y} and list format [x, y]
-        charger_x = (
-            self.charger_pos.get("x")
-            if isinstance(self.charger_pos, dict)
-            else self.charger_pos[0]
-        )
-        charger_y = (
-            self.charger_pos.get("y")
-            if isinstance(self.charger_pos, dict)
-            else self.charger_pos[1]
-        )
-
-        for dy in range(-charger_radius, charger_radius + 1):
-            for dx in range(-charger_radius, charger_radius + 1):
-                # Check if the point is within the circular charger area
-                if dx * dx + dy * dy <= charger_radius * charger_radius:
-                    cx, cy = int(charger_x + dx), int(charger_y + dy)
-                    # Check if the coordinates are within the element map bounds
-                    if (0 <= cy < self.element_map.shape[0]) and (
-                        0 <= cx < self.element_map.shape[1]
-                    ):
-                        self.element_map[cy, cx] = DrawableElement.CHARGER

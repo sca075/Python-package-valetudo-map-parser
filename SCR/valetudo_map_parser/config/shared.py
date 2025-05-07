@@ -107,7 +107,6 @@ class CameraShared:
         self.trims = TrimsData.from_dict(DEFAULT_VALUES["trims_data"])  # Trims data
         self.skip_room_ids: List[str] = []
         self.device_info = None  # Store the device_info
-        self.element_map = None  # Map of element codes
 
     def update_user_colors(self, user_colors):
         """Update the user colors."""
