@@ -14,11 +14,11 @@ from typing import Optional, Tuple
 import numpy as np
 
 from .drawable import Drawable
-from SCR.valetudo_map_parser.config.drawable_elements import (
+from .drawable_elements import (
     DrawableElement,
     DrawingConfig,
 )
-from SCR.valetudo_map_parser.config.colors import ColorsManagement
+from .colors import ColorsManagement
 
 
 # Type aliases
