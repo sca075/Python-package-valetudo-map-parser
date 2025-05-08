@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "valetudo-map-parser"
-version = "0.1.9.b52"
+version = "0.1.9.b53"
 description = "A Python library to parse Valetudo map data returning a PIL Image object."
 authors = ["Sandro Cantarella <gsca075@gmail.com>"]
 license = "Apache-2.0"
