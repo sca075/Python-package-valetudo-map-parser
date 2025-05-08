@@ -492,10 +492,20 @@ class ColorsManagement:
                 background = tuple(map(int, array[y, x]))
 
                 # Update cache (with simple LRU-like behavior)
-                if len(cache) >= ColorsManagement._cache_size:
-                    # Remove a random entry if cache is full
-                    cache.pop(next(iter(cache)))
-                cache[cache_key] = background
+                try:
+                    if len(cache) >= ColorsManagement._cache_size:
+                        # Remove a random entry if cache is full
+                        if cache:  # Make sure cache is not empty
+                            cache.pop(next(iter(cache)))
+                        else:
+                            # If cache is somehow empty but len reported >= _cache_size
+                            # This is an edge case that shouldn't happen but we handle it
+                            pass
+                    cache[cache_key] = background
+                except KeyError:
+                    # If we encounter a KeyError, reset the cache
+                    # This is a rare edge case that might happen in concurrent access
+                    ColorsManagement._bg_color_cache = {cache_key: background}
 
             except (IndexError, ValueError):
                 return foreground

@@ -57,9 +57,6 @@ class Drawable:
         # Extract alpha from color
         alpha = color[3] if len(color) == 4 else 255
 
-        # For debugging
-        _LOGGER.debug("Drawing with color %s and alpha %s", color, alpha)
-
         # Create the full color with alpha
         full_color = color if len(color) == 4 else (*color, 255)
 
