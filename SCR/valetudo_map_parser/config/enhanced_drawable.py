@@ -13,12 +13,12 @@ from typing import Optional, Tuple
 
 import numpy as np
 
+from .colors import ColorsManagement
 from .drawable import Drawable
 from .drawable_elements import (
     DrawableElement,
     DrawingConfig,
 )
-from .colors import ColorsManagement
 
 
 # Type aliases

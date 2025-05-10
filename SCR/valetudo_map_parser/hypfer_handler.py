@@ -20,6 +20,7 @@ from .config.types import (
     CalibrationPoints,
     Colors,
     RoomsProperties,
+    RoomStore,
 )
 from .config.utils import (
     BaseHandler,
@@ -28,8 +29,8 @@ from .config.utils import (
     prepare_resize_params,
 )
 from .hypfer_draw import ImageDraw as ImDraw
-from .hypfer_rooms_handler import HypferRoomsHandler
 from .map_data import ImageData
+from .rooms_handler import RoomsHandler
 
 
 class HypferMapImageHandler(BaseHandler, AutoCrop):
@@ -57,7 +58,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         self.imd = ImDraw(self)  # Image Draw class.
         self.color_grey = (128, 128, 128, 255)
         self.file_name = self.shared.file_name  # file name of the vacuum.
-        self.rooms_handler = HypferRoomsHandler(
+        self.rooms_handler = RoomsHandler(
             self.file_name, self.drawing_config
         )  # Room data handler
 
@@ -68,51 +69,24 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
 
     async def async_extract_room_properties(self, json_data) -> RoomsProperties:
         """Extract room properties from the JSON data."""
-
-        return await self.rooms_handler.async_extract_room_properties(json_data)
-        # room_properties = {}
-        # self.rooms_pos = []
-        # pixel_size = json_data.get("pixelSize", [])
-        #
-        # for layer in json_data.get("layers", []):
-        #     if layer["__class"] == "MapLayer":
-        #         meta_data = layer.get("metaData", {})
-        #         segment_id = meta_data.get("segmentId")
-        #         if segment_id is not None:
-        #             name = meta_data.get("name")
-        #             compressed_pixels = layer.get("compressedPixels", [])
-        #             pixels = self.data.sublist(compressed_pixels, 3)
-        #             # Calculate x and y min/max from compressed pixels
-        #             (
-        #                 x_min,
-        #                 y_min,
-        #                 x_max,
-        #                 y_max,
-        #             ) = await self.data.async_get_rooms_coordinates(pixels, pixel_size)
-        #             corners = self.get_corners(x_max, x_min, y_max, y_min)
-        #             room_id = str(segment_id)
-        #             self.rooms_pos.append(
-        #                 {
-        #                     "name": name,
-        #                     "corners": corners,
-        #                 }
-        #             )
-        #             room_properties[room_id] = {
-        #                 "number": segment_id,
-        #                 "outline": corners,
-        #                 "name": name,
-        #                 "x": ((x_min + x_max) // 2),
-        #                 "y": ((y_min + y_max) // 2),
-        #             }
-        # if room_properties:
-        #     rooms = RoomStore(self.file_name, room_properties)
-        #     LOGGER.debug(
-        #         "%s: Rooms data extracted! %s", self.file_name, rooms.get_rooms()
-        #     )
-        # else:
-        #     LOGGER.debug("%s: Rooms data not available!", self.file_name)
-        #     self.rooms_pos = None
-        # return room_properties
+        room_properties = await self.rooms_handler.async_extract_room_properties(
+            json_data
+        )
+        if room_properties:
+            rooms = RoomStore(self.file_name, room_properties)
+            LOGGER.debug(
+                "%s: Rooms data extracted! %s", self.file_name, rooms.get_rooms()
+            )
+            # Convert room_properties to the format expected by async_get_robot_in_room
+            self.rooms_pos = []
+            for room_id, room_data in room_properties.items():
+                self.rooms_pos.append(
+                    {"name": room_data["name"], "outline": room_data["outline"]}
+                )
+        else:
+            LOGGER.debug("%s: Rooms data not available!", self.file_name)
+            self.rooms_pos = None
+        return room_properties
 
     # noinspection PyUnresolvedReferences,PyUnboundLocalVariable
     async def async_get_image_from_json(
@@ -164,9 +138,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                     img_np_array = await self.draw.create_empty_image(
                         size_x, size_y, colors["background"]
                     )
-
-                    LOGGER.info("%s: Drawing map with color blending", self.file_name)
-
                     # Draw layers and segments if enabled
                     room_id = 0
                     # Keep track of disabled rooms to skip their walls later
@@ -218,25 +189,13 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                                     room_element = getattr(
                                         DrawableElement, f"ROOM_{current_room_id}", None
                                     )
-                                    if room_element:
-                                        # Log the room check for debugging
-                                        LOGGER.debug(
-                                            "%s: Checking if room %d is enabled: %s",
-                                            self.file_name,
-                                            current_room_id,
-                                            self.drawing_config.is_enabled(
-                                                room_element
-                                            ),
-                                        )
 
-                                        # Skip this room if it's disabled
-                                        if not self.drawing_config.is_enabled(
-                                            room_element
-                                        ):
-                                            room_id = (
-                                                room_id + 1
-                                            ) % 16  # Increment room_id even if we skip
-                                            continue
+                                    # Skip this room if it's disabled
+                                    if not self.drawing_config.is_enabled(room_element):
+                                        room_id = (
+                                            room_id + 1
+                                        ) % 16  # Increment room_id even if we skip
+                                        continue
 
                             # Check if this is a wall layer and if walls are enabled
                             is_wall_layer = layer_type == "wall"
@@ -244,22 +203,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                                 if not self.drawing_config.is_enabled(
                                     DrawableElement.WALL
                                 ):
-                                    LOGGER.info(
-                                        "%s: Skipping wall layer because WALL element is disabled",
-                                        self.file_name,
-                                    )
-                                    continue
-
-                                # Filter out walls for disabled rooms
-                                if disabled_rooms:
-                                    # Need to modify compressed_pixels_list to exclude walls of disabled rooms
-                                    # This requires knowledge of which walls belong to which rooms
-                                    # For now, we'll just log that we're drawing walls for all rooms
-                                    LOGGER.debug(
-                                        "%s: Drawing walls for all rooms (including disabled ones)",
-                                        self.file_name,
-                                    )
-                                    # In a real implementation, we would filter the walls here
+                                    pass
 
                             # Draw the layer
                             (
@@ -281,10 +225,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                                 room_element = getattr(
                                     DrawableElement, f"ROOM_{room_id}", None
                                 )
-                                if room_element:
-                                    # This is a simplification - in a real implementation we would
-                                    # need to identify the exact pixels that belong to this room
-                                    pass
 
                     # Draw the virtual walls if enabled
                     if self.drawing_config.is_enabled(DrawableElement.VIRTUAL_WALL):

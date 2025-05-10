@@ -142,12 +142,6 @@ class ImageDraw:
                 room_element = getattr(DrawableElement, f"ROOM_{current_room_id}", None)
                 if room_element and hasattr(self.img_h.drawing_config, "is_enabled"):
                     draw_room = self.img_h.drawing_config.is_enabled(room_element)
-                    _LOGGER.debug(
-                        "%s: Room %d is %s",
-                        self.file_name,
-                        current_room_id,
-                        "enabled" if draw_room else "disabled",
-                    )
 
         # Get the room color
         room_color = self.img_h.shared.rooms_colors[room_id]
@@ -169,13 +163,6 @@ class ImageDraw:
 
         except IndexError as e:
             _LOGGER.warning("%s: Image Draw Error: %s", self.file_name, str(e))
-
-        _LOGGER.debug(
-            "%s Active Zones: %s and Room ID: %s",
-            self.file_name,
-            str(self.img_h.active_zones),
-            str(room_id),
-        )
 
         return img_np_array, room_id
 

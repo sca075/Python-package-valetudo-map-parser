@@ -10,15 +10,14 @@ Optimized with NumPy and SciPy for better performance.
 
 from __future__ import annotations
 
-
 import logging
 import math
 
 import numpy as np
 from PIL import ImageDraw, ImageFont
 
-from .colors import ColorsManagement
 from .color_utils import get_blended_color
+from .colors import ColorsManagement
 from .types import Color, NumpyArray, PilPNG, Point, Tuple, Union
 
 

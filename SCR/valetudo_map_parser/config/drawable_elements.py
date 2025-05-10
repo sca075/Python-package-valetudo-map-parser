@@ -8,10 +8,12 @@ from __future__ import annotations
 
 from enum import IntEnum
 from typing import Dict, List, Tuple, Union
+
 import numpy as np
-from .types import LOGGER
 
 from .colors import DefaultColors, SupportedColor
+from .types import LOGGER
+
 
 # Type aliases
 Color = Tuple[int, int, int, int]  # RGBA color
@@ -170,13 +172,7 @@ class DrawingConfig:
 
     def is_enabled(self, element_code: DrawableElement) -> bool:
         """Check if an element is enabled for drawing."""
-        enabled = self._enabled_elements.get(element_code, False)
-        LOGGER.debug(
-            "Checking if element %s is enabled: %s",
-            element_code.name if hasattr(element_code, "name") else element_code,
-            enabled,
-        )
-        return enabled
+        return self._enabled_elements.get(element_code, False)
 
     def set_property(
         self, element_code: DrawableElement, property_name: str, value
@@ -238,10 +234,6 @@ class DrawingConfig:
                 self.set_property(room_element, "color", rgba)
                 self.set_property(room_element, "opacity", alpha / 255.0)
 
-                LOGGER.debug(
-                    "Updated room %d color to %s with alpha %s", room_id, rgb, alpha
-                )
-
         # Update other element colors
         for element, color_key in element_color_mapping.items():
             if color_key in device_info:
@@ -264,13 +256,6 @@ class DrawingConfig:
                 # Update color and opacity
                 self.set_property(element, "color", rgba)
                 self.set_property(element, "opacity", alpha / 255.0)
-
-                LOGGER.debug(
-                    "Updated element %s color to %s with alpha %s",
-                    element.name,
-                    rgb,
-                    alpha,
-                )
 
         # Check for disabled elements using specific boolean flags
         # Map element disable flags to DrawableElement enum values

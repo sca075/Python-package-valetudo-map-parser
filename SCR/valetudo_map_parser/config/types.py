@@ -8,7 +8,7 @@ import json
 import logging
 import threading
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, Optional, Tuple, Union, TypedDict
+from typing import Any, Dict, Optional, Tuple, TypedDict, Union
 
 import numpy as np
 from PIL import Image
@@ -639,7 +639,3 @@ class TrimsData:
         self.trim_down = 0
         self.trim_right = 0
         return asdict(self)
-
-    def self_instance(self):
-        """Return self instance."""
-        return self.self_instance()

@@ -1,9 +1,9 @@
 """Utility functions for color operations in the map parser."""
 
-from typing import Tuple, Optional
+from typing import Optional, Tuple
 
 from .colors import ColorsManagement
-from .types import NumpyArray, Color
+from .types import Color, NumpyArray
 
 
 def get_blended_color(

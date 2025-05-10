@@ -247,26 +247,6 @@ class CameraSharedManager:
             )
             instance.trims = TrimsData.from_dict(trim_data)
 
-            # Log disable_obstacles and disable_path settings
-            if "disable_obstacles" in device_info:
-                _LOGGER.info(
-                    "%s: device_info contains disable_obstacles: %s",
-                    instance.file_name,
-                    device_info["disable_obstacles"],
-                )
-            if "disable_path" in device_info:
-                _LOGGER.info(
-                    "%s: device_info contains disable_path: %s",
-                    instance.file_name,
-                    device_info["disable_path"],
-                )
-            if "disable_elements" in device_info:
-                _LOGGER.info(
-                    "%s: device_info contains disable_elements: %s",
-                    instance.file_name,
-                    device_info["disable_elements"],
-                )
-
         except TypeError as ex:
             _LOGGER.error("Shared data can't be initialized due to a TypeError! %s", ex)
         except AttributeError as ex:

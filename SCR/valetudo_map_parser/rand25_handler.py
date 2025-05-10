@@ -29,10 +29,10 @@ from .config.types import (
 )
 from .config.utils import (
     BaseHandler,
+    async_extract_room_outline,
     initialize_drawing_config,
     manage_drawable_elements,
     prepare_resize_params,
-    async_extract_room_outline,
 )
 from .map_data import RandImageData
 from .reimg_draw import ImageDraw

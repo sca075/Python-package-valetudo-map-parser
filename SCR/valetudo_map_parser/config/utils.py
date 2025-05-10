@@ -550,57 +550,7 @@ def initialize_drawing_config(handler):
         hasattr(handler.shared, "device_info")
         and handler.shared.device_info is not None
     ):
-        LOGGER.info(
-            "%s: Initializing drawing config from device_info", handler.file_name
-        )
-        LOGGER.info(
-            "%s: device_info contains disable_obstacles: %s",
-            handler.file_name,
-            "disable_obstacles" in handler.shared.device_info,
-        )
-        LOGGER.info(
-            "%s: device_info contains disable_path: %s",
-            handler.file_name,
-            "disable_path" in handler.shared.device_info,
-        )
-        LOGGER.info(
-            "%s: device_info contains disable_elements: %s",
-            handler.file_name,
-            "disable_elements" in handler.shared.device_info,
-        )
-
-        if "disable_obstacles" in handler.shared.device_info:
-            LOGGER.info(
-                "%s: disable_obstacles value: %s",
-                handler.file_name,
-                handler.shared.device_info["disable_obstacles"],
-            )
-        if "disable_path" in handler.shared.device_info:
-            LOGGER.info(
-                "%s: disable_path value: %s",
-                handler.file_name,
-                handler.shared.device_info["disable_path"],
-            )
-        if "disable_elements" in handler.shared.device_info:
-            LOGGER.info(
-                "%s: disable_elements value: %s",
-                handler.file_name,
-                handler.shared.device_info["disable_elements"],
-            )
-
         drawing_config.update_from_device_info(handler.shared.device_info)
-
-        # Verify elements are disabled
-        LOGGER.info(
-            "%s: After initialization, PATH enabled: %s",
-            handler.file_name,
-            drawing_config.is_enabled(DrawableElement.PATH),
-        )
-        LOGGER.info(
-            "%s: After initialization, OBSTACLE enabled: %s",
-            handler.file_name,
-            drawing_config.is_enabled(DrawableElement.OBSTACLE),
-        )
 
     # Initialize both drawable systems for backward compatibility
     draw = Drawable()  # Legacy drawing utilities
@@ -632,7 +582,7 @@ def blend_colors(base_color, overlay_color):
 
     # Avoid division by zero
     if a_out < 0.0001:
-        return (0, 0, 0, 0)
+        return [0, 0, 0, 0]
 
     # Calculate blended RGB components
     r_out = (r1 * a1 + r2 * a2 * (1 - a1)) / a_out

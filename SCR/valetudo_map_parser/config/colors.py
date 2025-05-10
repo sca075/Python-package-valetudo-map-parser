@@ -63,6 +63,7 @@ from .types import (
     Color,
 )
 
+
 color_transparent = (0, 0, 0, 0)
 color_charger = (0, 128, 0, 255)
 color_move = (238, 247, 255, 255)

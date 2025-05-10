@@ -55,7 +55,7 @@ class TestImageHandler:
             'alpha_background': 255.0,
             'alpha_charger': 255.0,
             'alpha_go_to': 255.0,
-            'alpha_move': 100.0,  # Higher alpha for better visibility
+            'alpha_move': 150.0,  # Higher alpha for better visibility
             'alpha_no_go': 125.0,
             'alpha_robot': 255.0,
             'alpha_text': 255.0,
@@ -177,47 +177,54 @@ class TestImageHandler:
         count = store.get_rooms_count()
         _LOGGER.info(f"Room Store Properties: {count}")
         rooms = store.get_rooms()
-        _LOGGER.info(f"Room Store Rooms: {rooms}")
-
-        _LOGGER.info("Testing robot detection in each room...")
+        instaces = RoomStore.get_all_instances()
+        _LOGGER.info(f"Room Store Rooms {instaces}: {rooms}")
+        _LOGGER.info(f"Trims update: {shared.trims.to_dict()}")
+        calibration_data = handler.get_calibration_data()
+        _LOGGER.info(f"Calibration Data: {calibration_data}")
+        robot_x, robot_y, robot_angle = handler.robot_pos.values()
+        _LOGGER.info(f"Robot Position: {robot_x, robot_y, robot_angle}")
+        # Test the robot detection function
+        result = await handler.imd.async_get_robot_in_room(robot_y=robot_y, robot_x=robot_x, angle=robot_angle)
+        _LOGGER.info(f"Robot in room: {result}")
+        #_LOGGER.info("Testing robot detection in each room...")
         success_count = 0
 
-        # Set the rooms_pos attribute in the handler.imd object
-        # Convert the rooms dictionary to a list of room objects
-        rooms_list = []
-        for room_id, props in store.get_rooms().items():
-            room_obj = {
-                'name': props['name'],
-                'outline': props['outline']
-            }
-            rooms_list.append(room_obj)
-
-        # Set the rooms_pos attribute
-        handler.imd.img_h.rooms_pos = rooms_list
-
-        for room_id, props in store.get_rooms().items():
-            # Use the room's center coordinates as the robot position
-            robot_x = props['x']
-            robot_y = props['y']
-
-            # Verify that the point is actually inside the polygon using our algorithm
-            is_inside = handler.imd.point_in_polygon(robot_x, robot_y, props['outline'])
-            if not is_inside:
-                _LOGGER.warning(f"⚠️ Center point ({robot_x}, {robot_y}) is not inside room {room_id}: {props['name']}")
-                # Try to find a better test point by averaging some points from the outline
-                points = props['outline']
-                if len(points) >= 3:
-                    # Use the average of the first 3 points as an alternative test point
-                    alt_x = sum(p[0] for p in points[:3]) // 3
-                    alt_y = sum(p[1] for p in points[:3]) // 3
-                    if handler.imd.point_in_polygon(alt_x, alt_y, props['outline']):
-                        _LOGGER.info(f"   Using alternative point ({alt_x}, {alt_y}) for testing")
-                        robot_x, robot_y = alt_x, alt_y
-
-            # Call the function to detect which room the robot is in
-            result = await handler.imd.async_get_robot_in_room(robot_y=robot_y, robot_x=robot_x)
-            _LOGGER.info(f"Robot in room: {result}")
-        _LOGGER.info(f"Trims update: {shared.trims.to_dict()}")
+        # # Set the rooms_pos attribute in the handler.imd object
+        # # Convert the rooms dictionary to a list of room objects
+        # rooms_list = []
+        # for room_id, props in store.get_rooms().items():
+        #     room_obj = {
+        #         'name': props['name'],
+        #         'outline': props['outline']
+        #     }
+        #     rooms_list.append(room_obj)
+        #
+        # # Set the rooms_pos attribute
+        # handler.imd.img_h.rooms_pos = rooms_list
+        #
+        # for room_id, props in store.get_rooms().items():
+        #     # Use the room's center coordinates as the robot position
+        #     robot_x = props['x']
+        #     robot_y = props['y']
+        #
+        #     # Verify that the point is actually inside the polygon using our algorithm
+        #     is_inside = handler.imd.point_in_polygon(robot_x, robot_y, props['outline'])
+        #     if not is_inside:
+        #         _LOGGER.warning(f"⚠️ Center point ({robot_x}, {robot_y}) is not inside room {room_id}: {props['name']}")
+        #         # Try to find a better test point by averaging some points from the outline
+        #         points = props['outline']
+        #         if len(points) >= 3:
+        #             # Use the average of the first 3 points as an alternative test point
+        #             alt_x = sum(p[0] for p in points[:3]) // 3
+        #             alt_y = sum(p[1] for p in points[:3]) // 3
+        #             if handler.imd.point_in_polygon(alt_x, alt_y, props['outline']):
+        #                 _LOGGER.info(f"   Using alternative point ({alt_x}, {alt_y}) for testing")
+        #                 robot_x, robot_y = alt_x, alt_y
+        #
+        #     # Call the function to detect which room the robot is in
+        #     #result = await handler.imd.async_get_robot_in_room(robot_y=robot_y, robot_x=robot_x)
+        #     #_LOGGER.info(f"Robot in room: {result}")
 
 
 

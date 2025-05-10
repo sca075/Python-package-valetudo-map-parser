@@ -15,13 +15,13 @@ from .config.types import (
     TrimCropData,
     UserLanguageStore,
 )
-from .hypfer_rooms_handler import HypferRoomsHandler
 from .hypfer_handler import HypferMapImageHandler
 from .rand25_handler import ReImageHandler
+from .rooms_handler import RoomsHandler
 
 
 __all__ = [
-    "HypferRoomsHandler",
+    "RoomsHandler",
     "HypferMapImageHandler",
     "ReImageHandler",
     "RRMapParser",

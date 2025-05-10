@@ -125,7 +125,7 @@ class AutoCrop:
             if self.auto_crop:
                 self.auto_crop_offset()
         else:
-            self.handler.max_frames = 5
+            self.handler.max_frames = 1205
 
         # Fallback: Ensure auto_crop is valid
         if not self.auto_crop or any(v < 0 for v in self.auto_crop):
@@ -137,12 +137,32 @@ class AutoCrop:
     async def async_image_margins(
         self, image_array: NumpyArray, detect_colour: Color
     ) -> tuple[int, int, int, int]:
-        """Crop the image based on the auto crop area."""
-        nonzero_coords = np.column_stack(np.where(image_array != list(detect_colour)))
-        # Calculate the trim box based on the first and last occurrences
-        min_y, min_x, _ = NumpyArray.min(nonzero_coords, axis=0)
-        max_y, max_x, _ = NumpyArray.max(nonzero_coords, axis=0)
-        del nonzero_coords
+        """Crop the image based on the auto crop area using scipy.ndimage for better performance."""
+        # Import scipy.ndimage here to avoid import at module level
+        from scipy import ndimage
+
+        # Create a binary mask where True = non-background pixels
+        # This is much more memory efficient than storing coordinates
+        mask = ~np.all(image_array == list(detect_colour), axis=2)
+
+        # Use scipy.ndimage.find_objects to efficiently find the bounding box
+        # This returns a list of slice objects that define the bounding box
+        # Label the mask with a single label (1) and find its bounding box
+        labeled_mask = mask.astype(np.int8)  # Convert to int8 (smallest integer type)
+        objects = ndimage.find_objects(labeled_mask)
+
+        if not objects:  # No objects found
+            _LOGGER.warning(
+                "%s: No non-background pixels found in image", self.handler.file_name
+            )
+            # Return full image dimensions as fallback
+            return 0, 0, image_array.shape[1], image_array.shape[0]
+
+        # Extract the bounding box coordinates from the slice objects
+        y_slice, x_slice = objects[0]
+        min_y, max_y = y_slice.start, y_slice.stop - 1
+        min_x, max_x = x_slice.start, x_slice.stop - 1
+
         _LOGGER.debug(
             "%s: Found trims max and min values (y,x) (%s, %s) (%s, %s)...",
             self.handler.file_name,
