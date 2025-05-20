@@ -303,6 +303,13 @@ class ImageDraw:
             await self.img_h.draw.async_draw_obstacles(
                 np_array, obstacle_positions, color_no_go
             )
+
+            # Update both obstacles_pos and obstacles_data
+            self.img_h.shared.obstacles_pos = obstacle_positions
+            # Only update obstacles_data if it's None or if the number of obstacles has changed
+            if (self.img_h.shared.obstacles_data is None or
+                len(self.img_h.shared.obstacles_data) != len(obstacle_positions)):
+                self.img_h.shared.obstacles_data = obstacle_positions
         return np_array
 
     async def async_draw_charger(

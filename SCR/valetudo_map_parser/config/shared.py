@@ -88,6 +88,7 @@ class CameraShared:
         self.vac_json_id = None  # Vacuum json id
         self.margins = "100"  # Image margins
         self.obstacles_data = None  # Obstacles data
+        self.obstacles_pos = None  # Obstacles position
         self.offset_top = 0  # Image offset top
         self.offset_down = 0  # Image offset down
         self.offset_left = 0  # Image offset left

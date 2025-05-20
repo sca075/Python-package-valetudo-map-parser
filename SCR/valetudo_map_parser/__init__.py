@@ -17,11 +17,12 @@ from .config.types import (
 )
 from .hypfer_handler import HypferMapImageHandler
 from .rand25_handler import ReImageHandler
-from .rooms_handler import RoomsHandler
+from .rooms_handler import RoomsHandler, RandRoomsHandler
 
 
 __all__ = [
     "RoomsHandler",
+    "RandRoomsHandler",
     "HypferMapImageHandler",
     "ReImageHandler",
     "RRMapParser",

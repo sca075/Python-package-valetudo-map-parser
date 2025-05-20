@@ -29,13 +29,14 @@ from .config.types import (
 )
 from .config.utils import (
     BaseHandler,
-    async_extract_room_outline,
+    # async_extract_room_outline,
     initialize_drawing_config,
     manage_drawable_elements,
     prepare_resize_params,
 )
 from .map_data import RandImageData
 from .reimg_draw import ImageDraw
+from .rooms_handler import RandRoomsHandler
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -68,6 +69,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
         self.active_zones = None  # Active zones
         self.file_name = self.shared.file_name  # File name
         self.imd = ImageDraw(self)  # Image Draw
+        self.rooms_handler = RandRoomsHandler(self.file_name, self.drawing_config)  # Room data handler
 
     async def extract_room_outline_from_map(self, room_id_int, pixels):
         """Extract the outline of a room using the pixel data and element map.
@@ -110,62 +112,45 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 ) = await RandImageData.async_get_rrm_segments(
                     json_data, size_x, size_y, top, left, True
                 )
+
             dest_json = destinations
-            room_data = dict(dest_json).get("rooms", [])
             zones_data = dict(dest_json).get("zones", [])
             points_data = dict(dest_json).get("spots", [])
-            room_id_to_data = {room["id"]: room for room in room_data}
+
+            # Use the RandRoomsHandler to extract room properties
+            room_properties = await self.rooms_handler.async_extract_room_properties(
+                json_data, dest_json
+            )
+
+            # Update self.rooms_pos from room_properties for compatibility with other methods
             self.rooms_pos = []
-            room_properties = {}
-            if self.outlines:
-                for id_x, room_id in enumerate(unsorted_id):
-                    if room_id in room_id_to_data:
-                        room_info = room_id_to_data[room_id]
-                        name = room_info.get("name")
-                        # Calculate x and y min/max from outlines
-                        x_min = self.outlines[id_x][0][0]
-                        x_max = self.outlines[id_x][1][0]
-                        y_min = self.outlines[id_x][0][1]
-                        y_max = self.outlines[id_x][1][1]
-                        corners = self.get_corners(x_max, x_min, y_max, y_min)
-                        # rand256 vacuums accept int(room_id) or str(name)
-                        # the card will soon support int(room_id) but the camera will send name
-                        # this avoids the manual change of the values in the card.
-                        self.rooms_pos.append(
-                            {
-                                "name": name,
-                                "corners": corners,
-                            }
-                        )
-                        room_properties[int(room_id)] = {
-                            "number": int(room_id),
-                            "outline": corners,
-                            "name": name,
-                            "x": (x_min + x_max) // 2,
-                            "y": (y_min + y_max) // 2,
-                        }
-                # get the zones and points data
-                zone_properties = await self.async_zone_propriety(zones_data)
-                # get the points data
-                point_properties = await self.async_points_propriety(points_data)
-                if room_properties or zone_properties:
-                    extracted_data = [
-                        f"{len(room_properties)} Rooms" if room_properties else None,
-                        f"{len(zone_properties)} Zones" if zone_properties else None,
-                    ]
-                    extracted_data = ", ".join(filter(None, extracted_data))
-                    _LOGGER.debug("Extracted data: %s", extracted_data)
-                else:
-                    self.rooms_pos = None
-                    _LOGGER.debug(
-                        "%s: Rooms and Zones data not available!", self.file_name
-                    )
-                rooms = RoomStore(self.file_name, room_properties)
-                _LOGGER.debug("Rooms Data: %s", rooms.get_rooms())
-                return room_properties, zone_properties, point_properties
+            for room_id, props in room_properties.items():
+                self.rooms_pos.append({
+                    "name": props["name"],
+                    "corners": props["outline"],  # Use the enhanced outline
+                })
+
+            # get the zones and points data
+            zone_properties = await self.async_zone_propriety(zones_data)
+            # get the points data
+            point_properties = await self.async_points_propriety(points_data)
+
+            if room_properties or zone_properties:
+                extracted_data = [
+                    f"{len(room_properties)} Rooms" if room_properties else None,
+                    f"{len(zone_properties)} Zones" if zone_properties else None,
+                ]
+                extracted_data = ", ".join(filter(None, extracted_data))
+                _LOGGER.debug("Extracted data: %s", extracted_data)
             else:
-                _LOGGER.debug("%s: No outlines available", self.file_name)
-                return None, None, None
+                self.rooms_pos = None
+                _LOGGER.debug(
+                    "%s: Rooms and Zones data not available!", self.file_name
+                )
+
+            rooms = RoomStore(self.file_name, room_properties)
+            _LOGGER.debug("Rooms Data: %s", rooms.get_rooms())
+            return room_properties, zone_properties, point_properties
         except (RuntimeError, ValueError) as e:
             _LOGGER.debug(
                 "No rooms Data or Error in extract_room_properties: %s",
