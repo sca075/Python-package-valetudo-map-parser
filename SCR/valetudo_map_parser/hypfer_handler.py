@@ -240,9 +240,11 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
 
                     # Draw obstacles if enabled
                     if self.drawing_config.is_enabled(DrawableElement.OBSTACLE):
-                        img_np_array = await self.imd.async_draw_obstacle(
-                            img_np_array, entity_dict, colors["no_go"]
-                        )
+                        self.shared.obstacles_pos = self.data.get_obstacles(entity_dict)
+                        if self.shared.obstacles_pos:
+                            img_np_array = await self.imd.async_draw_obstacle(
+                                img_np_array,  self.shared.obstacles_pos, colors["no_go"]
+                            )
                     # Robot and rooms position
                     if (room_id > 0) and not self.room_propriety:
                         self.room_propriety = await self.async_extract_room_properties(

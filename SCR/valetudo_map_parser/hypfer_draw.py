@@ -276,40 +276,13 @@ class ImageDraw:
         return img_np_array
 
     async def async_draw_obstacle(
-        self, np_array: NumpyArray, entity_dict: dict, color_no_go: Color
+        self, np_array: NumpyArray, obstacle_positions: list[dict], color_no_go: Color
     ) -> NumpyArray:
-        """Get the obstacle positions from the entity data."""
-        try:
-            obstacle_data = entity_dict.get("obstacle")
-        except KeyError:
-            _LOGGER.info("%s No obstacle found.", self.file_name)
-            return np_array
-        obstacle_positions = []
-        if obstacle_data:
-            for obstacle in obstacle_data:
-                label = obstacle.get("metaData", {}).get("label")
-                points = obstacle.get("points", [])
-
-                if label and points:
-                    obstacle_pos = {
-                        "label": label,
-                        "points": {"x": points[0], "y": points[1]},
-                    }
-                    obstacle_positions.append(obstacle_pos)
-
-        # List of dictionaries containing label and points for each obstacle
-        # and draw obstacles on the map
+        """Draw the obstacle positions from the entity data."""
         if obstacle_positions:
             await self.img_h.draw.async_draw_obstacles(
                 np_array, obstacle_positions, color_no_go
             )
-
-            # Update both obstacles_pos and obstacles_data
-            self.img_h.shared.obstacles_pos = obstacle_positions
-            # Only update obstacles_data if it's None or if the number of obstacles has changed
-            if (self.img_h.shared.obstacles_data is None or
-                len(self.img_h.shared.obstacles_data) != len(obstacle_positions)):
-                self.img_h.shared.obstacles_data = obstacle_positions
         return np_array
 
     async def async_draw_charger(
@@ -600,6 +573,20 @@ class ImageDraw:
                         "angle": angle,
                         "in_room": self.img_h.robot_in_room["room"],
                     }
+
+                    # Handle active zones - Set zooming based on active zones
+                    if self.img_h.active_zones:
+                        # Convert room ID to integer index
+                        room_id = int(self.img_h.robot_in_room["id"])
+                        if room_id < len(self.img_h.active_zones):
+                            self.img_h.zooming = bool(
+                                self.img_h.active_zones[room_id]
+                            )
+                        else:
+                            self.img_h.zooming = False
+                    else:
+                        self.img_h.zooming = False
+
                     _LOGGER.debug(
                         "%s is in %s room (polygon detection).",
                         self.file_name,
@@ -632,6 +619,20 @@ class ImageDraw:
                         "angle": angle,
                         "in_room": self.img_h.robot_in_room["room"],
                     }
+
+                    # Handle active zones - Set zooming based on active zones
+                    if self.img_h.active_zones:
+                        # Convert room ID to integer index
+                        room_id = int(self.img_h.robot_in_room["id"])
+                        if room_id < len(self.img_h.active_zones):
+                            self.img_h.zooming = bool(
+                                self.img_h.active_zones[room_id]
+                            )
+                        else:
+                            self.img_h.zooming = False
+                    else:
+                        self.img_h.zooming = False
+
                     _LOGGER.debug(
                         "%s is in %s room (bounding box detection).",
                         self.file_name,

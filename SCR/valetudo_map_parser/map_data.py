@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .config.types import Colors, ImageSize, JsonType, NumpyArray
+from .config.types import ImageSize, JsonType
 
 
 class ImageData:
@@ -33,6 +33,30 @@ class ImageData:
     # of them is allowing filtering and putting together in a
     # list the specific Layers, Paths, Zones and Pints in the
     # Vacuums Json in parallel.
+
+    @staticmethod
+    def get_obstacles(entity_dict: dict) -> list:
+        """Get the obstacles positions from the entity data."""
+        try:
+            obstacle_data = entity_dict.get("obstacle")
+        except KeyError:
+            return []
+        obstacle_positions = []
+        if obstacle_data:
+            for obstacle in obstacle_data:
+                label = obstacle.get("metaData", {}).get("label")
+                points = obstacle.get("points", [])
+                image_id = obstacle.get("metaData", {}).get("id")
+
+                if label and points:
+                    obstacle_pos = {
+                        "label": label,
+                        "points": {"x": points[0], "y": points[1]},
+                        "id": image_id,
+                    }
+                    obstacle_positions.append(obstacle_pos)
+            return obstacle_positions
+        return []
 
     @staticmethod
     def find_layers(

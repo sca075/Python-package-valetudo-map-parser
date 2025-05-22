@@ -488,6 +488,20 @@ class ReImageHandler(BaseHandler, AutoCrop):
                         "angle": angle,
                         "in_room": self.robot_in_room["room"],
                     }
+
+                    # Handle active zones - Set zooming based on active zones
+                    self.active_zones = self.shared.rand256_active_zone
+                    self.zooming = False
+                    if self.active_zones and (
+                        self.robot_in_room["id"]
+                        in range(len(self.active_zones))
+                    ):
+                        self.zooming = bool(
+                            self.active_zones[self.robot_in_room["id"]]
+                        )
+                    else:
+                        self.zooming = False
+
                     _LOGGER.debug(
                         "%s is in %s room (polygon detection).",
                         self.file_name,
