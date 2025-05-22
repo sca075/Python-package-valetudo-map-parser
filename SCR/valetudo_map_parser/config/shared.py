@@ -109,6 +109,45 @@ class CameraShared:
         self.skip_room_ids: List[str] = []
         self.device_info = None  # Store the device_info
 
+    @staticmethod
+    def _compose_obstacle_links(vacuum_host_ip: str, obstacles: list) -> list | None:
+        """
+        Compose JSON with obstacle details including the image link.
+        """
+        obstacle_links = []
+        if not obstacles or not vacuum_host_ip:
+            return None
+
+        for obstacle in obstacles:
+            # Extract obstacle details
+            label = obstacle.get("label", "")
+            points = obstacle.get("points", {})
+            image_id = obstacle.get("id", "None")
+
+            if label and points and image_id and vacuum_host_ip:
+                # Append formatted obstacle data
+                if image_id != "None":
+                    # Compose the link
+                    image_link = (
+                        f"http://{vacuum_host_ip}"
+                        f"/api/v2/robot/capabilities/ObstacleImagesCapability/img/{image_id}"
+                    )
+                    obstacle_links.append(
+                        {
+                            "point": points,
+                            "label": label,
+                            "link": image_link,
+                        }
+                    )
+                else:
+                    obstacle_links.append(
+                        {
+                            "point": points,
+                            "label": label,
+                        }
+                    )
+        return obstacle_links
+
     def update_user_colors(self, user_colors):
         """Update the user colors."""
         self.user_colors = user_colors
@@ -149,7 +188,11 @@ class CameraShared:
             ATTR_VACUUM_JSON_ID: self.vac_json_id,
             ATTR_CALIBRATION_POINTS: self.attr_calibration_points,
         }
-        if self.obstacles_data:
+        if self.obstacles_pos and self.vacuum_ips:
+            _LOGGER.debug("Generating obstacle links from: %s", self.obstacles_pos)
+            self.obstacles_data =  self._compose_obstacle_links(
+                self.vacuum_ips, self.obstacles_pos
+            )
             attrs[ATTR_OBSTACLES] = self.obstacles_data
 
         if self.enable_snapshots:
