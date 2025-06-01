@@ -250,12 +250,20 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                         self.room_propriety = await self.async_extract_room_properties(
                             self.json_data
                         )
-                        if self.rooms_pos and robot_position and robot_position_angle:
-                            self.robot_pos = await self.imd.async_get_robot_in_room(
-                                robot_x=(robot_position[0]),
-                                robot_y=(robot_position[1]),
-                                angle=robot_position_angle,
-                            )
+
+                    # Ensure room data is available for robot room detection (even if not extracted above)
+                    if not self.rooms_pos and not self.room_propriety:
+                        self.room_propriety = await self.async_extract_room_properties(
+                            self.json_data
+                        )
+
+                    # Always check robot position for zooming (moved outside the condition)
+                    if self.rooms_pos and robot_position and robot_position_angle:
+                        self.robot_pos = await self.imd.async_get_robot_in_room(
+                            robot_x=(robot_position[0]),
+                            robot_y=(robot_position[1]),
+                            angle=robot_position_angle,
+                        )
                     LOGGER.info("%s: Completed base Layers", self.file_name)
                     # Copy the new array in base layer.
                     self.img_base_layer = await self.async_copy_array(img_np_array)
@@ -334,6 +342,9 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                             robot_position,
                             DrawableElement.ROBOT,
                         )
+                # Synchronize zooming state from ImageDraw to handler before auto-crop
+                self.zooming = self.imd.img_h.zooming
+
                 # Resize the image
                 img_np_array = await self.async_auto_trim_and_zoom_image(
                     img_np_array,

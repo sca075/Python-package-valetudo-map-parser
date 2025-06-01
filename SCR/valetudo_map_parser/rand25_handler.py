@@ -226,12 +226,18 @@ class ReImageHandler(BaseHandler, AutoCrop):
 
                 if room_id > 0 and not self.room_propriety:
                     self.room_propriety = await self.get_rooms_attributes(destinations)
-                    if self.rooms_pos:
-                        self.robot_pos = await self.async_get_robot_in_room(
-                            (robot_position[0] * 10),
-                            (robot_position[1] * 10),
-                            robot_position_angle,
-                        )
+
+                # Ensure room data is available for robot room detection (even if not extracted above)
+                if not self.rooms_pos and not self.room_propriety:
+                    self.room_propriety = await self.get_rooms_attributes(destinations)
+
+                # Always check robot position for zooming
+                if self.rooms_pos and robot_position:
+                    self.robot_pos = await self.async_get_robot_in_room(
+                        (robot_position[0] * 10),
+                        (robot_position[1] * 10),
+                        robot_position_angle,
+                    )
                 self.img_base_layer = await self.async_copy_array(img_np_array)
             else:
                 # If floor is disabled, create an empty image
@@ -287,6 +293,20 @@ class ReImageHandler(BaseHandler, AutoCrop):
             img_np_array = await self.imd.async_draw_robot_on_map(
                 img_np_array, robot_position, robot_position_angle, robot_color
             )
+
+        # Check if zoom should be enabled based on conditions (similar to Hypfer handler)
+        # For Rand256, robot room detection might happen after image generation
+        # so we need to check zoom conditions before auto-crop
+        if (
+            self.shared.image_auto_zoom
+            and self.shared.vacuum_state == "cleaning"
+            and robot_position  # Robot position is available
+            and not self.zooming  # Not already enabled
+        ):
+            # Enable zooming if all conditions are met
+            self.zooming = True
+            # Store robot position for zoom function to use
+            self.robot_position = robot_position
 
         img_np_array = await self.async_auto_trim_and_zoom_image(
             img_np_array,

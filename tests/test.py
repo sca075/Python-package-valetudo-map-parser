@@ -16,6 +16,7 @@ from SCR.valetudo_map_parser.config.colors import ColorsManagement
 from SCR.valetudo_map_parser.config.shared import CameraSharedManager
 from SCR.valetudo_map_parser.config.types import RoomStore
 from SCR.valetudo_map_parser.hypfer_handler import HypferMapImageHandler
+from SCR.valetudo_map_parser.hypfer_draw import ImageDraw
 
 # Configure logging
 logging.basicConfig(
@@ -153,7 +154,13 @@ class TestImageHandler:
 
         shared_data = CameraSharedManager("test_vacuum", device_info)
         shared = shared_data.get_instance()
-        shared.vacuum_state = "docked"
+        shared.vacuum_state = "cleaning"
+        shared.vacuum_ips = "192.168.1.1"
+
+        # Set up active zones for rooms - True means zoom will be enabled for that room
+        # For Hypfer handler, we need to set the active zones in the handler instance
+        shared.active_zones = [1] * 15  # This creates a list with 15 elements, all set to 1
+
         _LOGGER.debug(f"Shared instance trims: {shared.trims}")
 
         colors = ColorsManagement(shared)
@@ -162,6 +169,11 @@ class TestImageHandler:
         _LOGGER.debug(f"Colors initialized: {shared.user_colors}")
 
         handler = HypferMapImageHandler(shared)
+
+        # Set active zones in the handler instance
+        handler.imd = ImageDraw(handler)
+        handler.imd.file_name = "test_vacuum"
+        handler.imd.img_h.active_zones = [1] * 15  # This creates a list with 15 elements, all set to 1
 
         # Get the image with elements disabled from device_info
         self.image = await handler.async_get_image_from_json(self.test_data)
@@ -182,11 +194,39 @@ class TestImageHandler:
         _LOGGER.info(f"Trims update: {shared.trims.to_dict()}")
         calibration_data = handler.get_calibration_data()
         _LOGGER.info(f"Calibration Data: {calibration_data}")
-        robot_x, robot_y, robot_angle = handler.robot_pos.values()
-        _LOGGER.info(f"Robot Position: {robot_x, robot_y, robot_angle}")
+        robot_x = handler.robot_pos.get("x")
+        robot_y = handler.robot_pos.get("y")
+        robot_angle = handler.robot_pos.get("angle")
+        _LOGGER.info(f"Robot Position: ({robot_x}, {robot_y}, {robot_angle})")
         # Test the robot detection function
         result = await handler.imd.async_get_robot_in_room(robot_y=robot_y, robot_x=robot_x, angle=robot_angle)
         _LOGGER.info(f"Robot in room: {result}")
+
+        # Check if zooming is enabled
+        _LOGGER.info(f"Zooming enabled: {handler.imd.img_h.zooming}")
+
+        # Check if all zooming conditions are met
+        _LOGGER.info(f"Zoom conditions: zoom={handler.imd.img_h.zooming}, vacuum_state={handler.shared.vacuum_state}, image_auto_zoom={handler.shared.image_auto_zoom}")
+
+        # Debug: Check the device_info auto_zoom setting
+        _LOGGER.info(f"Device info auto_zoom: {device_info.get('auto_zoom')}")
+        _LOGGER.info(f"Shared image_auto_zoom: {handler.shared.image_auto_zoom}")
+
+        # Debug: Check the zooming flags
+        _LOGGER.info(f"Handler zooming: {handler.zooming}")
+        _LOGGER.info(f"ImageDraw img_h zooming: {handler.imd.img_h.zooming}")
+        _LOGGER.info(f"Active zones: {handler.imd.img_h.active_zones}")
+
+        # Generate attributes to populate obstacles_data
+        if shared.obstacles_pos:
+            _LOGGER.info(f"Obstacles positions found: {shared.obstacles_pos}")
+            # Call generate_attributes to populate obstacles_data
+            attrs = shared.generate_attributes()
+            _LOGGER.info(f"Generated attributes: {attrs}")
+        else:
+            _LOGGER.info("No obstacles positions found in the map data")
+
+        _LOGGER.info(f"Obstacles data: {shared.obstacles_data}")
         #_LOGGER.info("Testing robot detection in each room...")
         success_count = 0
 

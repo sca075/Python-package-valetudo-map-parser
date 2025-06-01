@@ -53,7 +53,7 @@ class TestRandImageHandler:
             'vacuum_map': 'valetudo/rockrobo',
             'vacuum_identifiers': {('mqtt', 'rockrobo')},
             'coordinator': "<custom_components.mqtt_vacuum_camera.coordinator.MQTTVacuumCoordinator object>",
-            'is_rand256': False,
+            'is_rand256': True,
             'unsub_options_update_listener': "<function ConfigEntry.add_update_listener.<locals>.<lambda>>",
             'alpha_background': 255.0,
             'alpha_charger': 255.0,
@@ -65,7 +65,8 @@ class TestRandImageHandler:
             'alpha_wall': 115.0,  # Testing with a lower alpha value
             'alpha_zone_clean': 125.0,
             'aspect_ratio': '16, 9',
-            'auto_zoom': True,
+            'auto_zoom': False,
+            'image_auto_zoom': True,  # Explicitly set image_auto_zoom to True
             'zoom_lock_ratio': True,
             'color_background': [0, 125, 255],
             'color_charger': [255, 128, 0],
@@ -156,7 +157,12 @@ class TestRandImageHandler:
 
         shared_data = CameraSharedManager("test_vacuum", device_info)
         shared = shared_data.get_instance()
-        shared.vacuum_state = "docked"
+        shared.vacuum_state = "cleaning"
+
+        # The room IDs in the test data are 16-20, but the handler uses an internal ID (0-4)
+        # We need to set up the active zones array to match the internal IDs
+        shared.rand256_active_zone = [1] * 5  # This creates a list with 5 elements, all set to 1
+
         _LOGGER.debug(f"Shared instance trims: {shared.trims}")
 
         colors = ColorsManagement(shared)
@@ -192,7 +198,37 @@ class TestRandImageHandler:
                      {"name":"Living Room","id":16}],
                      "updated":1746298038728})
                      )
+        # Get the robot room detection result
+        robot_room_result = await handler.async_get_robot_in_room(25400, 25580, 0)
+        _LOGGER.info(f"Robot in room: {robot_room_result}")
 
+        # Check if the robot is in a room
+        if robot_room_result and "in_room" in robot_room_result:
+            room_name = robot_room_result["in_room"]
+            _LOGGER.info(f"Robot is in room: {room_name}")
+
+            # Check if the room has an ID in the robot_in_room property
+            if handler.robot_in_room and "id" in handler.robot_in_room:
+                room_id = handler.robot_in_room["id"]
+                _LOGGER.info(f"Room ID: {room_id}")
+
+                # Make sure the active zones array has enough elements
+                if len(handler.shared.rand256_active_zone) > room_id:
+                    _LOGGER.info(f"Active zone for room {room_id}: {handler.shared.rand256_active_zone[room_id]}")
+                else:
+                    _LOGGER.info(f"Room ID {room_id} is out of range for active zones array (length: {len(handler.shared.rand256_active_zone)})")
+            else:
+                _LOGGER.info("Robot is in a room but room_id is not set")
+        else:
+            _LOGGER.info("Robot is not in any room")
+
+        # Check if image_auto_zoom is set correctly
+        _LOGGER.info(f"image_auto_zoom: {handler.shared.image_auto_zoom}")
+
+        # Check if all zooming conditions are met
+        _LOGGER.info(f"Zoom conditions: zoom={handler.zooming}, vacuum_state={handler.shared.vacuum_state}, image_auto_zoom={handler.shared.image_auto_zoom}")
+
+        _LOGGER.info(f"Zooming enabled: {handler.zooming}")
         # Show the image
         self.image.show()
 

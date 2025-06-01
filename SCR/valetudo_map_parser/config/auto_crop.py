@@ -173,6 +173,71 @@ class AutoCrop:
         )
         return min_y, min_x, max_x, max_y
 
+    async def async_get_room_bounding_box(self, room_name: str, rand256: bool = False) -> tuple[int, int, int, int] | None:
+        """Calculate bounding box coordinates from room outline for zoom functionality.
+
+        Args:
+            room_name: Name of the room to get bounding box for
+            rand256: Whether this is for a rand256 vacuum (applies /10 scaling)
+
+        Returns:
+            Tuple of (left, right, up, down) coordinates or None if room not found
+        """
+        try:
+            # For Hypfer vacuums, check room_propriety first, then rooms_pos
+            if hasattr(self.handler, 'room_propriety') and self.handler.room_propriety:
+                for room_id, room_data in self.handler.room_propriety.items():
+                    if room_data.get('name') == room_name:
+                        outline = room_data.get('outline', [])
+                        if outline:
+                            xs, ys = zip(*outline)
+                            left, right = min(xs), max(xs)
+                            up, down = min(ys), max(ys)
+
+                            if rand256:
+                                # Apply scaling for rand256 vacuums
+                                left = round(left / 10)
+                                right = round(right / 10)
+                                up = round(up / 10)
+                                down = round(down / 10)
+
+                            return left, right, up, down
+
+            # Fallback: check rooms_pos (used by both Hypfer and Rand256)
+            if hasattr(self.handler, 'rooms_pos') and self.handler.rooms_pos:
+                for room in self.handler.rooms_pos:
+                    if room.get('name') == room_name:
+                        outline = room.get('outline', [])
+                        if outline:
+                            xs, ys = zip(*outline)
+                            left, right = min(xs), max(xs)
+                            up, down = min(ys), max(ys)
+
+                            if rand256:
+                                # Apply scaling for rand256 vacuums
+                                left = round(left / 10)
+                                right = round(right / 10)
+                                up = round(up / 10)
+                                down = round(down / 10)
+
+                            return left, right, up, down
+
+            _LOGGER.warning(
+                "%s: Room '%s' not found for zoom bounding box calculation",
+                self.handler.file_name,
+                room_name
+            )
+            return None
+
+        except Exception as e:
+            _LOGGER.error(
+                "%s: Error calculating room bounding box for '%s': %s",
+                self.handler.file_name,
+                room_name,
+                e
+            )
+            return None
+
     async def async_check_if_zoom_is_on(
         self,
         image_array: NumpyArray,
@@ -182,31 +247,78 @@ class AutoCrop:
     ) -> NumpyArray:
         """Check if the image needs to be zoomed."""
 
+
+
         if (
             zoom
             and self.handler.shared.vacuum_state == "cleaning"
             and self.handler.shared.image_auto_zoom
         ):
-            _LOGGER.debug(
-                "%s: Zooming the image on room %s.",
-                self.handler.file_name,
-                self.handler.robot_in_room["room"],
-            )
 
-            if rand256:
-                trim_left = (
-                    round(self.handler.robot_in_room["right"] / 10) - margin_size
+
+            # Get the current room name from robot_pos (not robot_in_room)
+            current_room = self.handler.robot_pos.get("in_room") if self.handler.robot_pos else None
+
+
+            if not current_room:
+                # For Rand256 handler, try to zoom based on robot position even without room data
+                if rand256 and hasattr(self.handler, 'robot_position') and self.handler.robot_position:
+                    robot_x, robot_y = self.handler.robot_position[0], self.handler.robot_position[1]
+
+                    # Create a zoom area around the robot position (e.g., 800x800 pixels for better view)
+                    zoom_size = 800
+                    trim_left = max(0, int(robot_x - zoom_size // 2))
+                    trim_right = min(image_array.shape[1], int(robot_x + zoom_size // 2))
+                    trim_up = max(0, int(robot_y - zoom_size // 2))
+                    trim_down = min(image_array.shape[0], int(robot_y + zoom_size // 2))
+
+                    _LOGGER.info(
+                        "%s: Zooming to robot position area (%d, %d) with size %dx%d",
+                        self.handler.file_name,
+                        robot_x,
+                        robot_y,
+                        trim_right - trim_left,
+                        trim_down - trim_up
+                    )
+
+                    return image_array[trim_up:trim_down, trim_left:trim_right]
+                else:
+                    _LOGGER.warning(
+                        "%s: No room information available for zoom. Using full image.",
+                        self.handler.file_name
+                    )
+                    return image_array[
+                        self.auto_crop[1] : self.auto_crop[3],
+                        self.auto_crop[0] : self.auto_crop[2],
+                    ]
+
+
+
+            # Calculate bounding box from room outline
+            bounding_box = await self.async_get_room_bounding_box(current_room, rand256)
+
+
+            if not bounding_box:
+                _LOGGER.warning(
+                    "%s: Could not calculate bounding box for room '%s'. Using full image.",
+                    self.handler.file_name,
+                    current_room
                 )
-                trim_right = (
-                    round(self.handler.robot_in_room["left"] / 10) + margin_size
-                )
-                trim_up = round(self.handler.robot_in_room["down"] / 10) - margin_size
-                trim_down = round(self.handler.robot_in_room["up"] / 10) + margin_size
-            else:
-                trim_left = self.handler.robot_in_room["left"] - margin_size
-                trim_right = self.handler.robot_in_room["right"] + margin_size
-                trim_up = self.handler.robot_in_room["up"] - margin_size
-                trim_down = self.handler.robot_in_room["down"] + margin_size
+                return image_array[
+                    self.auto_crop[1] : self.auto_crop[3],
+                    self.auto_crop[0] : self.auto_crop[2],
+                ]
+
+            left, right, up, down = bounding_box
+
+
+            # Apply margins
+            trim_left = left - margin_size
+            trim_right = right + margin_size
+            trim_up = up - margin_size
+            trim_down = down + margin_size
+
+
 
             # Ensure valid trim values
             trim_left, trim_right = sorted([trim_left, trim_right])
