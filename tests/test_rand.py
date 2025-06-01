@@ -161,9 +161,9 @@ class TestRandImageHandler:
 
         # The room IDs in the test data are 16-20, but the handler uses an internal ID (0-4)
         # We need to set up the active zones array to match the internal IDs
-        # Test with NO active zones - zoom should be disabled
-        shared.rand256_active_zone = [0] * 5  # Disable all rooms
-        shared.rand256_active_zone[4] = 0  # Living Room is active or not
+        # Test with Living Room as active zone - zoom should be enabled
+        shared.rand256_active_zone = [0] * 5  # Disable all rooms first
+        shared.rand256_active_zone[4] = 1  # Enable Living Room (array index 4, segment ID 16)
 
         _LOGGER.debug(f"Shared instance trims: {shared.trims}")
 

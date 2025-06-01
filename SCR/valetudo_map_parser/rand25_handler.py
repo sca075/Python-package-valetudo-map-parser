@@ -97,10 +97,17 @@ class ReImageHandler(BaseHandler, AutoCrop):
 
             # Update self.rooms_pos from room_properties for compatibility with other methods
             self.rooms_pos = []
+            room_ids = []  # Collect room IDs for shared.map_rooms
             for room_id, room_data in room_properties.items():
                 self.rooms_pos.append(
                     {"name": room_data["name"], "outline": room_data["outline"]}
                 )
+                # Store the room number (segment ID) for MQTT active zone mapping
+                room_ids.append(room_data["number"])
+
+            # Update shared.map_rooms with the room IDs for MQTT active zone mapping
+            self.shared.map_rooms = room_ids
+            _LOGGER.debug("Updated shared.map_rooms with room IDs: %s", room_ids)
 
             # get the zones and points data
             zone_properties = await self.async_zone_propriety(zones_data)
