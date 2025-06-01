@@ -231,8 +231,8 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 if not self.rooms_pos and not self.room_propriety:
                     self.room_propriety = await self.get_rooms_attributes(destinations)
 
-                # Always check robot position for zooming
-                if self.rooms_pos and robot_position:
+                # Always check robot position for zooming (fallback)
+                if self.rooms_pos and robot_position and not hasattr(self, 'robot_pos'):
                     self.robot_pos = await self.async_get_robot_in_room(
                         (robot_position[0] * 10),
                         (robot_position[1] * 10),
@@ -248,6 +248,68 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     size_x, size_y, background_color
                 )
                 self.img_base_layer = await self.async_copy_array(img_np_array)
+
+        # Check active zones BEFORE auto-crop to enable proper zoom functionality
+        # This needs to run on every frame, not just frame 0
+        if (
+            self.shared.image_auto_zoom
+            and self.shared.vacuum_state == "cleaning"
+            and robot_position
+            and destinations  # Check if we have destinations data for room extraction
+        ):
+            _LOGGER.debug(
+                "%s: Attempting early room extraction for active zone checking",
+                self.file_name
+            )
+            # Extract room data early if we have destinations
+            try:
+                temp_room_properties = await self.rooms_handler.async_extract_room_properties(
+                    m_json, destinations
+                )
+                if temp_room_properties:
+                    # Create temporary rooms_pos for robot room detection
+                    temp_rooms_pos = []
+                    for room_id, room_data in temp_room_properties.items():
+                        temp_rooms_pos.append(
+                            {"name": room_data["name"], "outline": room_data["outline"]}
+                        )
+
+                    # Store original rooms_pos and temporarily use the new one
+                    original_rooms_pos = self.rooms_pos
+                    self.rooms_pos = temp_rooms_pos
+
+                    # Perform robot room detection to check active zones
+                    robot_room_result = await self.async_get_robot_in_room(
+                        robot_position[0], robot_position[1], robot_position_angle
+                    )
+
+                    # Restore original rooms_pos
+                    self.rooms_pos = original_rooms_pos
+
+                    _LOGGER.debug(
+                        "%s: Early robot room detection for zoom: robot in %s, zooming=%s",
+                        self.file_name,
+                        robot_room_result.get("in_room", "unknown"),
+                        self.zooming
+                    )
+            except Exception as e:
+                _LOGGER.debug(
+                    "%s: Early room extraction failed: %s, falling back to robot-position zoom",
+                    self.file_name,
+                    e
+                )
+                # Fallback to robot-position-based zoom if room extraction fails
+                if (
+                    self.shared.image_auto_zoom
+                    and self.shared.vacuum_state == "cleaning"
+                    and robot_position
+                ):
+                    self.zooming = True
+                    _LOGGER.debug(
+                        "%s: Enabling fallback robot-position-based zoom",
+                        self.file_name
+                    )
+
         return self.img_base_layer, robot_position, robot_position_angle
 
     async def _draw_map_elements(
@@ -294,19 +356,32 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 img_np_array, robot_position, robot_position_angle, robot_color
             )
 
-        # Check if zoom should be enabled based on conditions (similar to Hypfer handler)
-        # For Rand256, robot room detection might happen after image generation
-        # so we need to check zoom conditions before auto-crop
+        # Store robot position for potential zoom function use
+        if robot_position:
+            self.robot_position = robot_position
+
+        # Check if zoom should be enabled based on active zones
         if (
             self.shared.image_auto_zoom
             and self.shared.vacuum_state == "cleaning"
-            and robot_position  # Robot position is available
-            and not self.zooming  # Not already enabled
+            and robot_position
         ):
-            # Enable zooming if all conditions are met
-            self.zooming = True
-            # Store robot position for zoom function to use
-            self.robot_position = robot_position
+            # For Rand256, we need to check active zones differently since room data is not available yet
+            # Use a simplified approach: enable zoom if any active zones are set
+            active_zones = self.shared.rand256_active_zone
+            if active_zones and any(zone for zone in active_zones):
+                self.zooming = True
+                _LOGGER.debug(
+                    "%s: Enabling zoom for Rand256 - active zones detected: %s",
+                    self.file_name,
+                    active_zones
+                )
+            else:
+                self.zooming = False
+                _LOGGER.debug(
+                    "%s: Zoom disabled for Rand256 - no active zones set",
+                    self.file_name
+                )
 
         img_np_array = await self.async_auto_trim_and_zoom_image(
             img_np_array,

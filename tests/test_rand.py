@@ -65,7 +65,7 @@ class TestRandImageHandler:
             'alpha_wall': 115.0,  # Testing with a lower alpha value
             'alpha_zone_clean': 125.0,
             'aspect_ratio': '16, 9',
-            'auto_zoom': False,
+            'auto_zoom': True,
             'image_auto_zoom': True,  # Explicitly set image_auto_zoom to True
             'zoom_lock_ratio': True,
             'color_background': [0, 125, 255],
@@ -161,7 +161,9 @@ class TestRandImageHandler:
 
         # The room IDs in the test data are 16-20, but the handler uses an internal ID (0-4)
         # We need to set up the active zones array to match the internal IDs
-        shared.rand256_active_zone = [1] * 5  # This creates a list with 5 elements, all set to 1
+        # Test with NO active zones - zoom should be disabled
+        shared.rand256_active_zone = [0] * 5  # Disable all rooms
+        shared.rand256_active_zone[4] = 0  # Living Room is active or not
 
         _LOGGER.debug(f"Shared instance trims: {shared.trims}")
 

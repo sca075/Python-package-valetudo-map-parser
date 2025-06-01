@@ -159,7 +159,7 @@ class TestImageHandler:
 
         # Set up active zones for rooms - True means zoom will be enabled for that room
         # For Hypfer handler, we need to set the active zones in the handler instance
-        shared.active_zones = [1] * 15  # This creates a list with 15 elements, all set to 1
+        shared.active_zones = [1] * 15  # Enable all rooms as active zones
 
         _LOGGER.debug(f"Shared instance trims: {shared.trims}")
 
@@ -173,7 +173,7 @@ class TestImageHandler:
         # Set active zones in the handler instance
         handler.imd = ImageDraw(handler)
         handler.imd.file_name = "test_vacuum"
-        handler.imd.img_h.active_zones = [1] * 15  # This creates a list with 15 elements, all set to 1
+        handler.imd.img_h.active_zones = [1] * 15  # Enable all rooms as active zones
 
         # Get the image with elements disabled from device_info
         self.image = await handler.async_get_image_from_json(self.test_data)
