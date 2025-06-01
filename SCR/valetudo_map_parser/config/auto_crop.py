@@ -186,22 +186,33 @@ class AutoCrop:
         try:
             # For Hypfer vacuums, check room_propriety first, then rooms_pos
             if hasattr(self.handler, 'room_propriety') and self.handler.room_propriety:
-                for room_id, room_data in self.handler.room_propriety.items():
-                    if room_data.get('name') == room_name:
-                        outline = room_data.get('outline', [])
-                        if outline:
-                            xs, ys = zip(*outline)
-                            left, right = min(xs), max(xs)
-                            up, down = min(ys), max(ys)
+                # Handle different room_propriety formats
+                room_data_dict = None
 
-                            if rand256:
-                                # Apply scaling for rand256 vacuums
-                                left = round(left / 10)
-                                right = round(right / 10)
-                                up = round(up / 10)
-                                down = round(down / 10)
+                if isinstance(self.handler.room_propriety, dict):
+                    # Hypfer handler: room_propriety is a dictionary
+                    room_data_dict = self.handler.room_propriety
+                elif isinstance(self.handler.room_propriety, tuple) and len(self.handler.room_propriety) >= 1:
+                    # Rand256 handler: room_propriety is a tuple (room_properties, zone_properties, point_properties)
+                    room_data_dict = self.handler.room_propriety[0]
 
-                            return left, right, up, down
+                if room_data_dict and isinstance(room_data_dict, dict):
+                    for room_id, room_data in room_data_dict.items():
+                        if room_data.get('name') == room_name:
+                            outline = room_data.get('outline', [])
+                            if outline:
+                                xs, ys = zip(*outline)
+                                left, right = min(xs), max(xs)
+                                up, down = min(ys), max(ys)
+
+                                if rand256:
+                                    # Apply scaling for rand256 vacuums
+                                    left = round(left / 10)
+                                    right = round(right / 10)
+                                    up = round(up / 10)
+                                    down = round(down / 10)
+
+                                return left, right, up, down
 
             # Fallback: check rooms_pos (used by both Hypfer and Rand256)
             if hasattr(self.handler, 'rooms_pos') and self.handler.rooms_pos:
