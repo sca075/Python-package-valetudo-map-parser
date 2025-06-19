@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 import cProfile
 import pstats
 
@@ -14,9 +13,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from SCR.valetudo_map_parser.config.colors import ColorsManagement
-from SCR.valetudo_map_parser.config.drawable_elements import DrawableElement
 from SCR.valetudo_map_parser.config.shared import CameraSharedManager
-from SCR.valetudo_map_parser.config.types import RoomStore
 from SCR.valetudo_map_parser.rand25_handler import ReImageHandler
 
 # Configure logging
@@ -163,7 +160,7 @@ class TestRandImageHandler:
         # We need to set up the active zones array to match the internal IDs
         # Test with Living Room as active zone - zoom should be enabled
         shared.rand256_active_zone = [0] * 5  # Disable all rooms first
-        shared.rand256_active_zone[4] = 1  # Enable Living Room (array index 4, segment ID 16)
+        shared.rand256_active_zone[4] = 0  # Enable Living Room (array index 4, segment ID 16)
 
         _LOGGER.debug(f"Shared instance trims: {shared.trims}")
 

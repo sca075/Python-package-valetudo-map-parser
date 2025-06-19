@@ -2,7 +2,7 @@
 Image Handler Module for Valetudo Re Vacuums.
 It returns the PIL PNG image frame relative to the Map Data extrapolated from the vacuum json.
 It also returns calibration, rooms data to the card and other images information to the camera.
-Version: 0.1.9.b42
+Version: 0.1.9.a6
 """
 
 from __future__ import annotations
@@ -264,10 +264,6 @@ class ReImageHandler(BaseHandler, AutoCrop):
             and robot_position
             and destinations  # Check if we have destinations data for room extraction
         ):
-            _LOGGER.debug(
-                "%s: Attempting early room extraction for active zone checking",
-                self.file_name
-            )
             # Extract room data early if we have destinations
             try:
                 temp_room_properties = await self.rooms_handler.async_extract_room_properties(
@@ -293,12 +289,6 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     # Restore original rooms_pos
                     self.rooms_pos = original_rooms_pos
 
-                    _LOGGER.debug(
-                        "%s: Early robot room detection for zoom: robot in %s, zooming=%s",
-                        self.file_name,
-                        robot_room_result.get("in_room", "unknown"),
-                        self.zooming
-                    )
             except Exception as e:
                 _LOGGER.debug(
                     "%s: Early room extraction failed: %s, falling back to robot-position zoom",
@@ -367,7 +357,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
         if robot_position:
             self.robot_position = robot_position
 
-        # Check if zoom should be enabled based on active zones
+        # Check if Zoom should be enabled based on active zones
         if (
             self.shared.image_auto_zoom
             and self.shared.vacuum_state == "cleaning"
@@ -593,7 +583,6 @@ class ReImageHandler(BaseHandler, AutoCrop):
 
                     # Handle active zones - Set zooming based on active zones
                     self.active_zones = self.shared.rand256_active_zone
-                    self.zooming = False
                     if self.active_zones and (
                         self.robot_in_room["id"]
                         in range(len(self.active_zones))

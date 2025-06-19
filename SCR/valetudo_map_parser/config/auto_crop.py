@@ -7,6 +7,7 @@ import logging
 
 import numpy as np
 from numpy import rot90
+from scipy import ndimage
 
 from .types import Color, NumpyArray, TrimCropData, TrimsData
 from .utils import BaseHandler
@@ -89,7 +90,7 @@ class AutoCrop:
 
     async def _async_auto_crop_data(self, tdata: TrimsData):  # , tdata=None
         """Load the auto crop data from the Camera config."""
-        _LOGGER.debug("Auto Crop data: %s, %s", str(tdata), str(self.auto_crop))
+        _LOGGER.debug("Auto Crop init data: %s, %s", str(tdata), str(self.auto_crop))
         if not self.auto_crop:
             trims_data = TrimCropData.from_dict(dict(tdata.to_dict())).to_list()
             (
@@ -139,7 +140,7 @@ class AutoCrop:
     ) -> tuple[int, int, int, int]:
         """Crop the image based on the auto crop area using scipy.ndimage for better performance."""
         # Import scipy.ndimage here to avoid import at module level
-        from scipy import ndimage
+
 
         # Create a binary mask where True = non-background pixels
         # This is much more memory efficient than storing coordinates
@@ -269,7 +270,7 @@ class AutoCrop:
 
             # Get the current room name from robot_pos (not robot_in_room)
             current_room = self.handler.robot_pos.get("in_room") if self.handler.robot_pos else None
-
+            _LOGGER.info(f"Current room: {current_room}")
 
             if not current_room:
                 # For Rand256 handler, try to zoom based on robot position even without room data
@@ -303,11 +304,8 @@ class AutoCrop:
                         self.auto_crop[0] : self.auto_crop[2],
                     ]
 
-
-
             # Calculate bounding box from room outline
             bounding_box = await self.async_get_room_bounding_box(current_room, rand256)
-
 
             if not bounding_box:
                 _LOGGER.warning(
@@ -328,9 +326,6 @@ class AutoCrop:
             trim_right = right + margin_size
             trim_up = up - margin_size
             trim_down = down + margin_size
-
-
-
             # Ensure valid trim values
             trim_left, trim_right = sorted([trim_left, trim_right])
             trim_up, trim_down = sorted([trim_up, trim_down])

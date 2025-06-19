@@ -131,6 +131,8 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                 # Get the pixels size and layers from the JSON data
                 pixel_size = int(m_json["pixelSize"])
                 layers, active = self.data.find_layers(m_json["layers"], {}, [])
+                # Populate active_zones from the JSON data
+                self.active_zones = active
                 new_frame_hash = await self.calculate_array_hash(layers, active)
                 if self.frame_number == 0:
                     self.img_hash = new_frame_hash

@@ -473,14 +473,21 @@ class ImageDraw:
                         "angle": angle,
                         "in_room": self.img_h.robot_in_room["room"],
                     }
-                    # Handle active zones
-                    if self.img_h.active_zones and (
-                        self.img_h.robot_in_room["id"]
-                        in range(len(self.img_h.active_zones))
-                    ):
-                        self.img_h.zooming = bool(
-                            self.img_h.active_zones[self.img_h.robot_in_room["id"]]
-                        )
+                    # Handle active zones - Map segment ID to active_zones position
+                    if self.img_h.active_zones:
+                        from .config.types import RoomStore
+                        segment_id = str(self.img_h.robot_in_room["id"])
+                        room_store = RoomStore(self.file_name)
+                        room_keys = list(room_store.get_rooms().keys())
+
+                        if segment_id in room_keys:
+                            position = room_keys.index(segment_id)
+                            if position < len(self.img_h.active_zones):
+                                self.img_h.zooming = bool(self.img_h.active_zones[position])
+                            else:
+                                self.img_h.zooming = False
+                        else:
+                            self.img_h.zooming = False
                     else:
                         self.img_h.zooming = False
                     return temp
@@ -501,14 +508,21 @@ class ImageDraw:
                         "angle": angle,
                         "in_room": self.img_h.robot_in_room["room"],
                     }
-                    # Handle active zones
-                    if self.img_h.active_zones and (
-                        self.img_h.robot_in_room["id"]
-                        in range(len(self.img_h.active_zones))
-                    ):
-                        self.img_h.zooming = bool(
-                            self.img_h.active_zones[self.img_h.robot_in_room["id"]]
-                        )
+                    # Handle active zones - Map segment ID to active_zones position
+                    if self.img_h.active_zones:
+                        from .config.types import RoomStore
+                        segment_id = str(self.img_h.robot_in_room["id"])
+                        room_store = RoomStore(self.file_name)
+                        room_keys = list(room_store.get_rooms().keys())
+
+                        if segment_id in room_keys:
+                            position = room_keys.index(segment_id)
+                            if position < len(self.img_h.active_zones):
+                                self.img_h.zooming = bool(self.img_h.active_zones[position])
+                            else:
+                                self.img_h.zooming = False
+                        else:
+                            self.img_h.zooming = False
                     else:
                         self.img_h.zooming = False
                     return temp
@@ -574,14 +588,19 @@ class ImageDraw:
                         "in_room": self.img_h.robot_in_room["room"],
                     }
 
-                    # Handle active zones - Set zooming based on active zones
+                    # Handle active zones - Map segment ID to active_zones position
                     if self.img_h.active_zones:
-                        # Convert room ID to integer index
-                        room_id = int(self.img_h.robot_in_room["id"])
-                        if room_id < len(self.img_h.active_zones):
-                            self.img_h.zooming = bool(
-                                self.img_h.active_zones[room_id]
-                            )
+                        from .config.types import RoomStore
+                        segment_id = str(self.img_h.robot_in_room["id"])
+                        room_store = RoomStore(self.file_name)
+                        room_keys = list(room_store.get_rooms().keys())
+
+                        if segment_id in room_keys:
+                            position = room_keys.index(segment_id)
+                            if position < len(self.img_h.active_zones):
+                                self.img_h.zooming = bool(self.img_h.active_zones[position])
+                            else:
+                                self.img_h.zooming = False
                         else:
                             self.img_h.zooming = False
                     else:
@@ -620,14 +639,19 @@ class ImageDraw:
                         "in_room": self.img_h.robot_in_room["room"],
                     }
 
-                    # Handle active zones - Set zooming based on active zones
+                    # Handle active zones - Map segment ID to active_zones position
                     if self.img_h.active_zones:
-                        # Convert room ID to integer index
-                        room_id = int(self.img_h.robot_in_room["id"])
-                        if room_id < len(self.img_h.active_zones):
-                            self.img_h.zooming = bool(
-                                self.img_h.active_zones[room_id]
-                            )
+                        from .config.types import RoomStore
+                        segment_id = str(self.img_h.robot_in_room["id"])
+                        room_store = RoomStore(self.file_name)
+                        room_keys = list(room_store.get_rooms().keys())
+
+                        if segment_id in room_keys:
+                            position = room_keys.index(segment_id)
+                            if position < len(self.img_h.active_zones):
+                                self.img_h.zooming = bool(self.img_h.active_zones[position])
+                            else:
+                                self.img_h.zooming = False
                         else:
                             self.img_h.zooming = False
                     else:

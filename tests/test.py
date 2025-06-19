@@ -155,11 +155,10 @@ class TestImageHandler:
         shared_data = CameraSharedManager("test_vacuum", device_info)
         shared = shared_data.get_instance()
         shared.vacuum_state = "cleaning"
-        shared.vacuum_ips = "192.168.1.1"
+        shared.vacuum_ips = "192.168.8.1"
 
-        # Set up active zones for rooms - True means zoom will be enabled for that room
-        # For Hypfer handler, we need to set the active zones in the handler instance
-        shared.active_zones = [1] * 15  # Enable all rooms as active zones
+        # Active zones will be populated from the JSON data automatically
+        # No need to manually set them here
 
         _LOGGER.debug(f"Shared instance trims: {shared.trims}")
 
@@ -170,10 +169,8 @@ class TestImageHandler:
 
         handler = HypferMapImageHandler(shared)
 
-        # Set active zones in the handler instance
-        handler.imd = ImageDraw(handler)
-        handler.imd.file_name = "test_vacuum"
-        handler.imd.img_h.active_zones = [1] * 15  # Enable all rooms as active zones
+        # ImageDraw is already initialized in the handler constructor
+        # Active zones will be populated from the JSON data during image processing
 
         # Get the image with elements disabled from device_info
         self.image = await handler.async_get_image_from_json(self.test_data)
