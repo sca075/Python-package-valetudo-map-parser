@@ -426,6 +426,39 @@ class ImageDraw:
         _LOGGER.info("%s: Got the points in the json.", self.file_name)
         return entity_dict
 
+    def _check_active_zone_and_set_zooming(self) -> None:
+        """Helper function to check active zones and set zooming state."""
+        if self.img_h.active_zones and self.img_h.robot_in_room:
+            from .config.types import RoomStore
+            segment_id = str(self.img_h.robot_in_room["id"])
+            room_store = RoomStore(self.file_name)
+            room_keys = list(room_store.get_rooms().keys())
+
+            _LOGGER.debug(
+                "%s: Active zones debug - segment_id: %s, room_keys: %s, active_zones: %s",
+                self.file_name, segment_id, room_keys, self.img_h.active_zones
+            )
+
+            if segment_id in room_keys:
+                position = room_keys.index(segment_id)
+                _LOGGER.debug(
+                    "%s: Segment ID %s found at position %s, active_zones[%s] = %s",
+                    self.file_name, segment_id, position, position,
+                    self.img_h.active_zones[position] if position < len(self.img_h.active_zones) else "OUT_OF_BOUNDS"
+                )
+                if position < len(self.img_h.active_zones):
+                    self.img_h.zooming = bool(self.img_h.active_zones[position])
+                else:
+                    self.img_h.zooming = False
+            else:
+                _LOGGER.warning(
+                    "%s: Segment ID %s not found in room_keys %s",
+                    self.file_name, segment_id, room_keys
+                )
+                self.img_h.zooming = False
+        else:
+            self.img_h.zooming = False
+
     @staticmethod
     def point_in_polygon(x: int, y: int, polygon: list) -> bool:
         """
@@ -473,23 +506,8 @@ class ImageDraw:
                         "angle": angle,
                         "in_room": self.img_h.robot_in_room["room"],
                     }
-                    # Handle active zones - Map segment ID to active_zones position
-                    if self.img_h.active_zones:
-                        from .config.types import RoomStore
-                        segment_id = str(self.img_h.robot_in_room["id"])
-                        room_store = RoomStore(self.file_name)
-                        room_keys = list(room_store.get_rooms().keys())
-
-                        if segment_id in room_keys:
-                            position = room_keys.index(segment_id)
-                            if position < len(self.img_h.active_zones):
-                                self.img_h.zooming = bool(self.img_h.active_zones[position])
-                            else:
-                                self.img_h.zooming = False
-                        else:
-                            self.img_h.zooming = False
-                    else:
-                        self.img_h.zooming = False
+                    # Handle active zones
+                    self._check_active_zone_and_set_zooming()
                     return temp
             # Fallback to bounding box check if no outline data
             elif all(
@@ -508,23 +526,8 @@ class ImageDraw:
                         "angle": angle,
                         "in_room": self.img_h.robot_in_room["room"],
                     }
-                    # Handle active zones - Map segment ID to active_zones position
-                    if self.img_h.active_zones:
-                        from .config.types import RoomStore
-                        segment_id = str(self.img_h.robot_in_room["id"])
-                        room_store = RoomStore(self.file_name)
-                        room_keys = list(room_store.get_rooms().keys())
-
-                        if segment_id in room_keys:
-                            position = room_keys.index(segment_id)
-                            if position < len(self.img_h.active_zones):
-                                self.img_h.zooming = bool(self.img_h.active_zones[position])
-                            else:
-                                self.img_h.zooming = False
-                        else:
-                            self.img_h.zooming = False
-                    else:
-                        self.img_h.zooming = False
+                    # Handle active zones
+                    self._check_active_zone_and_set_zooming()
                     return temp
 
         # If we don't have a cached room or the robot is not in it, search all rooms
@@ -577,7 +580,7 @@ class ImageDraw:
                 if self.point_in_polygon(int(robot_x), int(robot_y), outline):
                     # Robot is in this room
                     self.img_h.robot_in_room = {
-                        "id": room_count,
+                        "id": room.get("id", room_count),  # Use actual segment ID if available
                         "room": str(room["name"]),
                         "outline": outline,
                     }
@@ -595,13 +598,27 @@ class ImageDraw:
                         room_store = RoomStore(self.file_name)
                         room_keys = list(room_store.get_rooms().keys())
 
+                        _LOGGER.debug(
+                            "%s: Active zones debug - segment_id: %s, room_keys: %s, active_zones: %s",
+                            self.file_name, segment_id, room_keys, self.img_h.active_zones
+                        )
+
                         if segment_id in room_keys:
                             position = room_keys.index(segment_id)
+                            _LOGGER.debug(
+                                "%s: Segment ID %s found at position %s, active_zones[%s] = %s",
+                                self.file_name, segment_id, position, position,
+                                self.img_h.active_zones[position] if position < len(self.img_h.active_zones) else "OUT_OF_BOUNDS"
+                            )
                             if position < len(self.img_h.active_zones):
                                 self.img_h.zooming = bool(self.img_h.active_zones[position])
                             else:
                                 self.img_h.zooming = False
                         else:
+                            _LOGGER.warning(
+                                "%s: Segment ID %s not found in room_keys %s",
+                                self.file_name, segment_id, room_keys
+                            )
                             self.img_h.zooming = False
                     else:
                         self.img_h.zooming = False
@@ -617,7 +634,7 @@ class ImageDraw:
                 corners = room["corners"]
                 # Create a bounding box from the corners
                 self.img_h.robot_in_room = {
-                    "id": room_count,
+                    "id": room.get("id", room_count),  # Use actual segment ID if available
                     "left": int(corners[0][0]),
                     "right": int(corners[2][0]),
                     "up": int(corners[0][1]),
@@ -639,23 +656,8 @@ class ImageDraw:
                         "in_room": self.img_h.robot_in_room["room"],
                     }
 
-                    # Handle active zones - Map segment ID to active_zones position
-                    if self.img_h.active_zones:
-                        from .config.types import RoomStore
-                        segment_id = str(self.img_h.robot_in_room["id"])
-                        room_store = RoomStore(self.file_name)
-                        room_keys = list(room_store.get_rooms().keys())
-
-                        if segment_id in room_keys:
-                            position = room_keys.index(segment_id)
-                            if position < len(self.img_h.active_zones):
-                                self.img_h.zooming = bool(self.img_h.active_zones[position])
-                            else:
-                                self.img_h.zooming = False
-                        else:
-                            self.img_h.zooming = False
-                    else:
-                        self.img_h.zooming = False
+                    # Handle active zones
+                    self._check_active_zone_and_set_zooming()
 
                     _LOGGER.debug(
                         "%s is in %s room (bounding box detection).",

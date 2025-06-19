@@ -188,6 +188,56 @@ class TestImageHandler:
         rooms = store.get_rooms()
         instaces = RoomStore.get_all_instances()
         _LOGGER.info(f"Room Store Rooms {instaces}: {rooms}")
+
+        # Debug: Show RoomStore format like your real vacuum
+        room_store_format = {}
+        for room_id, room_data in rooms.items():
+            room_store_format[room_id] = room_data['name']
+        _LOGGER.info(f"RoomStore format (like your vacuum): {room_store_format}")
+
+        # Debug: Show the room keys order
+        room_keys = list(rooms.keys())
+        _LOGGER.info(f"Room keys order: {room_keys}")
+
+        # Debug: Show active zones mapping
+        _LOGGER.info(f"Active zones: {handler.active_zones}")
+        for i, active in enumerate(handler.active_zones or []):
+            if i < len(room_keys):
+                _LOGGER.info(f"Position {i}: Segment ID '{room_keys[i]}' ({rooms[room_keys[i]]['name']}) = active: {bool(active)}")
+            else:
+                _LOGGER.info(f"Position {i}: OUT_OF_BOUNDS = active: {bool(active)}")
+
+        # Test: Simulate your vacuum's scenario - make "Entrance" active and put robot there
+        _LOGGER.info("=== TESTING YOUR VACUUM SCENARIO ===")
+
+        # Find "Entrance" position in room_keys
+        entrance_position = None
+        for i, room_id in enumerate(room_keys):
+            if rooms[room_id]['name'] == 'Entrance':
+                entrance_position = i
+                break
+
+        if entrance_position is not None:
+            # Simulate your vacuum's active zones: [0, 0, 1, 0, 0] where position 2 is active
+            # But we need to make "Entrance" active instead
+            test_active_zones = [0] * len(handler.active_zones)
+            test_active_zones[entrance_position] = 1  # Make Entrance active
+
+            # Override the active zones for testing
+            handler.active_zones = test_active_zones
+            _LOGGER.info(f"Test active zones (Entrance active): {test_active_zones}")
+            _LOGGER.info(f"Entrance is at position {entrance_position} in room_keys")
+
+            # Test robot detection in Entrance
+            entrance_room_data = rooms[room_keys[entrance_position]]
+            test_x, test_y = entrance_room_data['x'], entrance_room_data['y']
+
+            # Test the robot detection function with robot in Entrance
+            test_result = await handler.imd.async_get_robot_in_room(robot_y=test_y, robot_x=test_x, angle=0.0)
+            _LOGGER.info(f"Test robot in Entrance: {test_result}")
+            _LOGGER.info(f"Test zooming enabled: {handler.imd.img_h.zooming}")
+        else:
+            _LOGGER.warning("Entrance room not found in test data")
         _LOGGER.info(f"Trims update: {shared.trims.to_dict()}")
         calibration_data = handler.get_calibration_data()
         _LOGGER.info(f"Calibration Data: {calibration_data}")

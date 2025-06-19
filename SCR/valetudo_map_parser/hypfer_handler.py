@@ -81,7 +81,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
             self.rooms_pos = []
             for room_id, room_data in room_properties.items():
                 self.rooms_pos.append(
-                    {"name": room_data["name"], "outline": room_data["outline"]}
+                    {"id": room_id, "name": room_data["name"], "outline": room_data["outline"]}
                 )
         else:
             LOGGER.debug("%s: Rooms data not available!", self.file_name)
