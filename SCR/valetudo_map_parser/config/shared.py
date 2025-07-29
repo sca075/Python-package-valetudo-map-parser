@@ -58,6 +58,9 @@ class CameraShared:
         self.is_rand: bool = False  # MQTT rand data
         self._new_mqtt_message = False  # New MQTT message
         self.last_image = None  # Last image received
+        self.current_image = None  # Current image
+        self.binary_image = None  # Current image in binary format
+        self.image_format = "WebP"  # Image format
         self.image_size = None  # Image size
         self.image_auto_zoom: bool = False  # Auto zoom image
         self.image_zoom_lock_ratio: bool = True  # Zoom lock ratio
@@ -190,7 +193,7 @@ class CameraShared:
         }
         if self.obstacles_pos and self.vacuum_ips:
             _LOGGER.debug("Generating obstacle links from: %s", self.obstacles_pos)
-            self.obstacles_data =  self._compose_obstacle_links(
+            self.obstacles_data = self._compose_obstacle_links(
                 self.vacuum_ips, self.obstacles_pos
             )
             attrs[ATTR_OBSTACLES] = self.obstacles_data

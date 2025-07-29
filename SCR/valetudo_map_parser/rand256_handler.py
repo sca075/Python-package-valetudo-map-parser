@@ -26,11 +26,13 @@ from .config.types import (
     RobotPosition,
     RoomsProperties,
     RoomStore,
+    WebPBytes,
 )
 from .config.utils import (
     BaseHandler,
     initialize_drawing_config,
     manage_drawable_elements,
+    numpy_to_webp_bytes,
     prepare_resize_params,
 )
 from .map_data import RandImageData
@@ -68,7 +70,9 @@ class ReImageHandler(BaseHandler, AutoCrop):
         self.active_zones = None  # Active zones
         self.file_name = self.shared.file_name  # File name
         self.imd = ImageDraw(self)  # Image Draw
-        self.rooms_handler = RandRoomsHandler(self.file_name, self.drawing_config)  # Room data handler
+        self.rooms_handler = RandRoomsHandler(
+            self.file_name, self.drawing_config
+        )  # Room data handler
 
     async def extract_room_properties(
         self, json_data: JsonType, destinations: JsonType
@@ -123,9 +127,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 _LOGGER.debug("Extracted data: %s", extracted_data)
             else:
                 self.rooms_pos = None
-                _LOGGER.debug(
-                    "%s: Rooms and Zones data not available!", self.file_name
-                )
+                _LOGGER.debug("%s: Rooms and Zones data not available!", self.file_name)
 
             rooms = RoomStore(self.file_name, room_properties)
             _LOGGER.debug("Rooms Data: %s", rooms.get_rooms())
@@ -142,8 +144,14 @@ class ReImageHandler(BaseHandler, AutoCrop):
         self,
         m_json: JsonType,  # json data
         destinations: None = None,  # MQTT destinations for labels
-    ) -> PilPNG or None:
-        """Generate Images from the json data."""
+        return_webp: bool = False,
+    ) -> WebPBytes | Image.Image | None:
+        """Generate Images from the json data.
+        @param m_json: The JSON data to use to draw the image.
+        @param destinations: MQTT destinations for labels (unused).
+        @param return_webp: If True, return WebP bytes; if False, return PIL Image (default).
+        @return WebPBytes | Image.Image: WebP bytes or PIL Image depending on return_webp parameter.
+        """
         colors: Colors = {
             name: self.shared.user_colors[idx] for idx, name in enumerate(COLORS)
         }
@@ -180,11 +188,21 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     img_np_array, m_json, colors, robot_position, robot_position_angle
                 )
 
-                # Final adjustments
-                pil_img = Image.fromarray(img_np_array, mode="RGBA")
-                del img_np_array  # free memory
-
-                return await self._finalize_image(pil_img)
+                # Return WebP bytes or PIL Image based on parameter
+                if return_webp:
+                    # Convert directly to WebP bytes for better performance
+                    webp_bytes = await numpy_to_webp_bytes(
+                        img_np_array,
+                        quality=90,  # High quality for vacuum maps
+                        lossless=False  # Use lossy compression for smaller size
+                    )
+                    del img_np_array  # free memory
+                    return webp_bytes
+                else:
+                    # Convert to PIL Image (original behavior)
+                    pil_img = Image.fromarray(img_np_array, mode="RGBA")
+                    del img_np_array  # free memory
+                    return await self._finalize_image(pil_img)
 
         except (RuntimeError, RuntimeWarning) as e:
             _LOGGER.warning(
@@ -239,7 +257,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     self.room_propriety = await self.get_rooms_attributes(destinations)
 
                 # Always check robot position for zooming (fallback)
-                if self.rooms_pos and robot_position and not hasattr(self, 'robot_pos'):
+                if self.rooms_pos and robot_position and not hasattr(self, "robot_pos"):
                     self.robot_pos = await self.async_get_robot_in_room(
                         (robot_position[0] * 10),
                         (robot_position[1] * 10),
@@ -266,8 +284,10 @@ class ReImageHandler(BaseHandler, AutoCrop):
         ):
             # Extract room data early if we have destinations
             try:
-                temp_room_properties = await self.rooms_handler.async_extract_room_properties(
-                    m_json, destinations
+                temp_room_properties = (
+                    await self.rooms_handler.async_extract_room_properties(
+                        m_json, destinations
+                    )
                 )
                 if temp_room_properties:
                     # Create temporary rooms_pos for robot room detection
@@ -293,7 +313,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 _LOGGER.debug(
                     "%s: Early room extraction failed: %s, falling back to robot-position zoom",
                     self.file_name,
-                    e
+                    e,
                 )
                 # Fallback to robot-position-based zoom if room extraction fails
                 if (
@@ -304,7 +324,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     self.zooming = True
                     _LOGGER.debug(
                         "%s: Enabling fallback robot-position-based zoom",
-                        self.file_name
+                        self.file_name,
                     )
 
         return self.img_base_layer, robot_position, robot_position_angle
@@ -371,13 +391,13 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 _LOGGER.debug(
                     "%s: Enabling zoom for Rand256 - active zones detected: %s",
                     self.file_name,
-                    active_zones
+                    active_zones,
                 )
             else:
                 self.zooming = False
                 _LOGGER.debug(
                     "%s: Zoom disabled for Rand256 - no active zones set",
-                    self.file_name
+                    self.file_name,
                 )
 
         img_np_array = await self.async_auto_trim_and_zoom_image(
@@ -482,22 +502,22 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     self.active_zones = self.shared.rand256_active_zone
                     self.zooming = False
                     if self.active_zones and (
-                        self.robot_in_room["id"]
-                        in range(len(self.active_zones))
+                        self.robot_in_room["id"] in range(len(self.active_zones))
                     ):
-                        self.zooming = bool(
-                            self.active_zones[self.robot_in_room["id"]]
-                        )
+                        self.zooming = bool(self.active_zones[self.robot_in_room["id"]])
                     else:
                         self.zooming = False
                     return temp
             # Fallback to bounding box check if no outline data
-            elif all(
-                k in self.robot_in_room for k in ["left", "right", "up", "down"]
-            ):
+            elif all(k in self.robot_in_room for k in ["left", "right", "up", "down"]):
                 if (
-                    (self.robot_in_room["right"] <= int(robot_x) <= self.robot_in_room["left"])
-                    and (self.robot_in_room["up"] <= int(robot_y) <= self.robot_in_room["down"])
+                    self.robot_in_room["right"]
+                    <= int(robot_x)
+                    <= self.robot_in_room["left"]
+                ) and (
+                    self.robot_in_room["up"]
+                    <= int(robot_y)
+                    <= self.robot_in_room["down"]
                 ):
                     temp = {
                         "x": robot_x,
@@ -509,12 +529,9 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     self.active_zones = self.shared.rand256_active_zone
                     self.zooming = False
                     if self.active_zones and (
-                        self.robot_in_room["id"]
-                        in range(len(self.active_zones))
+                        self.robot_in_room["id"] in range(len(self.active_zones))
                     ):
-                        self.zooming = bool(
-                            self.active_zones[self.robot_in_room["id"]]
-                        )
+                        self.zooming = bool(self.active_zones[self.robot_in_room["id"]])
                     else:
                         self.zooming = False
                     return temp
@@ -584,12 +601,9 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     # Handle active zones - Set zooming based on active zones
                     self.active_zones = self.shared.rand256_active_zone
                     if self.active_zones and (
-                        self.robot_in_room["id"]
-                        in range(len(self.active_zones))
+                        self.robot_in_room["id"] in range(len(self.active_zones))
                     ):
-                        self.zooming = bool(
-                            self.active_zones[self.robot_in_room["id"]]
-                        )
+                        self.zooming = bool(self.active_zones[self.robot_in_room["id"]])
                     else:
                         self.zooming = False
 

@@ -308,7 +308,7 @@ class RandImageData:
         Return the calculated angle and original angle.
         """
         angle_c = round(json_data.get("robot_angle", 0))
-        angle = (360 - angle_c + 80) if angle_c < 0 else (180 - angle_c - 80)
+        angle = (360 - angle_c + 95) if angle_c < 0 else (180 - angle_c - 85)
         return angle % 360, json_data.get("robot_angle", 0)
 
     @staticmethod

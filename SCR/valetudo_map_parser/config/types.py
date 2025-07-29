@@ -202,7 +202,8 @@ ChargerPosition = dict[str, Any]
 RoomsProperties = dict[str, RoomProperty]
 ImageSize = dict[str, int | list[int]]
 JsonType = Any  # json.loads() return type is Any
-PilPNG = Image.Image
+PilPNG = Image.Image  # Keep for backward compatibility
+WebPBytes = bytes  # WebP image as bytes
 NumpyArray = np.ndarray
 Point = Tuple[int, int]
 

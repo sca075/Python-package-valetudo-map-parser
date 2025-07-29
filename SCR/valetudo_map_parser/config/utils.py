@@ -4,14 +4,15 @@ import hashlib
 import json
 from dataclasses import dataclass
 from typing import Callable, List, Optional
+import io
 
 import numpy as np
-from PIL import ImageOps
+from PIL import Image, ImageOps
 
 from .drawable import Drawable
 from .drawable_elements import DrawableElement, DrawingConfig
 from .enhanced_drawable import EnhancedDrawable
-from .types import LOGGER, ChargerPosition, ImageSize, NumpyArray, PilPNG, RobotPosition
+from .types import LOGGER, ChargerPosition, ImageSize, NumpyArray, PilPNG, RobotPosition, WebPBytes
 
 
 @dataclass
@@ -839,3 +840,91 @@ async def async_extract_room_outline(
             str(e),
         )
         return rect_outline
+
+
+async def numpy_to_webp_bytes(
+    img_np_array: np.ndarray,
+    quality: int = 85,
+    lossless: bool = False
+) -> bytes:
+    """
+    Convert NumPy array directly to WebP bytes.
+
+    Args:
+        img_np_array: RGBA NumPy array
+        quality: WebP quality (0-100, ignored if lossless=True)
+        lossless: Use lossless WebP compression
+
+    Returns:
+        WebP image as bytes
+    """
+    # Convert NumPy array to PIL Image
+    pil_img = Image.fromarray(img_np_array, mode="RGBA")
+
+    # Create bytes buffer
+    webp_buffer = io.BytesIO()
+
+    # Save as WebP
+    pil_img.save(
+        webp_buffer,
+        format='WEBP',
+        quality=quality,
+        lossless=lossless,
+        method=6  # Best compression method
+    )
+
+    # Get bytes and cleanup
+    webp_bytes = webp_buffer.getvalue()
+    webp_buffer.close()
+
+    return webp_bytes
+
+
+async def pil_to_webp_bytes(
+    pil_img: Image.Image,
+    quality: int = 85,
+    lossless: bool = False
+) -> bytes:
+    """
+    Convert PIL Image to WebP bytes.
+
+    Args:
+        pil_img: PIL Image object
+        quality: WebP quality (0-100, ignored if lossless=True)
+        lossless: Use lossless WebP compression
+
+    Returns:
+        WebP image as bytes
+    """
+    # Create bytes buffer
+    webp_buffer = io.BytesIO()
+
+    # Save as WebP
+    pil_img.save(
+        webp_buffer,
+        format='WEBP',
+        quality=quality,
+        lossless=lossless,
+        method=6  # Best compression method
+    )
+
+    # Get bytes and cleanup
+    webp_bytes = webp_buffer.getvalue()
+    webp_buffer.close()
+
+    return webp_bytes
+
+
+def webp_bytes_to_pil(webp_bytes: bytes) -> Image.Image:
+    """
+    Convert WebP bytes back to PIL Image for display or further processing.
+
+    Args:
+        webp_bytes: WebP image as bytes
+
+    Returns:
+        PIL Image object
+    """
+    webp_buffer = io.BytesIO(webp_bytes)
+    pil_img = Image.open(webp_buffer)
+    return pil_img

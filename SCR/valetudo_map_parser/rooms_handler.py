@@ -19,6 +19,7 @@ from .config.types import LOGGER, RoomsProperties
 
 from .map_data import RandImageData, ImageData
 
+
 class RoomsHandler:
     """
     Handler for extracting and managing room data from Hipfer vacuum maps.
@@ -225,6 +226,7 @@ class RoomsHandler:
         LOGGER.debug("Room extraction Total time: %.3fs", total_time)
         return room_properties
 
+
 class RandRoomsHandler:
     """
     Handler for extracting and managing room data from Rand25 vacuum maps.
@@ -247,7 +249,9 @@ class RandRoomsHandler:
         """
         self.vacuum_id = vacuum_id
         self.drawing_config = drawing_config
-        self.current_json_data = None  # Will store the current JSON data being processed
+        self.current_json_data = (
+            None  # Will store the current JSON data being processed
+        )
         self.segment_data = None  # Segment data
         self.outlines = None  # Outlines data
 

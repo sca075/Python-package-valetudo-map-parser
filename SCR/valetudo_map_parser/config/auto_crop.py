@@ -141,7 +141,6 @@ class AutoCrop:
         """Crop the image based on the auto crop area using scipy.ndimage for better performance."""
         # Import scipy.ndimage here to avoid import at module level
 
-
         # Create a binary mask where True = non-background pixels
         # This is much more memory efficient than storing coordinates
         mask = ~np.all(image_array == list(detect_colour), axis=2)
@@ -174,7 +173,9 @@ class AutoCrop:
         )
         return min_y, min_x, max_x, max_y
 
-    async def async_get_room_bounding_box(self, room_name: str, rand256: bool = False) -> tuple[int, int, int, int] | None:
+    async def async_get_room_bounding_box(
+        self, room_name: str, rand256: bool = False
+    ) -> tuple[int, int, int, int] | None:
         """Calculate bounding box coordinates from room outline for zoom functionality.
 
         Args:
@@ -186,21 +187,24 @@ class AutoCrop:
         """
         try:
             # For Hypfer vacuums, check room_propriety first, then rooms_pos
-            if hasattr(self.handler, 'room_propriety') and self.handler.room_propriety:
+            if hasattr(self.handler, "room_propriety") and self.handler.room_propriety:
                 # Handle different room_propriety formats
                 room_data_dict = None
 
                 if isinstance(self.handler.room_propriety, dict):
                     # Hypfer handler: room_propriety is a dictionary
                     room_data_dict = self.handler.room_propriety
-                elif isinstance(self.handler.room_propriety, tuple) and len(self.handler.room_propriety) >= 1:
+                elif (
+                    isinstance(self.handler.room_propriety, tuple)
+                    and len(self.handler.room_propriety) >= 1
+                ):
                     # Rand256 handler: room_propriety is a tuple (room_properties, zone_properties, point_properties)
                     room_data_dict = self.handler.room_propriety[0]
 
                 if room_data_dict and isinstance(room_data_dict, dict):
                     for room_id, room_data in room_data_dict.items():
-                        if room_data.get('name') == room_name:
-                            outline = room_data.get('outline', [])
+                        if room_data.get("name") == room_name:
+                            outline = room_data.get("outline", [])
                             if outline:
                                 xs, ys = zip(*outline)
                                 left, right = min(xs), max(xs)
@@ -216,10 +220,10 @@ class AutoCrop:
                                 return left, right, up, down
 
             # Fallback: check rooms_pos (used by both Hypfer and Rand256)
-            if hasattr(self.handler, 'rooms_pos') and self.handler.rooms_pos:
+            if hasattr(self.handler, "rooms_pos") and self.handler.rooms_pos:
                 for room in self.handler.rooms_pos:
-                    if room.get('name') == room_name:
-                        outline = room.get('outline', [])
+                    if room.get("name") == room_name:
+                        outline = room.get("outline", [])
                         if outline:
                             xs, ys = zip(*outline)
                             left, right = min(xs), max(xs)
@@ -237,7 +241,7 @@ class AutoCrop:
             _LOGGER.warning(
                 "%s: Room '%s' not found for zoom bounding box calculation",
                 self.handler.file_name,
-                room_name
+                room_name,
             )
             return None
 
@@ -246,7 +250,7 @@ class AutoCrop:
                 "%s: Error calculating room bounding box for '%s': %s",
                 self.handler.file_name,
                 room_name,
-                e
+                e,
             )
             return None
 
@@ -259,28 +263,37 @@ class AutoCrop:
     ) -> NumpyArray:
         """Check if the image needs to be zoomed."""
 
-
-
         if (
             zoom
             and self.handler.shared.vacuum_state == "cleaning"
             and self.handler.shared.image_auto_zoom
         ):
-
-
             # Get the current room name from robot_pos (not robot_in_room)
-            current_room = self.handler.robot_pos.get("in_room") if self.handler.robot_pos else None
+            current_room = (
+                self.handler.robot_pos.get("in_room")
+                if self.handler.robot_pos
+                else None
+            )
             _LOGGER.info(f"Current room: {current_room}")
 
             if not current_room:
                 # For Rand256 handler, try to zoom based on robot position even without room data
-                if rand256 and hasattr(self.handler, 'robot_position') and self.handler.robot_position:
-                    robot_x, robot_y = self.handler.robot_position[0], self.handler.robot_position[1]
+                if (
+                    rand256
+                    and hasattr(self.handler, "robot_position")
+                    and self.handler.robot_position
+                ):
+                    robot_x, robot_y = (
+                        self.handler.robot_position[0],
+                        self.handler.robot_position[1],
+                    )
 
                     # Create a zoom area around the robot position (e.g., 800x800 pixels for better view)
                     zoom_size = 800
                     trim_left = max(0, int(robot_x - zoom_size // 2))
-                    trim_right = min(image_array.shape[1], int(robot_x + zoom_size // 2))
+                    trim_right = min(
+                        image_array.shape[1], int(robot_x + zoom_size // 2)
+                    )
                     trim_up = max(0, int(robot_y - zoom_size // 2))
                     trim_down = min(image_array.shape[0], int(robot_y + zoom_size // 2))
 
@@ -290,14 +303,14 @@ class AutoCrop:
                         robot_x,
                         robot_y,
                         trim_right - trim_left,
-                        trim_down - trim_up
+                        trim_down - trim_up,
                     )
 
                     return image_array[trim_up:trim_down, trim_left:trim_right]
                 else:
                     _LOGGER.warning(
                         "%s: No room information available for zoom. Using full image.",
-                        self.handler.file_name
+                        self.handler.file_name,
                     )
                     return image_array[
                         self.auto_crop[1] : self.auto_crop[3],
@@ -311,7 +324,7 @@ class AutoCrop:
                 _LOGGER.warning(
                     "%s: Could not calculate bounding box for room '%s'. Using full image.",
                     self.handler.file_name,
-                    current_room
+                    current_room,
                 )
                 return image_array[
                     self.auto_crop[1] : self.auto_crop[3],
@@ -319,7 +332,6 @@ class AutoCrop:
                 ]
 
             left, right, up, down = bounding_box
-
 
             # Apply margins
             trim_left = left - margin_size

@@ -21,11 +21,13 @@ from .config.types import (
     Colors,
     RoomsProperties,
     RoomStore,
+    WebPBytes,
 )
 from .config.utils import (
     BaseHandler,
     initialize_drawing_config,
     manage_drawable_elements,
+    numpy_to_webp_bytes,
     prepare_resize_params,
 )
 from .hypfer_draw import ImageDraw as ImDraw
@@ -81,7 +83,11 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
             self.rooms_pos = []
             for room_id, room_data in room_properties.items():
                 self.rooms_pos.append(
-                    {"id": room_id, "name": room_data["name"], "outline": room_data["outline"]}
+                    {
+                        "id": room_id,
+                        "name": room_data["name"],
+                        "outline": room_data["outline"],
+                    }
                 )
         else:
             LOGGER.debug("%s: Rooms data not available!", self.file_name)
@@ -92,12 +98,14 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
     async def async_get_image_from_json(
         self,
         m_json: json | None,
-    ) -> Image.Image | None:
+        return_webp: bool = False,
+    ) -> WebPBytes | Image.Image | None:
         """Get the image from the JSON data.
         It uses the ImageDraw class to draw some of the elements of the image.
         The robot itself will be drawn in this function as per some of the values are needed for other tasks.
         @param m_json: The JSON data to use to draw the image.
-        @return Image.Image: The image to display.
+        @param return_webp: If True, return WebP bytes; if False, return PIL Image (default).
+        @return WebPBytes | Image.Image: WebP bytes or PIL Image depending on return_webp parameter.
         """
         # Initialize the colors.
         colors: Colors = {
@@ -245,7 +253,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                         self.shared.obstacles_pos = self.data.get_obstacles(entity_dict)
                         if self.shared.obstacles_pos:
                             img_np_array = await self.imd.async_draw_obstacle(
-                                img_np_array,  self.shared.obstacles_pos, colors["no_go"]
+                                img_np_array, self.shared.obstacles_pos, colors["no_go"]
                             )
                     # Robot and rooms position
                     if (room_id > 0) and not self.room_propriety:
@@ -360,16 +368,43 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                 LOGGER.warning("%s: Image array is None.", self.file_name)
                 return None
 
-            # Convert the numpy array to a PIL image
-            pil_img = Image.fromarray(img_np_array, mode="RGBA")
-            del img_np_array
-            # reduce the image size if the zoomed image is bigger then the original.
+            # Handle resizing if needed, then return based on format preference
             if self.check_zoom_and_aspect_ratio():
+                # Convert to PIL for resizing
+                pil_img = Image.fromarray(img_np_array, mode="RGBA")
+                del img_np_array
                 resize_params = prepare_resize_params(self, pil_img, False)
                 resized_image = await self.async_resize_images(resize_params)
-                return resized_image
-            LOGGER.debug("%s: Frame Completed.", self.file_name)
-            return pil_img
+
+                # Return WebP bytes or PIL Image based on parameter
+                if return_webp:
+                    from .config.utils import pil_to_webp_bytes
+                    webp_bytes = await pil_to_webp_bytes(
+                        resized_image,
+                        quality=90,
+                        lossless=False
+                    )
+                    return webp_bytes
+                else:
+                    return resized_image
+            else:
+                # Return WebP bytes or PIL Image based on parameter
+                if return_webp:
+                    # Convert directly from NumPy to WebP for better performance
+                    webp_bytes = await numpy_to_webp_bytes(
+                        img_np_array,
+                        quality=90,
+                        lossless=False
+                    )
+                    del img_np_array
+                    LOGGER.debug("%s: Frame Completed.", self.file_name)
+                    return webp_bytes
+                else:
+                    # Convert to PIL Image (original behavior)
+                    pil_img = Image.fromarray(img_np_array, mode="RGBA")
+                    del img_np_array
+                    LOGGER.debug("%s: Frame Completed.", self.file_name)
+                    return pil_img
         except (RuntimeError, RuntimeWarning) as e:
             LOGGER.warning(
                 "%s: Error %s during image creation.",

@@ -430,21 +430,30 @@ class ImageDraw:
         """Helper function to check active zones and set zooming state."""
         if self.img_h.active_zones and self.img_h.robot_in_room:
             from .config.types import RoomStore
+
             segment_id = str(self.img_h.robot_in_room["id"])
             room_store = RoomStore(self.file_name)
             room_keys = list(room_store.get_rooms().keys())
 
             _LOGGER.debug(
                 "%s: Active zones debug - segment_id: %s, room_keys: %s, active_zones: %s",
-                self.file_name, segment_id, room_keys, self.img_h.active_zones
+                self.file_name,
+                segment_id,
+                room_keys,
+                self.img_h.active_zones,
             )
 
             if segment_id in room_keys:
                 position = room_keys.index(segment_id)
                 _LOGGER.debug(
                     "%s: Segment ID %s found at position %s, active_zones[%s] = %s",
-                    self.file_name, segment_id, position, position,
-                    self.img_h.active_zones[position] if position < len(self.img_h.active_zones) else "OUT_OF_BOUNDS"
+                    self.file_name,
+                    segment_id,
+                    position,
+                    position,
+                    self.img_h.active_zones[position]
+                    if position < len(self.img_h.active_zones)
+                    else "OUT_OF_BOUNDS",
                 )
                 if position < len(self.img_h.active_zones):
                     self.img_h.zooming = bool(self.img_h.active_zones[position])
@@ -453,7 +462,9 @@ class ImageDraw:
             else:
                 _LOGGER.warning(
                     "%s: Segment ID %s not found in room_keys %s",
-                    self.file_name, segment_id, room_keys
+                    self.file_name,
+                    segment_id,
+                    room_keys,
                 )
                 self.img_h.zooming = False
         else:
@@ -580,7 +591,9 @@ class ImageDraw:
                 if self.point_in_polygon(int(robot_x), int(robot_y), outline):
                     # Robot is in this room
                     self.img_h.robot_in_room = {
-                        "id": room.get("id", room_count),  # Use actual segment ID if available
+                        "id": room.get(
+                            "id", room_count
+                        ),  # Use actual segment ID if available
                         "room": str(room["name"]),
                         "outline": outline,
                     }
@@ -594,30 +607,43 @@ class ImageDraw:
                     # Handle active zones - Map segment ID to active_zones position
                     if self.img_h.active_zones:
                         from .config.types import RoomStore
+
                         segment_id = str(self.img_h.robot_in_room["id"])
                         room_store = RoomStore(self.file_name)
                         room_keys = list(room_store.get_rooms().keys())
 
                         _LOGGER.debug(
                             "%s: Active zones debug - segment_id: %s, room_keys: %s, active_zones: %s",
-                            self.file_name, segment_id, room_keys, self.img_h.active_zones
+                            self.file_name,
+                            segment_id,
+                            room_keys,
+                            self.img_h.active_zones,
                         )
 
                         if segment_id in room_keys:
                             position = room_keys.index(segment_id)
                             _LOGGER.debug(
                                 "%s: Segment ID %s found at position %s, active_zones[%s] = %s",
-                                self.file_name, segment_id, position, position,
-                                self.img_h.active_zones[position] if position < len(self.img_h.active_zones) else "OUT_OF_BOUNDS"
+                                self.file_name,
+                                segment_id,
+                                position,
+                                position,
+                                self.img_h.active_zones[position]
+                                if position < len(self.img_h.active_zones)
+                                else "OUT_OF_BOUNDS",
                             )
                             if position < len(self.img_h.active_zones):
-                                self.img_h.zooming = bool(self.img_h.active_zones[position])
+                                self.img_h.zooming = bool(
+                                    self.img_h.active_zones[position]
+                                )
                             else:
                                 self.img_h.zooming = False
                         else:
                             _LOGGER.warning(
                                 "%s: Segment ID %s not found in room_keys %s",
-                                self.file_name, segment_id, room_keys
+                                self.file_name,
+                                segment_id,
+                                room_keys,
                             )
                             self.img_h.zooming = False
                     else:
@@ -634,7 +660,9 @@ class ImageDraw:
                 corners = room["corners"]
                 # Create a bounding box from the corners
                 self.img_h.robot_in_room = {
-                    "id": room.get("id", room_count),  # Use actual segment ID if available
+                    "id": room.get(
+                        "id", room_count
+                    ),  # Use actual segment ID if available
                     "left": int(corners[0][0]),
                     "right": int(corners[2][0]),
                     "up": int(corners[0][1]),
