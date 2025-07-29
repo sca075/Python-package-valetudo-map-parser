@@ -194,7 +194,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     webp_bytes = await numpy_to_webp_bytes(
                         img_np_array,
                         quality=90,  # High quality for vacuum maps
-                        lossless=False  # Use lossy compression for smaller size
+                        lossless=False,  # Use lossy compression for smaller size
                     )
                     del img_np_array  # free memory
                     return webp_bytes
