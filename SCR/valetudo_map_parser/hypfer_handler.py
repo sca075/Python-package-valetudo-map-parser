@@ -379,11 +379,8 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                 # Return WebP bytes or PIL Image based on parameter
                 if return_webp:
                     from .config.utils import pil_to_webp_bytes
-                    webp_bytes = await pil_to_webp_bytes(
-                        resized_image,
-                        quality=90,
-                        lossless=False
-                    )
+
+                    webp_bytes = await pil_to_webp_bytes(resized_image)
                     return webp_bytes
                 else:
                     return resized_image
@@ -391,11 +388,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                 # Return WebP bytes or PIL Image based on parameter
                 if return_webp:
                     # Convert directly from NumPy to WebP for better performance
-                    webp_bytes = await numpy_to_webp_bytes(
-                        img_np_array,
-                        quality=90,
-                        lossless=False
-                    )
+                    webp_bytes = await numpy_to_webp_bytes(img_np_array)
                     del img_np_array
                     LOGGER.debug("%s: Frame Completed.", self.file_name)
                     return webp_bytes

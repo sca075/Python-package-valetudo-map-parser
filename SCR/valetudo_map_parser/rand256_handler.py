@@ -191,11 +191,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 # Return WebP bytes or PIL Image based on parameter
                 if return_webp:
                     # Convert directly to WebP bytes for better performance
-                    webp_bytes = await numpy_to_webp_bytes(
-                        img_np_array,
-                        quality=90,  # High quality for vacuum maps
-                        lossless=False,  # Use lossy compression for smaller size
-                    )
+                    webp_bytes = await numpy_to_webp_bytes(img_np_array)
                     del img_np_array  # free memory
                     return webp_bytes
                 else:

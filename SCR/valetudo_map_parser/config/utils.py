@@ -12,7 +12,15 @@ from PIL import Image, ImageOps
 from .drawable import Drawable
 from .drawable_elements import DrawableElement, DrawingConfig
 from .enhanced_drawable import EnhancedDrawable
-from .types import LOGGER, ChargerPosition, ImageSize, NumpyArray, PilPNG, RobotPosition, WebPBytes
+from .types import (
+    LOGGER,
+    ChargerPosition,
+    ImageSize,
+    NumpyArray,
+    PilPNG,
+    RobotPosition,
+    WebPBytes,
+)
 
 
 @dataclass
@@ -843,10 +851,8 @@ async def async_extract_room_outline(
 
 
 async def numpy_to_webp_bytes(
-    img_np_array: np.ndarray,
-    quality: int = 85,
-    lossless: bool = False
-) -> bytes:
+    img_np_array: np.ndarray, quality: int = 85, lossless: bool = False
+) -> WebPBytes:
     """
     Convert NumPy array directly to WebP bytes.
 
@@ -864,13 +870,12 @@ async def numpy_to_webp_bytes(
     # Create bytes buffer
     webp_buffer = io.BytesIO()
 
-    # Save as WebP
+    # Save as WebP - PIL images should use lossless=True for best results
     pil_img.save(
         webp_buffer,
-        format='WEBP',
-        quality=quality,
-        lossless=lossless,
-        method=6  # Best compression method
+        format="WEBP",
+        lossless=True,  # Always lossless for PIL images
+        method=1,  # Fastest method for lossless
     )
 
     # Get bytes and cleanup
@@ -881,9 +886,7 @@ async def numpy_to_webp_bytes(
 
 
 async def pil_to_webp_bytes(
-    pil_img: Image.Image,
-    quality: int = 85,
-    lossless: bool = False
+    pil_img: Image.Image, quality: int = 85, lossless: bool = False
 ) -> bytes:
     """
     Convert PIL Image to WebP bytes.
@@ -899,13 +902,12 @@ async def pil_to_webp_bytes(
     # Create bytes buffer
     webp_buffer = io.BytesIO()
 
-    # Save as WebP
+    # Save as WebP - PIL images should use lossless=True for best results
     pil_img.save(
         webp_buffer,
-        format='WEBP',
-        quality=quality,
-        lossless=lossless,
-        method=6  # Best compression method
+        format="WEBP",
+        lossless=True,  # Always lossless for PIL images
+        method=1,  # Fastest method for lossless
     )
 
     # Get bytes and cleanup
