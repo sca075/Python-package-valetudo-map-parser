@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .config.types import ImageSize, JsonType, LOGGER
+from .config.types import ImageSize, JsonType
 
 
 class ImageData:
@@ -302,7 +302,7 @@ class RandImageData:
         return json_data.get("robot", {})
 
     @staticmethod
-    def get_rrm_robot_angle(json_data) -> tuple:
+    def get_rrm_robot_angle(json_data: JsonType) -> tuple:
         """
         Get the robot angle from the json.
         Return the calculated angle and original angle.
