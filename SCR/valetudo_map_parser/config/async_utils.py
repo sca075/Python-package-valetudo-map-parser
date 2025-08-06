@@ -10,7 +10,9 @@ from PIL import Image
 
 async def make_async(func: Callable, *args, **kwargs) -> Any:
     """Convert a synchronous function to async by yielding control to the event loop."""
-    return await asyncio.to_thread(func, *args, **kwargs)
+    result = func(*args, **kwargs)
+    await asyncio.sleep(0)
+    return result
 
 
 class AsyncNumPy:
