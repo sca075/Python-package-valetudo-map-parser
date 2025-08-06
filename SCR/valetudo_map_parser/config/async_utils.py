@@ -1,6 +1,7 @@
 """Async utility functions for making NumPy and PIL operations truly async."""
 
 import asyncio
+import io
 from typing import Any, Callable
 
 import numpy as np
@@ -9,10 +10,7 @@ from PIL import Image
 
 async def make_async(func: Callable, *args, **kwargs) -> Any:
     """Convert a synchronous function to async by yielding control to the event loop."""
-    await asyncio.sleep(0)
-    result = func(*args, **kwargs)
-    await asyncio.sleep(0)
-    return result
+    return await asyncio.to_thread(func, *args, **kwargs)
 
 
 class AsyncNumPy:
@@ -48,7 +46,6 @@ class AsyncPIL:
     async def async_save_to_bytes(image: Image.Image, format_type: str = "WEBP", **kwargs) -> bytes:
         """Async image saving to bytes."""
         def save_to_bytes():
-            import io
             buffer = io.BytesIO()
             image.save(buffer, format=format_type, **kwargs)
             return buffer.getvalue()

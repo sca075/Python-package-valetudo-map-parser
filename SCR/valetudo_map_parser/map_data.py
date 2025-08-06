@@ -18,10 +18,12 @@ class ImageData:
 
     @staticmethod
     def sublist(lst, n):
+        """Split a list into n chunks of specified size."""
         return [lst[i: i + n] for i in range(0, len(lst), n)]
 
     @staticmethod
     def sublist_join(lst, n):
+        """Join the lists in a unique list of n elements."""
         arr = np.array(lst)
         num_windows = len(lst) - n + 1
         result = [arr[i: i + n].tolist() for i in range(num_windows)]
@@ -29,6 +31,7 @@ class ImageData:
 
     @staticmethod
     def get_obstacles(entity_dict: dict) -> list:
+        """Get the obstacles positions from the entity data."""
         obstacles = entity_dict.get("obstacle", [])
         obstacle_positions = []
         for obstacle in obstacles:
@@ -45,6 +48,7 @@ class ImageData:
 
     @staticmethod
     def find_layers(json_obj: JsonType, layer_dict: dict, active_list: list) -> tuple[dict, list]:
+        """Find the layers in the json object."""
         layer_dict = {} if layer_dict is None else layer_dict
         active_list = [] if active_list is None else active_list
         if isinstance(json_obj, dict):
@@ -64,6 +68,7 @@ class ImageData:
 
     @staticmethod
     def find_points_entities(json_obj: JsonType, entity_dict: dict = None) -> dict:
+        """Find the points entities in the json object."""
         entity_dict = {} if entity_dict is None else entity_dict
         if isinstance(json_obj, dict):
             if json_obj.get("__class") == "PointMapEntity":
@@ -79,6 +84,7 @@ class ImageData:
 
     @staticmethod
     def find_paths_entities(json_obj: JsonType, entity_dict: dict = None) -> dict:
+        """Find the paths entities in the json object."""
         entity_dict = {} if entity_dict is None else entity_dict
         if isinstance(json_obj, dict):
             if json_obj.get("__class") == "PathMapEntity":
@@ -94,6 +100,7 @@ class ImageData:
 
     @staticmethod
     def find_zone_entities(json_obj: JsonType, entity_dict: dict = None) -> dict:
+        """Find the zone entities in the json object."""
         entity_dict = {} if entity_dict is None else entity_dict
         if isinstance(json_obj, dict):
             if json_obj.get("__class") == "PolygonMapEntity":
@@ -109,6 +116,7 @@ class ImageData:
 
     @staticmethod
     def find_virtual_walls(json_obj: JsonType) -> list:
+        """Find the virtual walls in the json object."""
         walls = []
 
         def _recursive(obj):
@@ -126,6 +134,7 @@ class ImageData:
 
     @staticmethod
     async def async_get_rooms_coordinates(pixels: list, pixel_size: int = 5, rand: bool = False) -> tuple:
+        """Extract the room coordinates from the vacuum pixels data."""
         df = pd.DataFrame(pixels, columns=["x", "y", "length"])
         if rand:
             df["x_end"] = df["x"]
