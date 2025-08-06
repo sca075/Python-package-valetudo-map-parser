@@ -16,6 +16,7 @@ import math
 import numpy as np
 from PIL import ImageDraw, ImageFont
 
+from .async_utils import AsyncNumPy
 from .color_utils import get_blended_color
 from .colors import ColorsManagement
 from .types import Color, NumpyArray, PilPNG, Point, Tuple, Union
@@ -45,7 +46,7 @@ class Drawable:
     ) -> NumpyArray:
         """Create the empty background image NumPy array.
         Background color is specified as an RGBA tuple."""
-        return np.full((height, width, 4), background_color, dtype=np.uint8)
+        return await AsyncNumPy.async_full((height, width, 4), background_color, dtype=np.uint8)
 
     @staticmethod
     async def from_json_to_image(

@@ -11,6 +11,7 @@ import json
 
 from PIL import Image
 
+from .config.async_utils import AsyncNumPy, AsyncPIL
 from .config.auto_crop import AutoCrop
 from .config.drawable_elements import DrawableElement
 from .config.shared import CameraShared
@@ -371,7 +372,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
             # Handle resizing if needed, then return based on format preference
             if self.check_zoom_and_aspect_ratio():
                 # Convert to PIL for resizing
-                pil_img = Image.fromarray(img_np_array, mode="RGBA")
+                pil_img = await AsyncPIL.async_fromarray(img_np_array, mode="RGBA")
                 del img_np_array
                 resize_params = prepare_resize_params(self, pil_img, False)
                 resized_image = await self.async_resize_images(resize_params)
@@ -394,7 +395,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                     return webp_bytes
                 else:
                     # Convert to PIL Image (original behavior)
-                    pil_img = Image.fromarray(img_np_array, mode="RGBA")
+                    pil_img = await AsyncPIL.async_fromarray(img_np_array, mode="RGBA")
                     del img_np_array
                     LOGGER.debug("%s: Frame Completed.", self.file_name)
                     return pil_img
@@ -474,4 +475,4 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
     @staticmethod
     async def async_copy_array(original_array):
         """Copy the array."""
-        return original_array.copy()
+        return await AsyncNumPy.async_copy(original_array)
