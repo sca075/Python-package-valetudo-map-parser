@@ -18,6 +18,7 @@ from .types import (
     ATTR_ROTATE,
     ATTR_SNAPSHOT,
     ATTR_VACUUM_BATTERY,
+    ATTR_VACUUM_CHARGING,
     ATTR_VACUUM_JSON_ID,
     ATTR_VACUUM_POSITION,
     ATTR_VACUUM_STATUS,
@@ -60,7 +61,7 @@ class CameraShared:
         self.last_image = None  # Last image received
         self.current_image = None  # Current image
         self.binary_image = None  # Current image in binary format
-        self.image_format = "WebP"  # Image format
+        self.image_format = "image/pil"  # Image format
         self.image_size = None  # Image size
         self.image_auto_zoom: bool = False  # Auto zoom image
         self.image_zoom_lock_ratio: bool = True  # Zoom lock ratio
@@ -111,6 +112,12 @@ class CameraShared:
         self.trims = TrimsData.from_dict(DEFAULT_VALUES["trims_data"])  # Trims data
         self.skip_room_ids: List[str] = []
         self.device_info = None  # Store the device_info
+
+
+
+    def _state_charging(self) -> bool:
+        """Check if the vacuum is charging."""
+        return self.vacuum_state == "charging"
 
     @staticmethod
     def _compose_obstacle_links(vacuum_host_ip: str, obstacles: list) -> list | None:
@@ -186,6 +193,7 @@ class CameraShared:
         attrs = {
             ATTR_CAMERA_MODE: self.camera_mode,
             ATTR_VACUUM_BATTERY: f"{self.vacuum_battery}%",
+            ATTR_VACUUM_CHARGING: self._state_charging(),
             ATTR_VACUUM_POSITION: self.current_room,
             ATTR_VACUUM_STATUS: self.vacuum_state,
             ATTR_VACUUM_JSON_ID: self.vac_json_id,
