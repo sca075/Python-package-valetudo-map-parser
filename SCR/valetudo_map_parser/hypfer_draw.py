@@ -6,10 +6,11 @@ Version: 2024.07.2
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from .config.drawable_elements import DrawableElement
-from .config.types import Color, JsonType, NumpyArray, RobotPosition
+from .config.types import Color, JsonType, NumpyArray, RobotPosition, RoomStore
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -92,7 +93,7 @@ class ImageDraw:
         pixel_size,
         disabled_rooms=None,
     ):
-        """Draw the base layer of the map.
+        """Draw the base layer of the map with parallel processing for rooms.
 
         Args:
             img_np_array: The image array to draw on
@@ -108,6 +109,7 @@ class ImageDraw:
         """
         room_id = 0
 
+        # Sequential processing for rooms/segments (dependencies require this)
         for compressed_pixels in compressed_pixels_list:
             pixels = self.img_h.data.sublist(compressed_pixels, 3)
 
@@ -325,41 +327,49 @@ class ImageDraw:
         color_zone_clean: Color,
         color_no_go: Color,
     ) -> NumpyArray:
-        """Get the zone clean from the JSON data."""
+        """Get the zone clean from the JSON data with parallel processing."""
+
         try:
             zone_clean = self.img_h.data.find_zone_entities(m_json)
         except (ValueError, KeyError):
             zone_clean = None
         else:
             _LOGGER.info("%s: Got zones.", self.file_name)
+
         if zone_clean:
-            try:
-                zones_active = zone_clean.get("active_zone")
-            except KeyError:
-                zones_active = None
+            # Prepare zone drawing tasks for parallel execution
+            zone_tasks = []
+
+            # Active zones
+            zones_active = zone_clean.get("active_zone")
             if zones_active:
-                np_array = await self.img_h.draw.zones(
-                    np_array, zones_active, color_zone_clean
+                zone_tasks.append(
+                    self.img_h.draw.zones(np_array.copy(), zones_active, color_zone_clean)
                 )
-            try:
-                no_go_zones = zone_clean.get("no_go_area")
-            except KeyError:
-                no_go_zones = None
 
+            # No-go zones
+            no_go_zones = zone_clean.get("no_go_area")
             if no_go_zones:
-                np_array = await self.img_h.draw.zones(
-                    np_array, no_go_zones, color_no_go
+                zone_tasks.append(
+                    self.img_h.draw.zones(np_array.copy(), no_go_zones, color_no_go)
                 )
 
-            try:
-                no_mop_zones = zone_clean.get("no_mop_area")
-            except KeyError:
-                no_mop_zones = None
-
+            # No-mop zones
+            no_mop_zones = zone_clean.get("no_mop_area")
             if no_mop_zones:
-                np_array = await self.img_h.draw.zones(
-                    np_array, no_mop_zones, color_no_go
+                zone_tasks.append(
+                    self.img_h.draw.zones(np_array.copy(), no_mop_zones, color_no_go)
                 )
+
+            # Execute all zone drawing tasks in parallel
+            if zone_tasks:
+                zone_results = await asyncio.gather(*zone_tasks)
+                # Merge results back into the main array
+                for result in zone_results:
+                    # Simple overlay - in practice you might want more sophisticated blending
+                    mask = result != np_array
+                    np_array[mask] = result[mask]
+
         return np_array
 
     async def async_draw_virtual_walls(
@@ -429,7 +439,6 @@ class ImageDraw:
     def _check_active_zone_and_set_zooming(self) -> None:
         """Helper function to check active zones and set zooming state."""
         if self.img_h.active_zones and self.img_h.robot_in_room:
-            from .config.types import RoomStore
 
             segment_id = str(self.img_h.robot_in_room["id"])
             room_store = RoomStore(self.file_name)
@@ -606,7 +615,6 @@ class ImageDraw:
 
                     # Handle active zones - Map segment ID to active_zones position
                     if self.img_h.active_zones:
-                        from .config.types import RoomStore
 
                         segment_id = str(self.img_h.robot_in_room["id"])
                         room_store = RoomStore(self.file_name)

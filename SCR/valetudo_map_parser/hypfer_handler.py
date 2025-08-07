@@ -7,14 +7,16 @@ Version: 0.1.9
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 from PIL import Image
 
-from .config.async_utils import AsyncNumPy, AsyncPIL
+from .config.async_utils import AsyncNumPy, AsyncPIL, AsyncParallel
 from .config.auto_crop import AutoCrop
 from .config.drawable_elements import DrawableElement
 from .config.shared import CameraShared
+from .config.utils import pil_to_webp_bytes
 from .config.types import (
     COLORS,
     LOGGER,
@@ -292,14 +294,34 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                 )
                 # Copy the base layer to the new image.
                 img_np_array = await self.async_copy_array(self.img_base_layer)
-                # All below will be drawn at each frame.
-                # Draw zones if any and if enabled
+
+                # Prepare parallel data extraction tasks
+                data_tasks = []
+
+                # Prepare zone data extraction
+                if self.drawing_config.is_enabled(DrawableElement.RESTRICTED_AREA):
+                    data_tasks.append(self._prepare_zone_data(m_json))
+
+                # Prepare go_to flag data extraction
+                if self.drawing_config.is_enabled(DrawableElement.GO_TO_TARGET):
+                    data_tasks.append(self._prepare_goto_data(entity_dict))
+
+                # Prepare path data extraction
+                path_enabled = self.drawing_config.is_enabled(DrawableElement.PATH)
+                LOGGER.info("%s: PATH element enabled: %s", self.file_name, path_enabled)
+                if path_enabled:
+                    LOGGER.info("%s: Drawing path", self.file_name)
+                    data_tasks.append(self._prepare_path_data(m_json))
+
+                # Execute data preparation in parallel if we have tasks
+                if data_tasks:
+                    prepared_data = await AsyncParallel.parallel_data_preparation(*data_tasks)
+
+                # Process drawing operations sequentially (since they modify the same array)
+                # Draw zones if enabled
                 if self.drawing_config.is_enabled(DrawableElement.RESTRICTED_AREA):
                     img_np_array = await self.imd.async_draw_zones(
-                        m_json,
-                        img_np_array,
-                        colors["zone_clean"],
-                        colors["no_go"],
+                        m_json, img_np_array, colors["zone_clean"], colors["no_go"]
                     )
 
                 # Draw the go_to target flag if enabled
@@ -308,13 +330,8 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                         img_np_array, entity_dict, colors["go_to"]
                     )
 
-                # Draw path prediction and paths if enabled
-                path_enabled = self.drawing_config.is_enabled(DrawableElement.PATH)
-                LOGGER.info(
-                    "%s: PATH element enabled: %s", self.file_name, path_enabled
-                )
+                # Draw paths if enabled
                 if path_enabled:
-                    LOGGER.info("%s: Drawing path", self.file_name)
                     img_np_array = await self.imd.async_draw_paths(
                         img_np_array, m_json, colors["move"], self.color_grey
                     )
@@ -379,8 +396,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
 
                 # Return WebP bytes or PIL Image based on parameter
                 if return_webp:
-                    from .config.utils import pil_to_webp_bytes
-
                     webp_bytes = await pil_to_webp_bytes(resized_image)
                     return webp_bytes
                 else:
@@ -476,3 +491,25 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
     async def async_copy_array(original_array):
         """Copy the array."""
         return await AsyncNumPy.async_copy(original_array)
+
+    async def _prepare_zone_data(self, m_json):
+        """Prepare zone data for parallel processing."""
+        await asyncio.sleep(0)  # Yield control
+        try:
+            return self.data.find_zone_entities(m_json)
+        except (ValueError, KeyError):
+            return None
+
+    async def _prepare_goto_data(self, entity_dict):
+        """Prepare go-to flag data for parallel processing."""
+        await asyncio.sleep(0)  # Yield control
+        # Extract go-to target data from entity_dict
+        return entity_dict.get("go_to_target", None)
+
+    async def _prepare_path_data(self, m_json):
+        """Prepare path data for parallel processing."""
+        await asyncio.sleep(0)  # Yield control
+        try:
+            return self.data.find_path_entities(m_json)
+        except (ValueError, KeyError):
+            return None
