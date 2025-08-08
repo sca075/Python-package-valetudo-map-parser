@@ -74,7 +74,7 @@ class CameraShared:
         self.current_room = None  # Current room of rhe vacuum
         self.user_colors = Colors  # User base colors
         self.rooms_colors = Colors  # Rooms colors
-        self.vacuum_battery = None  # Vacuum battery state
+        self.vacuum_battery = 0  # Vacuum battery state
         self.vacuum_bat_charged: bool = True  # Vacuum charged and ready
         self.vacuum_connection = None  # Vacuum connection state
         self.vacuum_state = None  # Vacuum state
@@ -117,7 +117,7 @@ class CameraShared:
 
     def _state_charging(self) -> bool:
         """Check if the vacuum is charging."""
-        return (self.vacuum_state == "docked") and (self.vacuum_battery < 100)
+        return (self.vacuum_state == "docked") and (int(self.vacuum_battery) < 100)
 
     @staticmethod
     def _compose_obstacle_links(vacuum_host_ip: str, obstacles: list) -> list | None:
