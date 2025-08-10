@@ -7,6 +7,7 @@ Version: 0.1.9.a6
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from typing import Any
@@ -14,6 +15,7 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
+from .config.async_utils import AsyncNumPy, AsyncPIL, AsyncParallel
 from .config.auto_crop import AutoCrop
 from .config.drawable_elements import DrawableElement
 from .config.types import (
@@ -166,6 +168,14 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 self.json_id = str(uuid.uuid4())  # image id
                 _LOGGER.info("Vacuum Data ID: %s", self.json_id)
 
+                # Prepare parallel data extraction tasks
+                data_tasks = []
+                data_tasks.append(self._prepare_zone_data(m_json))
+                data_tasks.append(self._prepare_path_data(m_json))
+
+                # Execute data preparation tasks in parallel
+                zone_data, path_data = await asyncio.gather(*data_tasks, return_exceptions=True)
+
                 (
                     img_np_array,
                     robot_position,
@@ -192,12 +202,16 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 if return_webp:
                     # Convert directly to WebP bytes for better performance
                     webp_bytes = await numpy_to_webp_bytes(img_np_array)
-                    del img_np_array  # free memory
+                    # Return array to pool for reuse instead of just deleting
+                    from .config.drawable import Drawable
+                    Drawable.return_image_to_pool(img_np_array)
                     return webp_bytes
                 else:
-                    # Convert to PIL Image (original behavior)
-                    pil_img = Image.fromarray(img_np_array, mode="RGBA")
-                    del img_np_array  # free memory
+                    # Convert to PIL Image using async utilities
+                    pil_img = await AsyncPIL.async_fromarray(img_np_array, mode="RGBA")
+                    # Return array to pool for reuse instead of just deleting
+                    from .config.drawable import Drawable
+                    Drawable.return_image_to_pool(img_np_array)
                     return await self._finalize_image(pil_img)
 
         except (RuntimeError, RuntimeWarning) as e:
@@ -673,3 +687,25 @@ class ReImageHandler(BaseHandler, AutoCrop):
             property_name=property_name,
             value=value,
         )
+
+    async def async_copy_array(self, original_array):
+        """Copy the array using async utilities."""
+        return await AsyncNumPy.async_copy(original_array)
+
+    async def _prepare_zone_data(self, m_json):
+        """Prepare zone data for parallel processing."""
+        await asyncio.sleep(0)  # Yield control
+        try:
+            return self.data.find_zone_entities(m_json)
+        except (ValueError, KeyError):
+            return None
+
+    async def _prepare_path_data(self, m_json):
+        """Prepare path data for parallel processing."""
+        await asyncio.sleep(0)  # Yield control
+        try:
+            return self.data.find_path_entities(m_json)
+        except (ValueError, KeyError):
+            return None
+
+

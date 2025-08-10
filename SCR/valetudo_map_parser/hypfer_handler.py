@@ -390,7 +390,9 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
             if self.check_zoom_and_aspect_ratio():
                 # Convert to PIL for resizing
                 pil_img = await AsyncPIL.async_fromarray(img_np_array, mode="RGBA")
-                del img_np_array
+                # Return array to pool for reuse instead of just deleting
+                from .config.drawable import Drawable
+                Drawable.return_image_to_pool(img_np_array)
                 resize_params = prepare_resize_params(self, pil_img, False)
                 resized_image = await self.async_resize_images(resize_params)
 
@@ -405,13 +407,17 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                 if return_webp:
                     # Convert directly from NumPy to WebP for better performance
                     webp_bytes = await numpy_to_webp_bytes(img_np_array)
-                    del img_np_array
+                    # Return array to pool for reuse instead of just deleting
+                    from .config.drawable import Drawable
+                    Drawable.return_image_to_pool(img_np_array)
                     LOGGER.debug("%s: Frame Completed.", self.file_name)
                     return webp_bytes
                 else:
                     # Convert to PIL Image (original behavior)
                     pil_img = await AsyncPIL.async_fromarray(img_np_array, mode="RGBA")
-                    del img_np_array
+                    # Return array to pool for reuse instead of just deleting
+                    from .config.drawable import Drawable
+                    Drawable.return_image_to_pool(img_np_array)
                     LOGGER.debug("%s: Frame Completed.", self.file_name)
                     return pil_img
         except (RuntimeError, RuntimeWarning) as e:
