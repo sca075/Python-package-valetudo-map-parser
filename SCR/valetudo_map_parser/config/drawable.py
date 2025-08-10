@@ -12,6 +12,9 @@ from __future__ import annotations
 
 import logging
 import math
+import asyncio
+import inspect
+import threading
 
 import numpy as np
 from PIL import ImageDraw, ImageFont
@@ -22,6 +25,72 @@ from .types import Color, NumpyArray, PilPNG, Point, Tuple, Union
 
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class ImageArrayPool:
+    """Thread-safe memory pool for reusing image arrays to reduce allocation overhead."""
+
+    def __init__(self, max_arrays_per_size: int = 3):
+        self._pools = {}  # {(width, height): [array1, array2, ...]}
+        self._lock = threading.Lock()
+        self._max_arrays_per_size = max_arrays_per_size
+
+    def get_array(self, width: int, height: int, background_color: Color) -> NumpyArray:
+        """Get a reusable array or create a new one if none available."""
+        key = (width, height)
+
+        with self._lock:
+            if key in self._pools and self._pools[key]:
+                # Reuse existing array
+                array = self._pools[key].pop()
+                _LOGGER.debug("Reused array from pool for size %dx%d", width, height)
+            else:
+                # Create new array
+                array = np.empty((height, width, 4), dtype=np.uint8)
+                _LOGGER.debug("Created new array for size %dx%d", width, height)
+
+        # Fill with background color (outside lock for better performance)
+        array[:] = background_color
+        return array
+
+    def return_array(self, array: NumpyArray) -> None:
+        """Return an array to the pool for reuse."""
+        if array is None:
+            return
+
+        height, width = array.shape[:2]
+        key = (width, height)
+
+        with self._lock:
+            if key not in self._pools:
+                self._pools[key] = []
+
+            # Only keep up to max_arrays_per_size arrays per size
+            if len(self._pools[key]) < self._max_arrays_per_size:
+                self._pools[key].append(array)
+                _LOGGER.debug("Returned array to pool for size %dx%d (pool size: %d)",
+                             width, height, len(self._pools[key]))
+            else:
+                _LOGGER.debug("Pool full for size %dx%d, discarding array", width, height)
+
+    def clear_pool(self) -> None:
+        """Clear all arrays from the pool."""
+        with self._lock:
+            total_arrays = sum(len(arrays) for arrays in self._pools.values())
+            self._pools.clear()
+            _LOGGER.debug("Cleared image array pool (%d arrays freed)", total_arrays)
+
+    def get_pool_stats(self) -> dict:
+        """Get statistics about the current pool state."""
+        with self._lock:
+            stats = {}
+            for (width, height), arrays in self._pools.items():
+                stats[f"{width}x{height}"] = len(arrays)
+            return stats
+
+
+# Global shared pool instance for both Hypfer and Rand256 handlers
+_image_pool = ImageArrayPool()
 
 
 class Drawable:
@@ -43,9 +112,27 @@ class Drawable:
     async def create_empty_image(
         width: int, height: int, background_color: Color
     ) -> NumpyArray:
-        """Create the empty background image NumPy array.
-        Background color is specified as an RGBA tuple."""
-        return np.full((height, width, 4), background_color, dtype=np.uint8)
+        """Create the empty background image NumPy array using memory pool for better performance.
+        Background color is specified as an RGBA tuple.
+        Optimized: Uses shared memory pool to reuse arrays and reduce allocation overhead."""
+        # Get array from shared pool (reuses memory when possible)
+        return _image_pool.get_array(width, height, background_color)
+
+    @staticmethod
+    def return_image_to_pool(image_array: NumpyArray) -> None:
+        """Return an image array to the memory pool for reuse.
+        Call this when you're done with an image array to enable memory reuse."""
+        _image_pool.return_array(image_array)
+
+    @staticmethod
+    def get_pool_stats() -> dict:
+        """Get statistics about the current memory pool state."""
+        return _image_pool.get_pool_stats()
+
+    @staticmethod
+    def clear_image_pool() -> None:
+        """Clear all arrays from the memory pool."""
+        _image_pool.clear_pool()
 
     @staticmethod
     async def from_json_to_image(
@@ -152,6 +239,8 @@ class Drawable:
         It uses the rotation angle of the image to orient the flag.
         Includes color blending for better visual integration.
         """
+        await asyncio.sleep(0)  # Yield control
+
         # Check if coordinates are within bounds
         height, width = layer.shape[:2]
         x, y = center
@@ -323,7 +412,12 @@ class Drawable:
         Join the coordinates creating a continuous line (path).
         Optimized with vectorized operations for better performance.
         """
-        for coord in coords:
+
+        # Handle case where arr might be a coroutine (shouldn't happen but let's be safe)
+        if inspect.iscoroutine(arr):
+            arr = await arr
+
+        for i, coord in enumerate(coords):
             x0, y0 = coord[0]
             try:
                 x1, y1 = coord[1]
@@ -339,6 +433,10 @@ class Drawable:
 
             # Use the optimized line drawing method
             arr = Drawable._line(arr, x0, y0, x1, y1, blended_color, width)
+
+            # Yield control every 100 operations to prevent blocking
+            if i % 100 == 0:
+                await asyncio.sleep(0)
 
         return arr
 
@@ -484,56 +582,120 @@ class Drawable:
     async def zones(layers: NumpyArray, coordinates, color: Color) -> NumpyArray:
         """
         Draw the zones on the input layer with color blending.
-        Optimized with NumPy vectorized operations for better performance.
+        Optimized with parallel processing for better performance.
         """
+        await asyncio.sleep(0)  # Yield control
+
         dot_radius = 1  # Number of pixels for the dot
         dot_spacing = 4  # Space between dots
 
-        for zone in coordinates:
-            points = zone["points"]
-            min_x = max(0, min(points[::2]))
-            max_x = min(layers.shape[1] - 1, max(points[::2]))
-            min_y = max(0, min(points[1::2]))
-            max_y = min(layers.shape[0] - 1, max(points[1::2]))
+        # Process zones in parallel if there are multiple zones
+        if len(coordinates) > 1:
+            # Create tasks for parallel zone processing
+            zone_tasks = []
+            for zone in coordinates:
+                zone_tasks.append(Drawable._process_single_zone(layers.copy(), zone, color, dot_radius, dot_spacing))
 
-            # Skip if zone is outside the image
-            if min_x >= max_x or min_y >= max_y:
-                continue
+            # Execute all zone processing tasks in parallel
+            zone_results = await asyncio.gather(*zone_tasks, return_exceptions=True)
 
-            # Sample a point from the zone to get the background color
-            # Use the center of the zone for sampling
-            sample_x = (min_x + max_x) // 2
-            sample_y = (min_y + max_y) // 2
+            # Merge results back into the main layer
+            for result in zone_results:
+                if not isinstance(result, Exception):
+                    # Simple overlay - pixels that are different from original get updated
+                    mask = result != layers
+                    layers[mask] = result[mask]
+        else:
+            # Single zone - process directly
+            for zone in coordinates:
+                points = zone["points"]
+                min_x = max(0, min(points[::2]))
+                max_x = min(layers.shape[1] - 1, max(points[::2]))
+                min_y = max(0, min(points[1::2]))
+                max_y = min(layers.shape[0] - 1, max(points[1::2]))
 
-            # Blend the color with the background color at the sample point
-            if 0 <= sample_y < layers.shape[0] and 0 <= sample_x < layers.shape[1]:
-                blended_color = ColorsManagement.sample_and_blend_color(
-                    layers, sample_x, sample_y, color
-                )
-            else:
-                blended_color = color
+                # Skip if zone is outside the image
+                if min_x >= max_x or min_y >= max_y:
+                    continue
 
-            # Create a grid of dot centers
-            x_centers = np.arange(min_x, max_x, dot_spacing)
-            y_centers = np.arange(min_y, max_y, dot_spacing)
+                # Sample a point from the zone to get the background color
+                # Use the center of the zone for sampling
+                sample_x = (min_x + max_x) // 2
+                sample_y = (min_y + max_y) // 2
 
-            # Draw dots at each grid point
-            for y in y_centers:
-                for x in x_centers:
-                    # Create a small mask for the dot
+                # Blend the color with the background color at the sample point
+                if 0 <= sample_y < layers.shape[0] and 0 <= sample_x < layers.shape[1]:
+                    blended_color = ColorsManagement.sample_and_blend_color(
+                        layers, sample_x, sample_y, color
+                    )
+                else:
+                    blended_color = color
+
+                # Create a grid of dot centers
+                x_centers = np.arange(min_x, max_x, dot_spacing)
+                y_centers = np.arange(min_y, max_y, dot_spacing)
+
+                # Draw dots at each grid point
+                for y in y_centers:
+                    for x in x_centers:
+                        # Create a small mask for the dot
+                        y_min = max(0, y - dot_radius)
+                        y_max = min(layers.shape[0], y + dot_radius + 1)
+                        x_min = max(0, x - dot_radius)
+                        x_max = min(layers.shape[1], x + dot_radius + 1)
+
+                        # Create coordinate arrays for the dot
+                        y_indices, x_indices = np.ogrid[y_min:y_max, x_min:x_max]
+
+                        # Create a circular mask
+                        mask = (y_indices - y) ** 2 + (x_indices - x) ** 2 <= dot_radius**2
+
+                        # Apply the color to the masked region
+                        layers[y_min:y_max, x_min:x_max][mask] = blended_color
+
+        return layers
+
+    @staticmethod
+    async def _process_single_zone(layers: NumpyArray, zone, color: Color, dot_radius: int, dot_spacing: int) -> NumpyArray:
+        """Process a single zone for parallel execution."""
+        await asyncio.sleep(0)  # Yield control
+
+        points = zone["points"]
+        min_x = max(0, min(points[::2]))
+        max_x = min(layers.shape[1] - 1, max(points[::2]))
+        min_y = max(0, min(points[1::2]))
+        max_y = min(layers.shape[0] - 1, max(points[1::2]))
+
+        # Skip if zone is outside the image
+        if min_x >= max_x or min_y >= max_y:
+            return layers
+
+        # Sample a point from the zone to get the background color
+        sample_x = (min_x + max_x) // 2
+        sample_y = (min_y + max_y) // 2
+
+        # Blend the color with the background color at the sample point
+        if 0 <= sample_y < layers.shape[0] and 0 <= sample_x < layers.shape[1]:
+            blended_color = ColorsManagement.sample_and_blend_color(
+                layers, sample_x, sample_y, color
+            )
+        else:
+            blended_color = color
+
+        # Create a dotted pattern within the zone
+        for y in range(min_y, max_y + 1, dot_spacing):
+            for x in range(min_x, max_x + 1, dot_spacing):
+                if Drawable.point_inside(x, y, points):
+                    # Draw a small filled circle (dot) using vectorized operations
                     y_min = max(0, y - dot_radius)
                     y_max = min(layers.shape[0], y + dot_radius + 1)
                     x_min = max(0, x - dot_radius)
                     x_max = min(layers.shape[1], x + dot_radius + 1)
 
-                    # Create coordinate arrays for the dot
-                    y_indices, x_indices = np.ogrid[y_min:y_max, x_min:x_max]
-
-                    # Create a circular mask
-                    mask = (y_indices - y) ** 2 + (x_indices - x) ** 2 <= dot_radius**2
-
-                    # Apply the color to the masked region
-                    layers[y_min:y_max, x_min:x_max][mask] = blended_color
+                    if y_min < y_max and x_min < x_max:
+                        y_indices, x_indices = np.ogrid[y_min:y_max, x_min:x_max]
+                        mask = (y_indices - y) ** 2 + (x_indices - x) ** 2 <= dot_radius**2
+                        layers[y_min:y_max, x_min:x_max][mask] = blended_color
 
         return layers
 

@@ -9,6 +9,7 @@ import numpy as np
 from numpy import rot90
 from scipy import ndimage
 
+from .async_utils import AsyncNumPy, make_async
 from .types import Color, NumpyArray, TrimCropData, TrimsData
 from .utils import BaseHandler
 
@@ -364,7 +365,7 @@ class AutoCrop:
     ) -> NumpyArray:
         """Rotate the image and return the new array."""
         if rotate == 90:
-            rotated = rot90(trimmed)
+            rotated = await AsyncNumPy.async_rot90(trimmed)
             self.crop_area = [
                 self.trim_left,
                 self.trim_up,
@@ -372,10 +373,10 @@ class AutoCrop:
                 self.trim_down,
             ]
         elif rotate == 180:
-            rotated = rot90(trimmed, 2)
+            rotated = await AsyncNumPy.async_rot90(trimmed, 2)
             self.crop_area = self.auto_crop
         elif rotate == 270:
-            rotated = rot90(trimmed, 3)
+            rotated = await AsyncNumPy.async_rot90(trimmed, 3)
             self.crop_area = [
                 self.trim_left,
                 self.trim_up,
