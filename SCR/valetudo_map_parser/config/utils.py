@@ -1,5 +1,6 @@
 """Utility code for the valetudo map parser."""
 
+import datetime
 import hashlib
 import json
 from dataclasses import dataclass
@@ -78,6 +79,67 @@ class BaseHandler:
     def get_robot_position(self) -> RobotPosition | None:
         """Return the robot position."""
         return self.robot_pos
+
+    async def async_get_pil_image(
+        self,
+        m_json: dict | None,
+        destinations: list | None = None,
+    ) -> PilPNG | None:
+        """
+        Unified async function to get PIL image from JSON data for both Hypfer and Rand256 handlers.
+
+        This function:
+        1. Calls the appropriate async_get_image_from_json method
+        2. Stores the processed data in shared.new_image
+        3. Backs up previous data to shared.last_image
+        4. Updates shared.image_last_updated with current datetime
+
+        @param m_json: The JSON data to use to draw the image
+        @param destinations: MQTT destinations for labels (used by Rand256)
+        @return: PIL Image or None
+        """
+        try:
+            # Backup current image to last_image before processing new one
+            if hasattr(self.shared, 'new_image') and self.shared.new_image is not None:
+                self.shared.last_image = self.shared.new_image
+
+            # Call the appropriate handler method based on handler type
+            if hasattr(self, 'get_image_from_rrm'):
+                # This is a Rand256 handler
+                new_image = await self.get_image_from_rrm(
+                    m_json=m_json,
+                    destinations=destinations,
+                    return_webp=False  # Always return PIL Image
+                )
+            elif hasattr(self, 'async_get_image_from_json'):
+                # This is a Hypfer handler
+                new_image = await self.async_get_image_from_json(
+                    m_json=m_json,
+                    return_webp=False  # Always return PIL Image
+                )
+            else:
+                LOGGER.warning("%s: Handler type not recognized for async_get_pil_image", self.file_name)
+                return None
+
+            # Store the new image in shared data
+            if new_image is not None:
+                self.shared.new_image = new_image
+                # Update the timestamp with current datetime
+                self.shared.image_last_updated = datetime.datetime.now().timestamp()
+                LOGGER.debug("%s: Image processed and stored in shared data", self.file_name)
+            else:
+                LOGGER.warning("%s: Failed to generate image from JSON data", self.file_name)
+
+            return new_image
+
+        except Exception as e:
+            LOGGER.error(
+                "%s: Error in async_get_pil_image: %s",
+                self.file_name,
+                str(e),
+                exc_info=True
+            )
+            return None
 
     def get_charger_position(self) -> ChargerPosition | None:
         """Return the charger position."""

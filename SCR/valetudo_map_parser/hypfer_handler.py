@@ -8,11 +8,10 @@ Version: 0.1.9
 from __future__ import annotations
 
 import asyncio
-import json
 
 from PIL import Image
 
-from .config.async_utils import AsyncNumPy, AsyncPIL, AsyncParallel
+from .config.async_utils import AsyncNumPy, AsyncPIL
 from .config.auto_crop import AutoCrop
 from .config.drawable_elements import DrawableElement
 from .config.shared import CameraShared
@@ -25,6 +24,7 @@ from .config.types import (
     RoomsProperties,
     RoomStore,
     WebPBytes,
+    JsonType,
 )
 from .config.utils import (
     BaseHandler,
@@ -100,7 +100,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
     # noinspection PyUnresolvedReferences,PyUnboundLocalVariable
     async def async_get_image_from_json(
         self,
-        m_json: json | None,
+        m_json: JsonType | None,
         return_webp: bool = False,
     ) -> WebPBytes | Image.Image | None:
         """Get the image from the JSON data.
@@ -232,13 +232,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                                 disabled_rooms if layer_type == "wall" else None,
                             )
 
-                            # Update element map for this layer
-                            if is_room_layer and 0 < room_id <= 15:
-                                # Mark the room in the element map
-                                room_element = getattr(
-                                    DrawableElement, f"ROOM_{room_id}", None
-                                )
-
                     # Draw the virtual walls if enabled
                     if self.drawing_config.is_enabled(DrawableElement.VIRTUAL_WALL):
                         img_np_array = await self.imd.async_draw_virtual_walls(
@@ -313,10 +306,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                     LOGGER.info("%s: Drawing path", self.file_name)
                     data_tasks.append(self._prepare_path_data(m_json))
 
-                # Execute data preparation in parallel if we have tasks
-                if data_tasks:
-                    prepared_data = await AsyncParallel.parallel_data_preparation(*data_tasks)
-
                 # Process drawing operations sequentially (since they modify the same array)
                 # Draw zones if enabled
                 if self.drawing_config.is_enabled(DrawableElement.RESTRICTED_AREA):
@@ -390,9 +379,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
             if self.check_zoom_and_aspect_ratio():
                 # Convert to PIL for resizing
                 pil_img = await AsyncPIL.async_fromarray(img_np_array, mode="RGBA")
-                # Return array to pool for reuse instead of just deleting
-                from .config.drawable import Drawable
-                Drawable.return_image_to_pool(img_np_array)
+                del img_np_array
                 resize_params = prepare_resize_params(self, pil_img, False)
                 resized_image = await self.async_resize_images(resize_params)
 
@@ -407,17 +394,13 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                 if return_webp:
                     # Convert directly from NumPy to WebP for better performance
                     webp_bytes = await numpy_to_webp_bytes(img_np_array)
-                    # Return array to pool for reuse instead of just deleting
-                    from .config.drawable import Drawable
-                    Drawable.return_image_to_pool(img_np_array)
+                    del img_np_array
                     LOGGER.debug("%s: Frame Completed.", self.file_name)
                     return webp_bytes
                 else:
                     # Convert to PIL Image (original behavior)
                     pil_img = await AsyncPIL.async_fromarray(img_np_array, mode="RGBA")
-                    # Return array to pool for reuse instead of just deleting
-                    from .config.drawable import Drawable
-                    Drawable.return_image_to_pool(img_np_array)
+                    del img_np_array
                     LOGGER.debug("%s: Frame Completed.", self.file_name)
                     return pil_img
         except (RuntimeError, RuntimeWarning) as e:
@@ -506,7 +489,8 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         except (ValueError, KeyError):
             return None
 
-    async def _prepare_goto_data(self, entity_dict):
+    @staticmethod
+    async def _prepare_goto_data(entity_dict):
         """Prepare go-to flag data for parallel processing."""
         await asyncio.sleep(0)  # Yield control
         # Extract go-to target data from entity_dict
@@ -516,6 +500,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         """Prepare path data for parallel processing."""
         await asyncio.sleep(0)  # Yield control
         try:
-            return self.data.find_path_entities(m_json)
+            return self.data.find_paths_entities(m_json)
         except (ValueError, KeyError):
             return None

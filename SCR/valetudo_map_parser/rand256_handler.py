@@ -7,15 +7,13 @@ Version: 0.1.9.a6
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import uuid
 from typing import Any
 
 import numpy as np
-from PIL import Image
 
-from .config.async_utils import AsyncNumPy, AsyncPIL, AsyncParallel
+from .config.async_utils import AsyncNumPy, AsyncPIL
 from .config.auto_crop import AutoCrop
 from .config.drawable_elements import DrawableElement
 from .config.types import (
@@ -147,7 +145,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
         m_json: JsonType,  # json data
         destinations: None = None,  # MQTT destinations for labels
         return_webp: bool = False,
-    ) -> WebPBytes | Image.Image | None:
+    ) -> WebPBytes | PilPNG | None:
         """Generate Images from the json data.
         @param m_json: The JSON data to use to draw the image.
         @param destinations: MQTT destinations for labels (unused).
@@ -167,14 +165,6 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 self.img_size = DEFAULT_IMAGE_SIZE
                 self.json_id = str(uuid.uuid4())  # image id
                 _LOGGER.info("Vacuum Data ID: %s", self.json_id)
-
-                # Prepare parallel data extraction tasks
-                data_tasks = []
-                data_tasks.append(self._prepare_zone_data(m_json))
-                data_tasks.append(self._prepare_path_data(m_json))
-
-                # Execute data preparation tasks in parallel
-                zone_data, path_data = await asyncio.gather(*data_tasks, return_exceptions=True)
 
                 (
                     img_np_array,
@@ -202,16 +192,12 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 if return_webp:
                     # Convert directly to WebP bytes for better performance
                     webp_bytes = await numpy_to_webp_bytes(img_np_array)
-                    # Return array to pool for reuse instead of just deleting
-                    from .config.drawable import Drawable
-                    Drawable.return_image_to_pool(img_np_array)
+                    del img_np_array  # free memory
                     return webp_bytes
                 else:
                     # Convert to PIL Image using async utilities
                     pil_img = await AsyncPIL.async_fromarray(img_np_array, mode="RGBA")
-                    # Return array to pool for reuse instead of just deleting
-                    from .config.drawable import Drawable
-                    Drawable.return_image_to_pool(img_np_array)
+                    del img_np_array  # free memory
                     return await self._finalize_image(pil_img)
 
         except (RuntimeError, RuntimeWarning) as e:
@@ -310,11 +296,6 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     # Store original rooms_pos and temporarily use the new one
                     original_rooms_pos = self.rooms_pos
                     self.rooms_pos = temp_rooms_pos
-
-                    # Perform robot room detection to check active zones
-                    robot_room_result = await self.async_get_robot_in_room(
-                        robot_position[0], robot_position[1], robot_position_angle
-                    )
 
                     # Restore original rooms_pos
                     self.rooms_pos = original_rooms_pos
@@ -691,21 +672,5 @@ class ReImageHandler(BaseHandler, AutoCrop):
     async def async_copy_array(self, original_array):
         """Copy the array using async utilities."""
         return await AsyncNumPy.async_copy(original_array)
-
-    async def _prepare_zone_data(self, m_json):
-        """Prepare zone data for parallel processing."""
-        await asyncio.sleep(0)  # Yield control
-        try:
-            return self.data.find_zone_entities(m_json)
-        except (ValueError, KeyError):
-            return None
-
-    async def _prepare_path_data(self, m_json):
-        """Prepare path data for parallel processing."""
-        await asyncio.sleep(0)  # Yield control
-        try:
-            return self.data.find_path_entities(m_json)
-        except (ValueError, KeyError):
-            return None
 
 

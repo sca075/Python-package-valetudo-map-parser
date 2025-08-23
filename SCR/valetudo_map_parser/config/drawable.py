@@ -14,7 +14,6 @@ import logging
 import math
 import asyncio
 import inspect
-import threading
 
 import numpy as np
 from PIL import ImageDraw, ImageFont
@@ -25,72 +24,6 @@ from .types import Color, NumpyArray, PilPNG, Point, Tuple, Union
 
 
 _LOGGER = logging.getLogger(__name__)
-
-
-class ImageArrayPool:
-    """Thread-safe memory pool for reusing image arrays to reduce allocation overhead."""
-
-    def __init__(self, max_arrays_per_size: int = 3):
-        self._pools = {}  # {(width, height): [array1, array2, ...]}
-        self._lock = threading.Lock()
-        self._max_arrays_per_size = max_arrays_per_size
-
-    def get_array(self, width: int, height: int, background_color: Color) -> NumpyArray:
-        """Get a reusable array or create a new one if none available."""
-        key = (width, height)
-
-        with self._lock:
-            if key in self._pools and self._pools[key]:
-                # Reuse existing array
-                array = self._pools[key].pop()
-                _LOGGER.debug("Reused array from pool for size %dx%d", width, height)
-            else:
-                # Create new array
-                array = np.empty((height, width, 4), dtype=np.uint8)
-                _LOGGER.debug("Created new array for size %dx%d", width, height)
-
-        # Fill with background color (outside lock for better performance)
-        array[:] = background_color
-        return array
-
-    def return_array(self, array: NumpyArray) -> None:
-        """Return an array to the pool for reuse."""
-        if array is None:
-            return
-
-        height, width = array.shape[:2]
-        key = (width, height)
-
-        with self._lock:
-            if key not in self._pools:
-                self._pools[key] = []
-
-            # Only keep up to max_arrays_per_size arrays per size
-            if len(self._pools[key]) < self._max_arrays_per_size:
-                self._pools[key].append(array)
-                _LOGGER.debug("Returned array to pool for size %dx%d (pool size: %d)",
-                             width, height, len(self._pools[key]))
-            else:
-                _LOGGER.debug("Pool full for size %dx%d, discarding array", width, height)
-
-    def clear_pool(self) -> None:
-        """Clear all arrays from the pool."""
-        with self._lock:
-            total_arrays = sum(len(arrays) for arrays in self._pools.values())
-            self._pools.clear()
-            _LOGGER.debug("Cleared image array pool (%d arrays freed)", total_arrays)
-
-    def get_pool_stats(self) -> dict:
-        """Get statistics about the current pool state."""
-        with self._lock:
-            stats = {}
-            for (width, height), arrays in self._pools.items():
-                stats[f"{width}x{height}"] = len(arrays)
-            return stats
-
-
-# Global shared pool instance for both Hypfer and Rand256 handlers
-_image_pool = ImageArrayPool()
 
 
 class Drawable:
@@ -112,27 +45,13 @@ class Drawable:
     async def create_empty_image(
         width: int, height: int, background_color: Color
     ) -> NumpyArray:
-        """Create the empty background image NumPy array using memory pool for better performance.
+        """Create the empty background image NumPy array.
         Background color is specified as an RGBA tuple.
-        Optimized: Uses shared memory pool to reuse arrays and reduce allocation overhead."""
-        # Get array from shared pool (reuses memory when possible)
-        return _image_pool.get_array(width, height, background_color)
-
-    @staticmethod
-    def return_image_to_pool(image_array: NumpyArray) -> None:
-        """Return an image array to the memory pool for reuse.
-        Call this when you're done with an image array to enable memory reuse."""
-        _image_pool.return_array(image_array)
-
-    @staticmethod
-    def get_pool_stats() -> dict:
-        """Get statistics about the current memory pool state."""
-        return _image_pool.get_pool_stats()
-
-    @staticmethod
-    def clear_image_pool() -> None:
-        """Clear all arrays from the memory pool."""
-        _image_pool.clear_pool()
+        Optimized: Uses np.empty + broadcast instead of np.full for better performance."""
+        # Use np.empty + broadcast instead of np.full (avoids double initialization)
+        img_array = np.empty((height, width, 4), dtype=np.uint8)
+        img_array[:] = background_color  # Broadcast color to all pixels efficiently
+        return img_array
 
     @staticmethod
     async def from_json_to_image(
