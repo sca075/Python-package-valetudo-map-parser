@@ -1,12 +1,13 @@
 """
 Class Camera Shared.
 Keep the data between the modules.
-Version: v2024.12.0
+Version: v0.1.9
 """
 
 import asyncio
 import logging
 from typing import List
+from PIL import Image
 
 from .types import (
     ATTR_CALIBRATION_POINTS,
@@ -18,6 +19,7 @@ from .types import (
     ATTR_ROTATE,
     ATTR_SNAPSHOT,
     ATTR_VACUUM_BATTERY,
+    ATTR_VACUUM_CHARGING,
     ATTR_VACUUM_JSON_ID,
     ATTR_VACUUM_POSITION,
     ATTR_VACUUM_STATUS,
@@ -38,6 +40,7 @@ from .types import (
     CameraModes,
     Colors,
     TrimsData,
+    PilPNG,
 )
 
 
@@ -57,10 +60,14 @@ class CameraShared:
         self.rand256_active_zone: list = []  # Active zone for rand256
         self.is_rand: bool = False  # MQTT rand data
         self._new_mqtt_message = False  # New MQTT message
-        self.last_image = None  # Last image received
-        self.current_image = None  # Current image
-        self.binary_image = None  # Current image in binary format
-        self.image_format = "WebP"  # Image format
+        # Initialize last_image with default gray image (250x150 minimum)
+        self.last_image = Image.new(
+            "RGBA", (250, 150), (128, 128, 128, 255)
+        )  # Gray default image
+        self.new_image: PilPNG | None = None  # New image received
+        self.binary_image: bytes | None = None  # Current image in binary format
+        self.image_last_updated: float = 0.0  # Last image update time
+        self.image_format = "image/pil"  # Image format
         self.image_size = None  # Image size
         self.image_auto_zoom: bool = False  # Auto zoom image
         self.image_zoom_lock_ratio: bool = True  # Zoom lock ratio
@@ -73,7 +80,7 @@ class CameraShared:
         self.current_room = None  # Current room of rhe vacuum
         self.user_colors = Colors  # User base colors
         self.rooms_colors = Colors  # Rooms colors
-        self.vacuum_battery = None  # Vacuum battery state
+        self.vacuum_battery = 0  # Vacuum battery state
         self.vacuum_bat_charged: bool = True  # Vacuum charged and ready
         self.vacuum_connection = None  # Vacuum connection state
         self.vacuum_state = None  # Vacuum state
@@ -111,6 +118,10 @@ class CameraShared:
         self.trims = TrimsData.from_dict(DEFAULT_VALUES["trims_data"])  # Trims data
         self.skip_room_ids: List[str] = []
         self.device_info = None  # Store the device_info
+
+    def vacuum_bat_charged(self) -> bool:
+        """Check if the vacuum is charging."""
+        return (self.vacuum_state == "docked") and (int(self.vacuum_battery) < 100)
 
     @staticmethod
     def _compose_obstacle_links(vacuum_host_ip: str, obstacles: list) -> list | None:
@@ -186,6 +197,7 @@ class CameraShared:
         attrs = {
             ATTR_CAMERA_MODE: self.camera_mode,
             ATTR_VACUUM_BATTERY: f"{self.vacuum_battery}%",
+            ATTR_VACUUM_CHARGING: self.vacuum_bat_charged,
             ATTR_VACUUM_POSITION: self.current_room,
             ATTR_VACUUM_STATUS: self.vacuum_state,
             ATTR_VACUUM_JSON_ID: self.vac_json_id,
@@ -220,12 +232,13 @@ class CameraShared:
 class CameraSharedManager:
     """Camera Shared Manager class."""
 
-    def __init__(self, file_name, device_info):
+    def __init__(self, file_name: str, device_info: dict = None):
         self._instances = {}
         self._lock = asyncio.Lock()
         self.file_name = file_name
-        self.device_info = device_info
-        self.update_shared_data(device_info)
+        if device_info:
+            self.device_info = device_info
+            self.update_shared_data(device_info)
 
         # Automatically initialize shared data for the instance
         # self._init_shared_data(device_info)
