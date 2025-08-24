@@ -337,40 +337,29 @@ class ImageDraw:
             _LOGGER.info("%s: Got zones.", self.file_name)
 
         if zone_clean:
-            # Prepare zone drawing tasks for parallel execution
-            zone_tasks = []
+            # Process zones sequentially to avoid memory-intensive array copies
+            # This is more memory-efficient than parallel processing with copies
 
             # Active zones
             zones_active = zone_clean.get("active_zone")
             if zones_active:
-                zone_tasks.append(
-                    self.img_h.draw.zones(
-                        np_array.copy(), zones_active, color_zone_clean
-                    )
+                np_array = await self.img_h.draw.zones(
+                    np_array, zones_active, color_zone_clean
                 )
 
             # No-go zones
             no_go_zones = zone_clean.get("no_go_area")
             if no_go_zones:
-                zone_tasks.append(
-                    self.img_h.draw.zones(np_array.copy(), no_go_zones, color_no_go)
+                np_array = await self.img_h.draw.zones(
+                    np_array, no_go_zones, color_no_go
                 )
 
             # No-mop zones
             no_mop_zones = zone_clean.get("no_mop_area")
             if no_mop_zones:
-                zone_tasks.append(
-                    self.img_h.draw.zones(np_array.copy(), no_mop_zones, color_no_go)
+                np_array = await self.img_h.draw.zones(
+                    np_array, no_mop_zones, color_no_go
                 )
-
-            # Execute all zone drawing tasks in parallel
-            if zone_tasks:
-                zone_results = await asyncio.gather(*zone_tasks)
-                # Merge results back into the main array
-                for result in zone_results:
-                    # Simple overlay - in practice you might want more sophisticated blending
-                    mask = result != np_array
-                    np_array[mask] = result[mask]
 
         return np_array
 
