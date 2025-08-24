@@ -312,6 +312,79 @@ class Drawable:
         return layer
 
     @staticmethod
+    def draw_lines_batch(
+        layer: NumpyArray,
+        line_segments: list,
+        color: Color,
+        width: int = 3,
+    ) -> NumpyArray:
+        """
+        Draw multiple line segments with batch processing for better performance.
+
+        Args:
+            layer: The numpy array to draw on
+            line_segments: List of tuples [(x1, y1, x2, y2), ...]
+            color: Color to draw with
+            width: Width of the lines
+        """
+        if not line_segments:
+            return layer
+
+        # Pre-calculate blended color once for the entire batch
+        # Use the first line segment for color sampling
+        x1, y1, x2, y2 = line_segments[0]
+        blended_color = get_blended_color(x1, y1, x2, y2, layer, color)
+
+        # Fast path for fully opaque colors - skip individual blending
+        if color[3] == 255:
+            blended_color = color
+
+        # Process all line segments with the same blended color
+        for x1, y1, x2, y2 in line_segments:
+            # Ensure coordinates are integers
+            x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+
+            # Calculate line length
+            length = max(abs(x2 - x1), abs(y2 - y1))
+            if length == 0:  # Handle case of a single point
+                # Draw a dot with the specified width
+                for i in range(-width // 2, (width + 1) // 2):
+                    for j in range(-width // 2, (width + 1) // 2):
+                        if (
+                            0 <= x1 + i < layer.shape[1]
+                            and 0 <= y1 + j < layer.shape[0]
+                        ):
+                            layer[y1 + j, x1 + i] = blended_color
+                continue
+
+            # Create parametric points along the line
+            t = np.linspace(0, 1, length + 1)  # Reduced from length * 2 to length + 1
+            x_coords = np.round(x1 * (1 - t) + x2 * t).astype(int)
+            y_coords = np.round(y1 * (1 - t) + y2 * t).astype(int)
+
+            # Draw the line with the specified width
+            if width == 1:
+                # Fast path for width=1
+                for x, y in zip(x_coords, y_coords):
+                    if 0 <= x < layer.shape[1] and 0 <= y < layer.shape[0]:
+                        layer[y, x] = blended_color
+            else:
+                # For thicker lines, draw a rectangle at each point
+                half_width = width // 2
+                for x, y in zip(x_coords, y_coords):
+                    for i in range(-half_width, half_width + 1):
+                        for j in range(-half_width, half_width + 1):
+                            if (
+                                i * i + j * j
+                                <= half_width * half_width  # Make it round
+                                and 0 <= x + i < layer.shape[1]
+                                and 0 <= y + j < layer.shape[0]
+                            ):
+                                layer[y + j, x + i] = blended_color
+
+        return layer
+
+    @staticmethod
     async def draw_virtual_walls(
         layer: NumpyArray, virtual_walls, color: Color
     ) -> NumpyArray:
@@ -329,14 +402,16 @@ class Drawable:
     async def lines(arr: NumpyArray, coords, width: int, color: Color) -> NumpyArray:
         """
         Join the coordinates creating a continuous line (path).
-        Optimized with vectorized operations for better performance.
+        Optimized with batch processing for better performance.
         """
 
         # Handle case where arr might be a coroutine (shouldn't happen but let's be safe)
         if inspect.iscoroutine(arr):
             arr = await arr
 
-        for i, coord in enumerate(coords):
+        # Collect all line segments for batch processing
+        line_segments = []
+        for coord in coords:
             x0, y0 = coord[0]
             try:
                 x1, y1 = coord[1]
@@ -347,15 +422,16 @@ class Drawable:
             if x0 == x1 and y0 == y1:
                 continue
 
-            # Get blended color for this line segment
-            blended_color = get_blended_color(x0, y0, x1, y1, arr, color)
+            line_segments.append((x0, y0, x1, y1))
 
-            # Use the optimized line drawing method
-            arr = Drawable._line(arr, x0, y0, x1, y1, blended_color, width)
+        # Process all line segments in batches
+        batch_size = 100  # Process 100 lines at a time
+        for i in range(0, len(line_segments), batch_size):
+            batch = line_segments[i : i + batch_size]
+            arr = Drawable.draw_lines_batch(arr, batch, color, width)
 
-            # Yield control every 100 operations to prevent blocking
-            if i % 100 == 0:
-                await asyncio.sleep(0)
+            # Yield control between batches to prevent blocking
+            await asyncio.sleep(0)
 
         return arr
 
@@ -513,7 +589,11 @@ class Drawable:
             # Create tasks for parallel zone processing
             zone_tasks = []
             for zone in coordinates:
-                zone_tasks.append(Drawable._process_single_zone(layers.copy(), zone, color, dot_radius, dot_spacing))
+                zone_tasks.append(
+                    Drawable._process_single_zone(
+                        layers.copy(), zone, color, dot_radius, dot_spacing
+                    )
+                )
 
             # Execute all zone processing tasks in parallel
             zone_results = await asyncio.gather(*zone_tasks, return_exceptions=True)
@@ -567,7 +647,9 @@ class Drawable:
                         y_indices, x_indices = np.ogrid[y_min:y_max, x_min:x_max]
 
                         # Create a circular mask
-                        mask = (y_indices - y) ** 2 + (x_indices - x) ** 2 <= dot_radius**2
+                        mask = (y_indices - y) ** 2 + (
+                            x_indices - x
+                        ) ** 2 <= dot_radius**2
 
                         # Apply the color to the masked region
                         layers[y_min:y_max, x_min:x_max][mask] = blended_color
@@ -575,7 +657,9 @@ class Drawable:
         return layers
 
     @staticmethod
-    async def _process_single_zone(layers: NumpyArray, zone, color: Color, dot_radius: int, dot_spacing: int) -> NumpyArray:
+    async def _process_single_zone(
+        layers: NumpyArray, zone, color: Color, dot_radius: int, dot_spacing: int
+    ) -> NumpyArray:
         """Process a single zone for parallel execution."""
         await asyncio.sleep(0)  # Yield control
 
@@ -613,7 +697,9 @@ class Drawable:
 
                     if y_min < y_max and x_min < x_max:
                         y_indices, x_indices = np.ogrid[y_min:y_max, x_min:x_max]
-                        mask = (y_indices - y) ** 2 + (x_indices - x) ** 2 <= dot_radius**2
+                        mask = (y_indices - y) ** 2 + (
+                            x_indices - x
+                        ) ** 2 <= dot_radius**2
                         layers[y_min:y_max, x_min:x_max][mask] = blended_color
 
         return layers

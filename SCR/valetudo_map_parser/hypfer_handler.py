@@ -301,10 +301,16 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
 
                 # Prepare path data extraction
                 path_enabled = self.drawing_config.is_enabled(DrawableElement.PATH)
-                LOGGER.info("%s: PATH element enabled: %s", self.file_name, path_enabled)
+                LOGGER.info(
+                    "%s: PATH element enabled: %s", self.file_name, path_enabled
+                )
                 if path_enabled:
                     LOGGER.info("%s: Drawing path", self.file_name)
                     data_tasks.append(self._prepare_path_data(m_json))
+
+                # Await all data preparation tasks if any were created
+                if data_tasks:
+                    await asyncio.gather(*data_tasks)
 
                 # Process drawing operations sequentially (since they modify the same array)
                 # Draw zones if enabled

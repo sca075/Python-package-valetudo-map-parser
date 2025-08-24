@@ -23,7 +23,9 @@ class AsyncNumPy:
         return await make_async(np.copy, array)
 
     @staticmethod
-    async def async_full(shape: tuple, fill_value: Any, dtype: np.dtype = None) -> np.ndarray:
+    async def async_full(
+        shape: tuple, fill_value: Any, dtype: np.dtype = None
+    ) -> np.ndarray:
         """Async array creation with fill value."""
         return await make_async(np.full, shape, fill_value, dtype=dtype)
 
@@ -42,20 +44,25 @@ class AsyncPIL:
         return await make_async(Image.fromarray, array, mode)
 
     @staticmethod
-    async def async_resize(image: Image.Image, size: tuple, resample: int = None) -> Image.Image:
+    async def async_resize(
+        image: Image.Image, size: tuple, resample: int = None
+    ) -> Image.Image:
         """Async image resizing."""
         if resample is None:
             resample = Image.LANCZOS
         return await make_async(image.resize, size, resample)
 
     @staticmethod
-    async def async_save_to_bytes(image: Image.Image, format_type: str = "WEBP", **kwargs) -> bytes:
+    async def async_save_to_bytes(
+        image: Image.Image, format_type: str = "WEBP", **kwargs
+    ) -> bytes:
         """Async image saving to bytes."""
+
         def save_to_bytes():
             buffer = io.BytesIO()
             image.save(buffer, format=format_type, **kwargs)
             return buffer.getvalue()
-        
+
         return await make_async(save_to_bytes)
 
 

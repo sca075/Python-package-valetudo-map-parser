@@ -1,12 +1,13 @@
 """
 Class Camera Shared.
 Keep the data between the modules.
-Version: v2024.12.0
+Version: v0.1.9
 """
 
 import asyncio
 import logging
 from typing import List
+from PIL import Image
 
 from .types import (
     ATTR_CALIBRATION_POINTS,
@@ -59,7 +60,10 @@ class CameraShared:
         self.rand256_active_zone: list = []  # Active zone for rand256
         self.is_rand: bool = False  # MQTT rand data
         self._new_mqtt_message = False  # New MQTT message
-        self.last_image = PilPNG | None  # Last image received
+        # Initialize last_image with default gray image (250x150 minimum)
+        self.last_image = Image.new(
+            "RGBA", (250, 150), (128, 128, 128, 255)
+        )  # Gray default image
         self.new_image: PilPNG | None = None  # New image received
         self.binary_image: bytes | None = None  # Current image in binary format
         self.image_last_updated: float = 0.0  # Last image update time
@@ -114,8 +118,6 @@ class CameraShared:
         self.trims = TrimsData.from_dict(DEFAULT_VALUES["trims_data"])  # Trims data
         self.skip_room_ids: List[str] = []
         self.device_info = None  # Store the device_info
-
-
 
     def vacuum_bat_charged(self) -> bool:
         """Check if the vacuum is charging."""

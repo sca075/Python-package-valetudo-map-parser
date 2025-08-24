@@ -344,7 +344,9 @@ class ImageDraw:
             zones_active = zone_clean.get("active_zone")
             if zones_active:
                 zone_tasks.append(
-                    self.img_h.draw.zones(np_array.copy(), zones_active, color_zone_clean)
+                    self.img_h.draw.zones(
+                        np_array.copy(), zones_active, color_zone_clean
+                    )
                 )
 
             # No-go zones
@@ -439,7 +441,6 @@ class ImageDraw:
     def _check_active_zone_and_set_zooming(self) -> None:
         """Helper function to check active zones and set zooming state."""
         if self.img_h.active_zones and self.img_h.robot_in_room:
-
             segment_id = str(self.img_h.robot_in_room["id"])
             room_store = RoomStore(self.file_name)
             room_keys = list(room_store.get_rooms().keys())
@@ -615,7 +616,6 @@ class ImageDraw:
 
                     # Handle active zones - Map segment ID to active_zones position
                     if self.img_h.active_zones:
-
                         segment_id = str(self.img_h.robot_in_room["id"])
                         room_store = RoomStore(self.file_name)
                         room_keys = list(room_store.get_rooms().keys())

@@ -19,14 +19,14 @@ class ImageData:
     @staticmethod
     def sublist(lst, n):
         """Split a list into n chunks of specified size."""
-        return [lst[i: i + n] for i in range(0, len(lst), n)]
+        return [lst[i : i + n] for i in range(0, len(lst), n)]
 
     @staticmethod
     def sublist_join(lst, n):
         """Join the lists in a unique list of n elements."""
         arr = np.array(lst)
         num_windows = len(lst) - n + 1
-        result = [arr[i: i + n].tolist() for i in range(num_windows)]
+        result = [arr[i : i + n].tolist() for i in range(num_windows)]
         return result
 
     @staticmethod
@@ -39,15 +39,19 @@ class ImageData:
             points = obstacle.get("points", [])
             image_id = obstacle.get("metaData", {}).get("id")
             if label and points:
-                obstacle_positions.append({
-                    "label": label,
-                    "points": {"x": points[0], "y": points[1]},
-                    "id": image_id,
-                })
+                obstacle_positions.append(
+                    {
+                        "label": label,
+                        "points": {"x": points[0], "y": points[1]},
+                        "id": image_id,
+                    }
+                )
         return obstacle_positions
 
     @staticmethod
-    def find_layers(json_obj: JsonType, layer_dict: dict, active_list: list) -> tuple[dict, list]:
+    def find_layers(
+        json_obj: JsonType, layer_dict: dict, active_list: list
+    ) -> tuple[dict, list]:
         """Find the layers in the json object."""
         layer_dict = {} if layer_dict is None else layer_dict
         active_list = [] if active_list is None else active_list
@@ -56,7 +60,9 @@ class ImageData:
                 layer_type = json_obj.get("type")
                 active_type = json_obj.get("metaData")
                 if layer_type:
-                    layer_dict.setdefault(layer_type, []).append(json_obj.get("compressedPixels", []))
+                    layer_dict.setdefault(layer_type, []).append(
+                        json_obj.get("compressedPixels", [])
+                    )
                 if layer_type == "segment":
                     active_list.append(int(active_type.get("active", 0)))
             for value in json_obj.values():
@@ -121,7 +127,10 @@ class ImageData:
 
         def _recursive(obj):
             if isinstance(obj, dict):
-                if obj.get("__class") == "LineMapEntity" and obj.get("type") == "virtual_wall":
+                if (
+                    obj.get("__class") == "LineMapEntity"
+                    and obj.get("type") == "virtual_wall"
+                ):
                     walls.append(obj["points"])
                 for value in obj.values():
                     _recursive(value)
@@ -133,7 +142,9 @@ class ImageData:
         return walls
 
     @staticmethod
-    async def async_get_rooms_coordinates(pixels: list, pixel_size: int = 5, rand: bool = False) -> tuple:
+    async def async_get_rooms_coordinates(
+        pixels: list, pixel_size: int = 5, rand: bool = False
+    ) -> tuple:
         """Extract the room coordinates from the vacuum pixels data."""
         df = pd.DataFrame(pixels, columns=["x", "y", "length"])
         if rand:

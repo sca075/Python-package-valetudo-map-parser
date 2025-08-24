@@ -672,5 +672,3 @@ class ReImageHandler(BaseHandler, AutoCrop):
     async def async_copy_array(self, original_array):
         """Copy the array using async utilities."""
         return await AsyncNumPy.async_copy(original_array)
-
-
