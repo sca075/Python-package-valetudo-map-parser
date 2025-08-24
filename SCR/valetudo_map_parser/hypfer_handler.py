@@ -8,6 +8,7 @@ Version: 0.1.9
 from __future__ import annotations
 
 import asyncio
+import numpy as np
 
 from PIL import Image
 
@@ -58,6 +59,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         self.go_to = None  # vacuum go to data
         self.img_hash = None  # hash of the image calculated to check differences.
         self.img_base_layer = None  # numpy array store the map base layer.
+        self.img_work_layer = None  # persistent working buffer to avoid per-frame allocations
         self.active_zones = None  # vacuum active zones.
         self.svg_wait = False  # SVG image creation wait.
         self.imd = ImDraw(self)  # Image Draw class.
@@ -210,14 +212,12 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                                         ) % 16  # Increment room_id even if we skip
                                         continue
 
-                            # Check if this is a wall layer and if walls are enabled
+                            # Draw the layer ONLY if enabled
                             is_wall_layer = layer_type == "wall"
                             if is_wall_layer:
-                                if not self.drawing_config.is_enabled(
-                                    DrawableElement.WALL
-                                ):
-                                    pass
-
+                                # Skip walls entirely if disabled
+                                if not self.drawing_config.is_enabled(DrawableElement.WALL):
+                                    continue
                             # Draw the layer
                             (
                                 room_id,
@@ -273,6 +273,8 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                     LOGGER.info("%s: Completed base Layers", self.file_name)
                     # Copy the new array in base layer.
                     self.img_base_layer = await self.async_copy_array(img_np_array)
+
+
                 self.shared.frame_number = self.frame_number
                 self.frame_number += 1
                 if (self.frame_number >= self.max_frames) or (
@@ -285,8 +287,17 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                     str(self.json_id),
                     str(self.frame_number),
                 )
-                # Copy the base layer to the new image.
-                img_np_array = await self.async_copy_array(self.img_base_layer)
+                # Ensure persistent working buffer exists and matches base (allocate only when needed)
+                if (
+                    self.img_work_layer is None
+                    or self.img_work_layer.shape != self.img_base_layer.shape
+                    or self.img_work_layer.dtype != self.img_base_layer.dtype
+                ):
+                    self.img_work_layer = np.empty_like(self.img_base_layer)
+
+                # Copy the base layer into the persistent working buffer (no new allocation per frame)
+                np.copyto(self.img_work_layer, self.img_base_layer)
+                img_np_array = self.img_work_layer
 
                 # Prepare parallel data extraction tasks
                 data_tasks = []

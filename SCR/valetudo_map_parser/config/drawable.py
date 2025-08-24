@@ -12,8 +12,6 @@ from __future__ import annotations
 
 import logging
 import math
-import asyncio
-import inspect
 
 import numpy as np
 from PIL import ImageDraw, ImageFont
@@ -46,12 +44,8 @@ class Drawable:
         width: int, height: int, background_color: Color
     ) -> NumpyArray:
         """Create the empty background image NumPy array.
-        Background color is specified as an RGBA tuple.
-        Optimized: Uses np.empty + broadcast instead of np.full for better performance."""
-        # Use np.empty + broadcast instead of np.full (avoids double initialization)
-        img_array = np.empty((height, width, 4), dtype=np.uint8)
-        img_array[:] = background_color  # Broadcast color to all pixels efficiently
-        return img_array
+        Background color is specified as an RGBA tuple."""
+        return np.full((height, width, 4), background_color, dtype=np.uint8)
 
     @staticmethod
     async def from_json_to_image(
@@ -158,8 +152,6 @@ class Drawable:
         It uses the rotation angle of the image to orient the flag.
         Includes color blending for better visual integration.
         """
-        await asyncio.sleep(0)  # Yield control
-
         # Check if coordinates are within bounds
         height, width = layer.shape[:2]
         x, y = center
@@ -312,79 +304,6 @@ class Drawable:
         return layer
 
     @staticmethod
-    def draw_lines_batch(
-        layer: NumpyArray,
-        line_segments: list,
-        color: Color,
-        width: int = 3,
-    ) -> NumpyArray:
-        """
-        Draw multiple line segments with batch processing for better performance.
-
-        Args:
-            layer: The numpy array to draw on
-            line_segments: List of tuples [(x1, y1, x2, y2), ...]
-            color: Color to draw with
-            width: Width of the lines
-        """
-        if not line_segments:
-            return layer
-
-        # Pre-calculate blended color once for the entire batch
-        # Use the first line segment for color sampling
-        x1, y1, x2, y2 = line_segments[0]
-        blended_color = get_blended_color(x1, y1, x2, y2, layer, color)
-
-        # Fast path for fully opaque colors - skip individual blending
-        if color[3] == 255:
-            blended_color = color
-
-        # Process all line segments with the same blended color
-        for x1, y1, x2, y2 in line_segments:
-            # Ensure coordinates are integers
-            x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-
-            # Calculate line length
-            length = max(abs(x2 - x1), abs(y2 - y1))
-            if length == 0:  # Handle case of a single point
-                # Draw a dot with the specified width
-                for i in range(-width // 2, (width + 1) // 2):
-                    for j in range(-width // 2, (width + 1) // 2):
-                        if (
-                            0 <= x1 + i < layer.shape[1]
-                            and 0 <= y1 + j < layer.shape[0]
-                        ):
-                            layer[y1 + j, x1 + i] = blended_color
-                continue
-
-            # Create parametric points along the line
-            t = np.linspace(0, 1, length + 1)  # Reduced from length * 2 to length + 1
-            x_coords = np.round(x1 * (1 - t) + x2 * t).astype(int)
-            y_coords = np.round(y1 * (1 - t) + y2 * t).astype(int)
-
-            # Draw the line with the specified width
-            if width == 1:
-                # Fast path for width=1
-                for x, y in zip(x_coords, y_coords):
-                    if 0 <= x < layer.shape[1] and 0 <= y < layer.shape[0]:
-                        layer[y, x] = blended_color
-            else:
-                # For thicker lines, draw a rectangle at each point
-                half_width = width // 2
-                for x, y in zip(x_coords, y_coords):
-                    for i in range(-half_width, half_width + 1):
-                        for j in range(-half_width, half_width + 1):
-                            if (
-                                i * i + j * j
-                                <= half_width * half_width  # Make it round
-                                and 0 <= x + i < layer.shape[1]
-                                and 0 <= y + j < layer.shape[0]
-                            ):
-                                layer[y + j, x + i] = blended_color
-
-        return layer
-
-    @staticmethod
     async def draw_virtual_walls(
         layer: NumpyArray, virtual_walls, color: Color
     ) -> NumpyArray:
@@ -402,15 +321,8 @@ class Drawable:
     async def lines(arr: NumpyArray, coords, width: int, color: Color) -> NumpyArray:
         """
         Join the coordinates creating a continuous line (path).
-        Optimized with batch processing for better performance.
+        Optimized with vectorized operations for better performance.
         """
-
-        # Handle case where arr might be a coroutine (shouldn't happen but let's be safe)
-        if inspect.iscoroutine(arr):
-            arr = await arr
-
-        # Collect all line segments for batch processing
-        line_segments = []
         for coord in coords:
             x0, y0 = coord[0]
             try:
@@ -422,16 +334,11 @@ class Drawable:
             if x0 == x1 and y0 == y1:
                 continue
 
-            line_segments.append((x0, y0, x1, y1))
+            # Get blended color for this line segment
+            blended_color = get_blended_color(x0, y0, x1, y1, arr, color)
 
-        # Process all line segments in batches
-        batch_size = 100  # Process 100 lines at a time
-        for i in range(0, len(line_segments), batch_size):
-            batch = line_segments[i : i + batch_size]
-            arr = Drawable.draw_lines_batch(arr, batch, color, width)
-
-            # Yield control between batches to prevent blocking
-            await asyncio.sleep(0)
+            # Use the optimized line drawing method
+            arr = Drawable._line(arr, x0, y0, x1, y1, blended_color, width)
 
         return arr
 
@@ -577,130 +484,56 @@ class Drawable:
     async def zones(layers: NumpyArray, coordinates, color: Color) -> NumpyArray:
         """
         Draw the zones on the input layer with color blending.
-        Optimized with parallel processing for better performance.
+        Optimized with NumPy vectorized operations for better performance.
         """
-        await asyncio.sleep(0)  # Yield control
-
         dot_radius = 1  # Number of pixels for the dot
         dot_spacing = 4  # Space between dots
 
-        # Process zones in parallel if there are multiple zones
-        if len(coordinates) > 1:
-            # Create tasks for parallel zone processing
-            zone_tasks = []
-            for zone in coordinates:
-                zone_tasks.append(
-                    Drawable._process_single_zone(
-                        layers.copy(), zone, color, dot_radius, dot_spacing
-                    )
+        for zone in coordinates:
+            points = zone["points"]
+            min_x = max(0, min(points[::2]))
+            max_x = min(layers.shape[1] - 1, max(points[::2]))
+            min_y = max(0, min(points[1::2]))
+            max_y = min(layers.shape[0] - 1, max(points[1::2]))
+
+            # Skip if zone is outside the image
+            if min_x >= max_x or min_y >= max_y:
+                continue
+
+            # Sample a point from the zone to get the background color
+            # Use the center of the zone for sampling
+            sample_x = (min_x + max_x) // 2
+            sample_y = (min_y + max_y) // 2
+
+            # Blend the color with the background color at the sample point
+            if 0 <= sample_y < layers.shape[0] and 0 <= sample_x < layers.shape[1]:
+                blended_color = ColorsManagement.sample_and_blend_color(
+                    layers, sample_x, sample_y, color
                 )
+            else:
+                blended_color = color
 
-            # Execute all zone processing tasks in parallel
-            zone_results = await asyncio.gather(*zone_tasks, return_exceptions=True)
+            # Create a grid of dot centers
+            x_centers = np.arange(min_x, max_x, dot_spacing)
+            y_centers = np.arange(min_y, max_y, dot_spacing)
 
-            # Merge results back into the main layer
-            for result in zone_results:
-                if not isinstance(result, Exception):
-                    # Simple overlay - pixels that are different from original get updated
-                    mask = result != layers
-                    layers[mask] = result[mask]
-        else:
-            # Single zone - process directly
-            for zone in coordinates:
-                points = zone["points"]
-                min_x = max(0, min(points[::2]))
-                max_x = min(layers.shape[1] - 1, max(points[::2]))
-                min_y = max(0, min(points[1::2]))
-                max_y = min(layers.shape[0] - 1, max(points[1::2]))
-
-                # Skip if zone is outside the image
-                if min_x >= max_x or min_y >= max_y:
-                    continue
-
-                # Sample a point from the zone to get the background color
-                # Use the center of the zone for sampling
-                sample_x = (min_x + max_x) // 2
-                sample_y = (min_y + max_y) // 2
-
-                # Blend the color with the background color at the sample point
-                if 0 <= sample_y < layers.shape[0] and 0 <= sample_x < layers.shape[1]:
-                    blended_color = ColorsManagement.sample_and_blend_color(
-                        layers, sample_x, sample_y, color
-                    )
-                else:
-                    blended_color = color
-
-                # Create a grid of dot centers
-                x_centers = np.arange(min_x, max_x, dot_spacing)
-                y_centers = np.arange(min_y, max_y, dot_spacing)
-
-                # Draw dots at each grid point
-                for y in y_centers:
-                    for x in x_centers:
-                        # Create a small mask for the dot
-                        y_min = max(0, y - dot_radius)
-                        y_max = min(layers.shape[0], y + dot_radius + 1)
-                        x_min = max(0, x - dot_radius)
-                        x_max = min(layers.shape[1], x + dot_radius + 1)
-
-                        # Create coordinate arrays for the dot
-                        y_indices, x_indices = np.ogrid[y_min:y_max, x_min:x_max]
-
-                        # Create a circular mask
-                        mask = (y_indices - y) ** 2 + (
-                            x_indices - x
-                        ) ** 2 <= dot_radius**2
-
-                        # Apply the color to the masked region
-                        layers[y_min:y_max, x_min:x_max][mask] = blended_color
-
-        return layers
-
-    @staticmethod
-    async def _process_single_zone(
-        layers: NumpyArray, zone, color: Color, dot_radius: int, dot_spacing: int
-    ) -> NumpyArray:
-        """Process a single zone for parallel execution."""
-        await asyncio.sleep(0)  # Yield control
-
-        points = zone["points"]
-        min_x = max(0, min(points[::2]))
-        max_x = min(layers.shape[1] - 1, max(points[::2]))
-        min_y = max(0, min(points[1::2]))
-        max_y = min(layers.shape[0] - 1, max(points[1::2]))
-
-        # Skip if zone is outside the image
-        if min_x >= max_x or min_y >= max_y:
-            return layers
-
-        # Sample a point from the zone to get the background color
-        sample_x = (min_x + max_x) // 2
-        sample_y = (min_y + max_y) // 2
-
-        # Blend the color with the background color at the sample point
-        if 0 <= sample_y < layers.shape[0] and 0 <= sample_x < layers.shape[1]:
-            blended_color = ColorsManagement.sample_and_blend_color(
-                layers, sample_x, sample_y, color
-            )
-        else:
-            blended_color = color
-
-        # Create a dotted pattern within the zone
-        for y in range(min_y, max_y + 1, dot_spacing):
-            for x in range(min_x, max_x + 1, dot_spacing):
-                if Drawable.point_inside(x, y, points):
-                    # Draw a small filled circle (dot) using vectorized operations
+            # Draw dots at each grid point
+            for y in y_centers:
+                for x in x_centers:
+                    # Create a small mask for the dot
                     y_min = max(0, y - dot_radius)
                     y_max = min(layers.shape[0], y + dot_radius + 1)
                     x_min = max(0, x - dot_radius)
                     x_max = min(layers.shape[1], x + dot_radius + 1)
 
-                    if y_min < y_max and x_min < x_max:
-                        y_indices, x_indices = np.ogrid[y_min:y_max, x_min:x_max]
-                        mask = (y_indices - y) ** 2 + (
-                            x_indices - x
-                        ) ** 2 <= dot_radius**2
-                        layers[y_min:y_max, x_min:x_max][mask] = blended_color
+                    # Create coordinate arrays for the dot
+                    y_indices, x_indices = np.ogrid[y_min:y_max, x_min:x_max]
+
+                    # Create a circular mask
+                    mask = (y_indices - y) ** 2 + (x_indices - x) ** 2 <= dot_radius**2
+
+                    # Apply the color to the masked region
+                    layers[y_min:y_max, x_min:x_max][mask] = blended_color
 
         return layers
 
