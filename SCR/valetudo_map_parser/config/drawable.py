@@ -240,30 +240,6 @@ class Drawable:
         return inside
 
     @staticmethod
-    def _bresenham_line_coords(x1: int, y1: int, x2: int, y2: int) -> Tuple[np.ndarray, np.ndarray]:
-        """Return integer coordinates for a line using Bresenham's algorithm."""
-        dx = abs(x2 - x1)
-        dy = abs(y2 - y1)
-        sx = 1 if x1 < x2 else -1
-        sy = 1 if y1 < y2 else -1
-        err = dx - dy
-    
-        xs, ys = [], []
-        while True:
-            xs.append(x1)
-            ys.append(y1)
-            if x1 == x2 and y1 == y2:
-                break
-            e2 = 2 * err
-            if e2 > -dy:
-                err -= dy
-                x1 += sx
-            if e2 < dx:
-                err += dx
-                y1 += sy
-        return np.array(xs, dtype=int), np.array(ys, dtype=int)
-    
-    
     def _line(
         layer: np.ndarray,
         x1: int,
@@ -273,7 +249,8 @@ class Drawable:
         color: Color,
         width: int = 3,
     ) -> np.ndarray:
-        """Draw a line on a NumPy array (layer) from point A to B using a fully vectorized approach.
+        """
+        Draw a line on a NumPy array (layer) from point A to B using Bresenham's algorithm.
     
         Args:
             layer: The numpy array to draw on (H, W, C)
@@ -283,55 +260,61 @@ class Drawable:
             width: Width of the line in pixels
         """
         x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-        h, w = layer.shape[:2]
     
         blended_color = get_blended_color(x1, y1, x2, y2, layer, color)
     
-        # Get core line coordinates
-        xs, ys = _bresenham_line_coords(x1, y1, x2, y2)
+        dx = abs(x2 - x1)
+        dy = abs(y2 - y1)
+        sx = 1 if x1 < x2 else -1
+        sy = 1 if y1 < y2 else -1
+        err = dx - dy
     
-        if width == 1:
-            # Clip to bounds in one go
-            mask = (xs >= 0) & (xs < w) & (ys >= 0) & (ys < h)
-            layer[ys[mask], xs[mask]] = blended_color
+        half_w = width // 2
+        h, w = layer.shape[:2]
+    
+        while True:
+            # Draw a filled circle for thickness
+            yy, xx = np.ogrid[-half_w:half_w + 1, -half_w:half_w + 1]
+            mask = xx**2 + yy**2 <= half_w**2
+            y_min = max(0, y1 - half_w)
+            y_max = min(h, y1 + half_w + 1)
+            x_min = max(0, x1 - half_w)
+            x_max = min(w, x1 + half_w + 1)
+    
+            submask = mask[
+                (y_min - (y1 - half_w)):(y_max - (y1 - half_w)),
+                (x_min - (x1 - half_w)):(x_max - (x1 - half_w))
+            ]
+            layer[y_min:y_max, x_min:x_max][submask] = blended_color
+    
+            if x1 == x2 and y1 == y2:
+                break
+    
+            e2 = 2 * err
+            if e2 > -dy:
+                err -= dy
+                x1 += sx
+            if e2 < dx:
+                err += dx
+                y1 += sy
+    
+        return layer
+    
+    
+    
+        @staticmethod
+        async def draw_virtual_walls(
+            layer: NumpyArray, virtual_walls, color: Color
+        ) -> NumpyArray:
+            """
+            Draw virtual walls on the input layer.
+            """
+            for wall in virtual_walls:
+                for i in range(0, len(wall), 4):
+                    x1, y1, x2, y2 = wall[i : i + 4]
+                    # Draw the virtual wall as a line with a fixed width of 6 pixels
+                    layer = Drawable._line(layer, x1, y1, x2, y2, color, width=6)
             return layer
-    
-        # Precompute circular mask for thickness
-        r = width // 2
-        yy, xx = np.ogrid[-r:r + 1, -r:r + 1]
-        circle_mask = (xx**2 + yy**2) <= r**2
-        dy_idx, dx_idx = np.nonzero(circle_mask)  # offsets inside the circle
-        dy_idx -= r
-        dx_idx -= r
-    
-        # Broadcast offsets to all line points
-        all_x = (xs[:, None] + dx_idx[None, :]).ravel()
-        all_y = (ys[:, None] + dy_idx[None, :]).ravel()
-    
-        # Clip to image bounds
-        valid = (all_x >= 0) & (all_x < w) & (all_y >= 0) & (all_y < h)
-        all_x = all_x[valid]
-        all_y = all_y[valid]
-    
-        # Draw all pixels in one go
-        layer[all_y, all_x] = blended_color
-    
-        return layer
-
-
-    @staticmethod
-    async def draw_virtual_walls(
-        layer: NumpyArray, virtual_walls, color: Color
-    ) -> NumpyArray:
-        """
-        Draw virtual walls on the input layer.
-        """
-        for wall in virtual_walls:
-            for i in range(0, len(wall), 4):
-                x1, y1, x2, y2 = wall[i : i + 4]
-                # Draw the virtual wall as a line with a fixed width of 6 pixels
-                layer = Drawable._line(layer, x1, y1, x2, y2, color, width=6)
-        return layer
 
     @staticmethod
     async def lines(arr: NumpyArray, coords, width: int, color: Color) -> NumpyArray:
