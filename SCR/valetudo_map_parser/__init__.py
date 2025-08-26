@@ -5,7 +5,6 @@ from .config.colors import ColorsManagement
 from .config.drawable import Drawable
 from .config.drawable_elements import DrawableElement, DrawingConfig
 from .config.enhanced_drawable import EnhancedDrawable
-from .config.utils import webp_bytes_to_pil
 from .config.rand256_parser import RRMapParser
 from .config.shared import CameraShared, CameraSharedManager
 from .config.types import (
@@ -15,7 +14,9 @@ from .config.types import (
     SnapshotStore,
     TrimCropData,
     UserLanguageStore,
-    WebPBytes,
+    JsonType,
+    PilPNG,
+    NumpyArray,
 )
 from .hypfer_handler import HypferMapImageHandler
 from .rand256_handler import ReImageHandler
@@ -41,6 +42,7 @@ __all__ = [
     "RoomsProperties",
     "TrimCropData",
     "CameraModes",
-    "WebPBytes",
-    "webp_bytes_to_pil",
+    "JsonType",
+    "PilPNG",
+    "NumpyArray",
 ]
