@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from SCR.valetudo_map_parser.config.types import ImageSize, JsonType
+from .config.types import ImageSize, JsonType
 
 
 class ImageData:
