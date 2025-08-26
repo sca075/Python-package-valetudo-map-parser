@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 
 from .config.drawable import Drawable
+from .config.drawable_elements import DrawableElement
 from .config.types import Color, JsonType, NumpyArray
 from .map_data import ImageData, RandImageData
 
@@ -107,16 +108,18 @@ class ImageDraw:
                 color_wall,
                 color_zone_clean,
             )
-            img_np_array = await self._draw_walls(
-                img_np_array,
-                walls_data,
-                size_x,
-                size_y,
-                pos_top,
-                pos_left,
-                pixel_size,
-                color_wall,
-            )
+            # Draw walls only if enabled in drawing config
+            if self.img_h.drawing_config.is_enabled(DrawableElement.WALL):
+                img_np_array = await self._draw_walls(
+                    img_np_array,
+                    walls_data,
+                    size_x,
+                    size_y,
+                    pos_top,
+                    pos_left,
+                    pixel_size,
+                    color_wall,
+                )
         return room_id, img_np_array
 
     async def _draw_floor(

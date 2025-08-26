@@ -14,7 +14,7 @@ import logging
 import math
 
 import numpy as np
-from PIL import ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 from .color_utils import get_blended_color
 from .colors import ColorsManagement
@@ -243,63 +243,62 @@ class Drawable:
 
     @staticmethod
     def _line(
-        layer: NumpyArray,
-        x1: int,
-        y1: int,
-        x2: int,
-        y2: int,
-        color: Color,
-        width: int = 3,
-    ) -> NumpyArray:
+            layer: np.ndarray,
+            x1: int,
+            y1: int,
+            x2: int,
+            y2: int,
+            color: Color,
+            width: int = 3,
+    ) -> np.ndarray:
         """
-        Draw a line on a NumPy array (layer) from point A to B using vectorized operations.
+        Draw a line on a NumPy array (layer) from point A to B using Bresenham's algorithm.
 
         Args:
-            layer: The numpy array to draw on
+            layer: The numpy array to draw on (H, W, C)
             x1, y1: Start point coordinates
             x2, y2: End point coordinates
-            color: Color to draw with
-            width: Width of the line
+            color: Color to draw with (tuple or array)
+            width: Width of the line in pixels
         """
-        # Ensure coordinates are integers
         x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
 
-        # Get blended color for the line
         blended_color = get_blended_color(x1, y1, x2, y2, layer, color)
 
-        # Calculate line length
-        length = max(abs(x2 - x1), abs(y2 - y1))
-        if length == 0:  # Handle case of a single point
-            # Draw a dot with the specified width
-            for i in range(-width // 2, (width + 1) // 2):
-                for j in range(-width // 2, (width + 1) // 2):
-                    if 0 <= x1 + i < layer.shape[1] and 0 <= y1 + j < layer.shape[0]:
-                        layer[y1 + j, x1 + i] = blended_color
-            return layer
+        dx = abs(x2 - x1)
+        dy = abs(y2 - y1)
+        sx = 1 if x1 < x2 else -1
+        sy = 1 if y1 < y2 else -1
+        err = dx - dy
 
-        # Create parametric points along the line
-        t = np.linspace(0, 1, length * 2)  # Double the points for smoother lines
-        x_coords = np.round(x1 * (1 - t) + x2 * t).astype(int)
-        y_coords = np.round(y1 * (1 - t) + y2 * t).astype(int)
+        half_w = width // 2
+        h, w = layer.shape[:2]
 
-        # Draw the line with the specified width
-        if width == 1:
-            # Fast path for width=1
-            for x, y in zip(x_coords, y_coords):
-                if 0 <= x < layer.shape[1] and 0 <= y < layer.shape[0]:
-                    layer[y, x] = blended_color
-        else:
-            # For thicker lines, draw a rectangle at each point
-            half_width = width // 2
-            for x, y in zip(x_coords, y_coords):
-                for i in range(-half_width, half_width + 1):
-                    for j in range(-half_width, half_width + 1):
-                        if (
-                            i * i + j * j <= half_width * half_width  # Make it round
-                            and 0 <= x + i < layer.shape[1]
-                            and 0 <= y + j < layer.shape[0]
-                        ):
-                            layer[y + j, x + i] = blended_color
+        while True:
+            # Draw a filled circle for thickness
+            yy, xx = np.ogrid[-half_w:half_w + 1, -half_w:half_w + 1]
+            mask = xx ** 2 + yy ** 2 <= half_w ** 2
+            y_min = max(0, y1 - half_w)
+            y_max = min(h, y1 + half_w + 1)
+            x_min = max(0, x1 - half_w)
+            x_max = min(w, x1 + half_w + 1)
+
+            submask = mask[
+                (y_min - (y1 - half_w)):(y_max - (y1 - half_w)),
+                (x_min - (x1 - half_w)):(x_max - (x1 - half_w))
+            ]
+            layer[y_min:y_max, x_min:x_max][submask] = blended_color
+
+            if x1 == x2 and y1 == y2:
+                break
+
+            e2 = 2 * err
+            if e2 > -dy:
+                err -= dy
+                x1 += sx
+            if e2 < dx:
+                err += dx
+                y1 += sy
 
         return layer
 
@@ -483,57 +482,55 @@ class Drawable:
     @staticmethod
     async def zones(layers: NumpyArray, coordinates, color: Color) -> NumpyArray:
         """
-        Draw the zones on the input layer with color blending.
-        Optimized with NumPy vectorized operations for better performance.
+        Draw zones as solid filled polygons with alpha blending using a per-zone mask.
+        Keeps API the same; no dotted rendering.
         """
-        dot_radius = 1  # Number of pixels for the dot
-        dot_spacing = 4  # Space between dots
+        if not coordinates:
+            return layers
+
+        height, width = layers.shape[:2]
+        # Precompute color and alpha
+        r, g, b, a = color
+        alpha = a / 255.0
+        inv_alpha = 1.0 - alpha
+        color_rgb = np.array([r, g, b], dtype=np.float32)
 
         for zone in coordinates:
-            points = zone["points"]
-            min_x = max(0, min(points[::2]))
-            max_x = min(layers.shape[1] - 1, max(points[::2]))
-            min_y = max(0, min(points[1::2]))
-            max_y = min(layers.shape[0] - 1, max(points[1::2]))
+            try:
+                pts = zone["points"]
+            except (KeyError, TypeError):
+                continue
+            if not pts or len(pts) < 6:
+                continue
 
-            # Skip if zone is outside the image
+            # Compute bounding box and clamp
+            min_x = max(0, int(min(pts[::2])))
+            max_x = min(width - 1, int(max(pts[::2])))
+            min_y = max(0, int(min(pts[1::2])))
+            max_y = min(height - 1, int(max(pts[1::2])))
             if min_x >= max_x or min_y >= max_y:
                 continue
 
-            # Sample a point from the zone to get the background color
-            # Use the center of the zone for sampling
-            sample_x = (min_x + max_x) // 2
-            sample_y = (min_y + max_y) // 2
+            # Adjust polygon points to local bbox coordinates
+            poly_xy = [(int(pts[i] - min_x), int(pts[i + 1] - min_y)) for i in range(0, len(pts), 2)]
+            box_w = max_x - min_x + 1
+            box_h = max_y - min_y + 1
 
-            # Blend the color with the background color at the sample point
-            if 0 <= sample_y < layers.shape[0] and 0 <= sample_x < layers.shape[1]:
-                blended_color = ColorsManagement.sample_and_blend_color(
-                    layers, sample_x, sample_y, color
-                )
-            else:
-                blended_color = color
+            # Build mask via PIL polygon fill (fast, C-impl)
+            mask_img = Image.new("L", (box_w, box_h), 0)
+            draw = ImageDraw.Draw(mask_img)
+            draw.polygon(poly_xy, fill=255)
+            zone_mask = np.array(mask_img, dtype=bool)
+            if not np.any(zone_mask):
+                continue
 
-            # Create a grid of dot centers
-            x_centers = np.arange(min_x, max_x, dot_spacing)
-            y_centers = np.arange(min_y, max_y, dot_spacing)
-
-            # Draw dots at each grid point
-            for y in y_centers:
-                for x in x_centers:
-                    # Create a small mask for the dot
-                    y_min = max(0, y - dot_radius)
-                    y_max = min(layers.shape[0], y + dot_radius + 1)
-                    x_min = max(0, x - dot_radius)
-                    x_max = min(layers.shape[1], x + dot_radius + 1)
-
-                    # Create coordinate arrays for the dot
-                    y_indices, x_indices = np.ogrid[y_min:y_max, x_min:x_max]
-
-                    # Create a circular mask
-                    mask = (y_indices - y) ** 2 + (x_indices - x) ** 2 <= dot_radius**2
-
-                    # Apply the color to the masked region
-                    layers[y_min:y_max, x_min:x_max][mask] = blended_color
+            # Vectorized alpha blend on RGB channels only
+            region = layers[min_y : max_y + 1, min_x : max_x + 1]
+            rgb = region[..., :3].astype(np.float32)
+            mask3 = zone_mask[:, :, None]
+            blended_rgb = np.where(mask3, rgb * inv_alpha + color_rgb * alpha, rgb)
+            region[..., :3] = blended_rgb.astype(np.uint8)
+            # Leave alpha channel unchanged to avoid stacking transparency
 
         return layers
 
@@ -812,63 +809,61 @@ class Drawable:
 
     @staticmethod
     async def async_draw_obstacles(
-        image: np.ndarray, obstacle_info_list, color: Color
+            image: np.ndarray, obstacle_info_list, color: Color
     ) -> np.ndarray:
         """
-        Optimized async version of draw_obstacles using batch processing.
-        Includes color blending for better visual integration.
+        Optimized async version of draw_obstacles using a precomputed mask
+        and minimal Python overhead. Handles hundreds of obstacles efficiently.
         """
         if not obstacle_info_list:
             return image
 
-        # Extract alpha from color
+        h, w = image.shape[:2]
         alpha = color[3] if len(color) == 4 else 255
         need_blending = alpha < 255
 
-        # Extract obstacle centers and prepare for batch processing
+        # Precompute circular mask for radius
+        radius = 6
+        diameter = radius * 2 + 1
+        yy, xx = np.ogrid[-radius:radius + 1, -radius:radius + 1]
+        circle_mask = (xx ** 2 + yy ** 2) <= radius ** 2
+
+        # Collect valid obstacles
         centers = []
         for obs in obstacle_info_list:
             try:
                 x = obs["points"]["x"]
                 y = obs["points"]["y"]
 
-                # Skip if coordinates are out of bounds
-                if not (0 <= x < image.shape[1] and 0 <= y < image.shape[0]):
+                if not (0 <= x < w and 0 <= y < h):
                     continue
 
-                # Apply color blending if needed
-                obstacle_color = color
                 if need_blending:
-                    obstacle_color = ColorsManagement.sample_and_blend_color(
-                        image, x, y, color
-                    )
+                    obs_color = ColorsManagement.sample_and_blend_color(image, x, y, color)
+                else:
+                    obs_color = color
 
-                # Add to centers list with radius
-                centers.append({"center": (x, y), "radius": 6, "color": obstacle_color})
+                centers.append((x, y, obs_color))
             except (KeyError, TypeError):
                 continue
 
-        # Draw each obstacle with its blended color
-        if centers:
-            for obstacle in centers:
-                cx, cy = obstacle["center"]
-                radius = obstacle["radius"]
-                obs_color = obstacle["color"]
+        # Draw all obstacles
+        for cx, cy, obs_color in centers:
+            min_y = max(0, cy - radius)
+            max_y = min(h, cy + radius + 1)
+            min_x = max(0, cx - radius)
+            max_x = min(w, cx + radius + 1)
 
-                # Create a small mask for the obstacle
-                min_y = max(0, cy - radius)
-                max_y = min(image.shape[0], cy + radius + 1)
-                min_x = max(0, cx - radius)
-                max_x = min(image.shape[1], cx + radius + 1)
+            # Slice mask to fit image edges
+            mask_y_start = min_y - (cy - radius)
+            mask_y_end = mask_y_start + (max_y - min_y)
+            mask_x_start = min_x - (cx - radius)
+            mask_x_end = mask_x_start + (max_x - min_x)
 
-                # Create coordinate arrays for the circle
-                y_indices, x_indices = np.ogrid[min_y:max_y, min_x:max_x]
+            mask = circle_mask[mask_y_start:mask_y_end, mask_x_start:mask_x_end]
 
-                # Create a circular mask
-                mask = (y_indices - cy) ** 2 + (x_indices - cx) ** 2 <= radius**2
-
-                # Apply the color to the masked region
-                image[min_y:max_y, min_x:max_x][mask] = obs_color
+            # Apply color in one vectorized step
+            image[min_y:max_y, min_x:max_x][mask] = obs_color
 
         return image
 

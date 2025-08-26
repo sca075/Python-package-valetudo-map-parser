@@ -9,8 +9,8 @@ Version: v0.1.6
 from __future__ import annotations
 
 import numpy as np
-import pandas as pd
-from .config.types import ImageSize, JsonType
+
+from SCR.valetudo_map_parser.config.types import ImageSize, JsonType
 
 
 class ImageData:
@@ -18,35 +18,45 @@ class ImageData:
 
     @staticmethod
     def sublist(lst, n):
-        """Split a list into n chunks of specified size."""
+        """Sub lists of specific n number of elements"""
         return [lst[i : i + n] for i in range(0, len(lst), n)]
 
     @staticmethod
     def sublist_join(lst, n):
-        """Join the lists in a unique list of n elements."""
+        """Join the lists in a unique list of n elements"""
         arr = np.array(lst)
         num_windows = len(lst) - n + 1
         result = [arr[i : i + n].tolist() for i in range(num_windows)]
         return result
 
+    # The below functions are basically the same ech one
+    # of them is allowing filtering and putting together in a
+    # list the specific Layers, Paths, Zones and Pints in the
+    # Vacuums Json in parallel.
+
     @staticmethod
     def get_obstacles(entity_dict: dict) -> list:
         """Get the obstacles positions from the entity data."""
-        obstacles = entity_dict.get("obstacle", [])
+        try:
+            obstacle_data = entity_dict.get("obstacle")
+        except KeyError:
+            return []
         obstacle_positions = []
-        for obstacle in obstacles:
-            label = obstacle.get("metaData", {}).get("label")
-            points = obstacle.get("points", [])
-            image_id = obstacle.get("metaData", {}).get("id")
-            if label and points:
-                obstacle_positions.append(
-                    {
+        if obstacle_data:
+            for obstacle in obstacle_data:
+                label = obstacle.get("metaData", {}).get("label")
+                points = obstacle.get("points", [])
+                image_id = obstacle.get("metaData", {}).get("id")
+
+                if label and points:
+                    obstacle_pos = {
                         "label": label,
                         "points": {"x": points[0], "y": points[1]},
                         "id": image_id,
                     }
-                )
-        return obstacle_positions
+                    obstacle_positions.append(obstacle_pos)
+            return obstacle_positions
+        return []
 
     @staticmethod
     def find_layers(
@@ -56,16 +66,17 @@ class ImageData:
         layer_dict = {} if layer_dict is None else layer_dict
         active_list = [] if active_list is None else active_list
         if isinstance(json_obj, dict):
-            if json_obj.get("__class") == "MapLayer":
+            if "__class" in json_obj and json_obj["__class"] == "MapLayer":
                 layer_type = json_obj.get("type")
                 active_type = json_obj.get("metaData")
                 if layer_type:
-                    layer_dict.setdefault(layer_type, []).append(
-                        json_obj.get("compressedPixels", [])
-                    )
+                    if layer_type not in layer_dict:
+                        layer_dict[layer_type] = []
+                    layer_dict[layer_type].append(json_obj.get("compressedPixels", []))
                 if layer_type == "segment":
-                    active_list.append(int(active_type.get("active", 0)))
-            for value in json_obj.values():
+                    active_list.append(int(active_type["active"]))
+
+            for value in json_obj.items():
                 ImageData.find_layers(value, layer_dict, active_list)
         elif isinstance(json_obj, list):
             for item in json_obj:
@@ -75,7 +86,8 @@ class ImageData:
     @staticmethod
     def find_points_entities(json_obj: JsonType, entity_dict: dict = None) -> dict:
         """Find the points entities in the json object."""
-        entity_dict = {} if entity_dict is None else entity_dict
+        if entity_dict is None:
+            entity_dict = {}
         if isinstance(json_obj, dict):
             if json_obj.get("__class") == "PointMapEntity":
                 entity_type = json_obj.get("type")
@@ -91,7 +103,9 @@ class ImageData:
     @staticmethod
     def find_paths_entities(json_obj: JsonType, entity_dict: dict = None) -> dict:
         """Find the paths entities in the json object."""
-        entity_dict = {} if entity_dict is None else entity_dict
+
+        if entity_dict is None:
+            entity_dict = {}
         if isinstance(json_obj, dict):
             if json_obj.get("__class") == "PathMapEntity":
                 entity_type = json_obj.get("type")
@@ -107,7 +121,8 @@ class ImageData:
     @staticmethod
     def find_zone_entities(json_obj: JsonType, entity_dict: dict = None) -> dict:
         """Find the zone entities in the json object."""
-        entity_dict = {} if entity_dict is None else entity_dict
+        if entity_dict is None:
+            entity_dict = {}
         if isinstance(json_obj, dict):
             if json_obj.get("__class") == "PolygonMapEntity":
                 entity_type = json_obj.get("type")
@@ -123,46 +138,59 @@ class ImageData:
     @staticmethod
     def find_virtual_walls(json_obj: JsonType) -> list:
         """Find the virtual walls in the json object."""
-        walls = []
+        virtual_walls = []
 
-        def _recursive(obj):
+        def find_virtual_walls_recursive(obj):
+            """Find the virtual walls in the json object recursively."""
             if isinstance(obj, dict):
-                if (
-                    obj.get("__class") == "LineMapEntity"
-                    and obj.get("type") == "virtual_wall"
-                ):
-                    walls.append(obj["points"])
+                if obj.get("__class") == "LineMapEntity":
+                    entity_type = obj.get("type")
+                    if entity_type == "virtual_wall":
+                        virtual_walls.append(obj["points"])
                 for value in obj.values():
-                    _recursive(value)
+                    find_virtual_walls_recursive(value)
             elif isinstance(obj, list):
                 for item in obj:
-                    _recursive(item)
+                    find_virtual_walls_recursive(item)
 
-        _recursive(json_obj)
-        return walls
+        find_virtual_walls_recursive(json_obj)
+        return virtual_walls
 
     @staticmethod
     async def async_get_rooms_coordinates(
         pixels: list, pixel_size: int = 5, rand: bool = False
     ) -> tuple:
-        """Extract the room coordinates from the vacuum pixels data."""
-        df = pd.DataFrame(pixels, columns=["x", "y", "length"])
-        if rand:
-            df["x_end"] = df["x"]
-            df["y_end"] = df["y"] + pixel_size
-        else:
-            df["x_end"] = df["x"] + df["length"]
-            df["y_end"] = df["y"] + pixel_size
-
-        min_x, max_x = df["x"].min(), df["x_end"].max()
-        min_y, max_y = df["y"].min(), df["y_end"].max()
-
+        """
+        Extract the room coordinates from the vacuum pixels data.
+        piexels: dict: The pixels data format [[x,y,z], [x1,y1,z1], [xn,yn,zn]].
+        pixel_size: int: The size of the pixel in mm (optional).
+        rand: bool: Return the coordinates in a rand256 format (optional).
+        """
+        # Initialize variables to store max and min coordinates
+        max_x, max_y = pixels[0][0], pixels[0][1]
+        min_x, min_y = pixels[0][0], pixels[0][1]
+        # Iterate through the data list to find max and min coordinates
+        for entry in pixels:
+            if rand:
+                x, y, _ = entry  # Extract x and y coordinates
+                max_x = max(max_x, x)  # Update max x coordinate
+                max_y = max(max_y, y + pixel_size)  # Update max y coordinate
+                min_x = min(min_x, x)  # Update min x coordinate
+                min_y = min(min_y, y)  # Update min y coordinate
+            else:
+                x, y, z = entry  # Extract x and y coordinates
+                max_x = max(max_x, x + z)  # Update max x coordinate
+                max_y = max(max_y, y + pixel_size)  # Update max y coordinate
+                min_x = min(min_x, x)  # Update min x coordinate
+                min_y = min(min_y, y)  # Update min y coordinate
         if rand:
             return (
-                ((max_x * pixel_size) * 10, (max_y * pixel_size) * 10),
-                ((min_x * pixel_size) * 10, (min_y * pixel_size) * 10),
+                (((max_x * pixel_size) * 10), ((max_y * pixel_size) * 10)),
+                (
+                    ((min_x * pixel_size) * 10),
+                    ((min_y * pixel_size) * 10),
+                ),
             )
-
         return (
             min_x * pixel_size,
             min_y * pixel_size,
