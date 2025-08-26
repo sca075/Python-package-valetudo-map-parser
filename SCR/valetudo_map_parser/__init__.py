@@ -17,6 +17,7 @@ from .config.types import (
     JsonType,
     PilPNG,
     NumpyArray,
+    ImageSize,
 )
 from .hypfer_handler import HypferMapImageHandler
 from .rand256_handler import ReImageHandler
@@ -45,4 +46,5 @@ __all__ = [
     "JsonType",
     "PilPNG",
     "NumpyArray",
+    "ImageSize",
 ]
