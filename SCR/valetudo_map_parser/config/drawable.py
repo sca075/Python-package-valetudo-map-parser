@@ -223,7 +223,9 @@ class Drawable:
 
     @staticmethod
     def point_inside(x: int, y: int, points: list[Tuple[int, int]]) -> bool:
-        """Check if a point (x, y) is inside a polygon defined by a list of points."""
+        """
+        Check if a point (x, y) is inside a polygon defined by a list of points.
+        """
         n = len(points)
         inside = False
         xinters = 0.0
@@ -239,7 +241,7 @@ class Drawable:
             p1x, p1y = p2x, p2y
         return inside
 
-    @staticmethod
+    @staticmethod  
     def _line(
         layer: np.ndarray,
         x1: int,
@@ -299,22 +301,20 @@ class Drawable:
                 y1 += sy
     
         return layer
-    
-    
-    
-        @staticmethod
-        async def draw_virtual_walls(
-            layer: NumpyArray, virtual_walls, color: Color
-        ) -> NumpyArray:
-            """
-            Draw virtual walls on the input layer.
-            """
-            for wall in virtual_walls:
-                for i in range(0, len(wall), 4):
-                    x1, y1, x2, y2 = wall[i : i + 4]
-                    # Draw the virtual wall as a line with a fixed width of 6 pixels
-                    layer = Drawable._line(layer, x1, y1, x2, y2, color, width=6)
-            return layer
+
+    @staticmethod
+    async def draw_virtual_walls(
+        layer: NumpyArray, virtual_walls, color: Color
+    ) -> NumpyArray:
+        """
+        Draw virtual walls on the input layer.
+        """
+        for wall in virtual_walls:
+            for i in range(0, len(wall), 4):
+                x1, y1, x2, y2 = wall[i : i + 4]
+                # Draw the virtual wall as a line with a fixed width of 6 pixels
+                layer = Drawable._line(layer, x1, y1, x2, y2, color, width=6)
+        return layer
 
     @staticmethod
     async def lines(arr: NumpyArray, coords, width: int, color: Color) -> NumpyArray:
