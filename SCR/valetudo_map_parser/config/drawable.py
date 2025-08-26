@@ -223,9 +223,7 @@ class Drawable:
 
     @staticmethod
     def point_inside(x: int, y: int, points: list[Tuple[int, int]]) -> bool:
-        """
-        Check if a point (x, y) is inside a polygon defined by a list of points.
-        """
+        """Check if a point (x, y) is inside a polygon defined by a list of points."""
         n = len(points)
         inside = False
         xinters = 0.0
@@ -242,66 +240,84 @@ class Drawable:
         return inside
 
     @staticmethod
+    def _bresenham_line_coords(x1: int, y1: int, x2: int, y2: int) -> Tuple[np.ndarray, np.ndarray]:
+        """Return integer coordinates for a line using Bresenham's algorithm."""
+        dx = abs(x2 - x1)
+        dy = abs(y2 - y1)
+        sx = 1 if x1 < x2 else -1
+        sy = 1 if y1 < y2 else -1
+        err = dx - dy
+    
+        xs, ys = [], []
+        while True:
+            xs.append(x1)
+            ys.append(y1)
+            if x1 == x2 and y1 == y2:
+                break
+            e2 = 2 * err
+            if e2 > -dy:
+                err -= dy
+                x1 += sx
+            if e2 < dx:
+                err += dx
+                y1 += sy
+        return np.array(xs, dtype=int), np.array(ys, dtype=int)
+    
+    
     def _line(
-        layer: NumpyArray,
+        layer: np.ndarray,
         x1: int,
         y1: int,
         x2: int,
         y2: int,
         color: Color,
         width: int = 3,
-    ) -> NumpyArray:
-        """
-        Draw a line on a NumPy array (layer) from point A to B using vectorized operations.
-
+    ) -> np.ndarray:
+        """Draw a line on a NumPy array (layer) from point A to B using a fully vectorized approach.
+    
         Args:
-            layer: The numpy array to draw on
+            layer: The numpy array to draw on (H, W, C)
             x1, y1: Start point coordinates
             x2, y2: End point coordinates
-            color: Color to draw with
-            width: Width of the line
+            color: Color to draw with (tuple or array)
+            width: Width of the line in pixels
         """
-        # Ensure coordinates are integers
         x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-
-        # Get blended color for the line
+        h, w = layer.shape[:2]
+    
         blended_color = get_blended_color(x1, y1, x2, y2, layer, color)
-
-        # Calculate line length
-        length = max(abs(x2 - x1), abs(y2 - y1))
-        if length == 0:  # Handle case of a single point
-            # Draw a dot with the specified width
-            for i in range(-width // 2, (width + 1) // 2):
-                for j in range(-width // 2, (width + 1) // 2):
-                    if 0 <= x1 + i < layer.shape[1] and 0 <= y1 + j < layer.shape[0]:
-                        layer[y1 + j, x1 + i] = blended_color
-            return layer
-
-        # Create parametric points along the line
-        t = np.linspace(0, 1, length * 2)  # Double the points for smoother lines
-        x_coords = np.round(x1 * (1 - t) + x2 * t).astype(int)
-        y_coords = np.round(y1 * (1 - t) + y2 * t).astype(int)
-
-        # Draw the line with the specified width
+    
+        # Get core line coordinates
+        xs, ys = _bresenham_line_coords(x1, y1, x2, y2)
+    
         if width == 1:
-            # Fast path for width=1
-            for x, y in zip(x_coords, y_coords):
-                if 0 <= x < layer.shape[1] and 0 <= y < layer.shape[0]:
-                    layer[y, x] = blended_color
-        else:
-            # For thicker lines, draw a rectangle at each point
-            half_width = width // 2
-            for x, y in zip(x_coords, y_coords):
-                for i in range(-half_width, half_width + 1):
-                    for j in range(-half_width, half_width + 1):
-                        if (
-                            i * i + j * j <= half_width * half_width  # Make it round
-                            and 0 <= x + i < layer.shape[1]
-                            and 0 <= y + j < layer.shape[0]
-                        ):
-                            layer[y + j, x + i] = blended_color
-
+            # Clip to bounds in one go
+            mask = (xs >= 0) & (xs < w) & (ys >= 0) & (ys < h)
+            layer[ys[mask], xs[mask]] = blended_color
+            return layer
+    
+        # Precompute circular mask for thickness
+        r = width // 2
+        yy, xx = np.ogrid[-r:r + 1, -r:r + 1]
+        circle_mask = (xx**2 + yy**2) <= r**2
+        dy_idx, dx_idx = np.nonzero(circle_mask)  # offsets inside the circle
+        dy_idx -= r
+        dx_idx -= r
+    
+        # Broadcast offsets to all line points
+        all_x = (xs[:, None] + dx_idx[None, :]).ravel()
+        all_y = (ys[:, None] + dy_idx[None, :]).ravel()
+    
+        # Clip to image bounds
+        valid = (all_x >= 0) & (all_x < w) & (all_y >= 0) & (all_y < h)
+        all_x = all_x[valid]
+        all_y = all_y[valid]
+    
+        # Draw all pixels in one go
+        layer[all_y, all_x] = blended_color
+    
         return layer
+
 
     @staticmethod
     async def draw_virtual_walls(
