@@ -59,7 +59,9 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         self.go_to = None  # vacuum go to data
         self.img_hash = None  # hash of the image calculated to check differences.
         self.img_base_layer = None  # numpy array store the map base layer.
-        self.img_work_layer = None  # persistent working buffer to avoid per-frame allocations
+        self.img_work_layer = (
+            None  # persistent working buffer to avoid per-frame allocations
+        )
         self.active_zones = None  # vacuum active zones.
         self.svg_wait = False  # SVG image creation wait.
         self.imd = ImDraw(self)  # Image Draw class.
@@ -216,7 +218,9 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                             is_wall_layer = layer_type == "wall"
                             if is_wall_layer:
                                 # Skip walls entirely if disabled
-                                if not self.drawing_config.is_enabled(DrawableElement.WALL):
+                                if not self.drawing_config.is_enabled(
+                                    DrawableElement.WALL
+                                ):
                                     continue
                             # Draw the layer
                             (
@@ -273,7 +277,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                     LOGGER.info("%s: Completed base Layers", self.file_name)
                     # Copy the new array in base layer.
                     self.img_base_layer = await self.async_copy_array(img_np_array)
-
 
                 self.shared.frame_number = self.frame_number
                 self.frame_number += 1

@@ -103,26 +103,33 @@ class BaseHandler:
         """
         try:
             # Backup current image to last_image before processing new one
-            if hasattr(self.shared, 'new_image') and self.shared.new_image is not None:
+            if hasattr(self.shared, "new_image") and self.shared.new_image is not None:
                 self.shared.last_image = self.shared.new_image
 
             # Call the appropriate handler method based on handler type
-            if hasattr(self, 'get_image_from_rrm'):
+            if hasattr(self, "get_image_from_rrm"):
                 # This is a Rand256 handler
                 new_image = await self.get_image_from_rrm(
                     m_json=m_json,
                     destinations=destinations,
-                    return_webp=False  # Always return PIL Image
+                    return_webp=False,  # Always return PIL Image
                 )
-            elif hasattr(self, 'async_get_image_from_json'):
+            elif hasattr(self, "async_get_image_from_json"):
                 # This is a Hypfer handler
                 new_image = await self.async_get_image_from_json(
                     m_json=m_json,
-                    return_webp=False  # Always return PIL Image
+                    return_webp=False,  # Always return PIL Image
                 )
             else:
-                LOGGER.warning("%s: Handler type not recognized for async_get_image", self.file_name)
-                return self.shared.last_image if hasattr(self.shared, 'last_image') else None
+                LOGGER.warning(
+                    "%s: Handler type not recognized for async_get_image",
+                    self.file_name,
+                )
+                return (
+                    self.shared.last_image
+                    if hasattr(self.shared, "last_image")
+                    else None
+                )
 
             # Store the new image in shared data
             if new_image is not None:
@@ -133,26 +140,37 @@ class BaseHandler:
                     with io.BytesIO() as buf:
                         new_image.save(buf, format="PNG", compress_level=1)
                         self.shared.binary_image = buf.getvalue()
-                    LOGGER.debug("%s: Binary image conversion completed", self.file_name)
+                    LOGGER.debug(
+                        "%s: Binary image conversion completed", self.file_name
+                    )
                 else:
                     self.shared.binary_image = None
-
                 # Update the timestamp with current datetime
                 self.shared.image_last_updated = datetime.datetime.fromtimestamp(time())
-                LOGGER.debug("%s: Image processed and stored in shared data", self.file_name)
+                LOGGER.debug(
+                    "%s: Image processed and stored in shared data", self.file_name
+                )
                 return new_image
             else:
-                LOGGER.warning("%s: Failed to generate image from JSON data", self.file_name)
-                return self.shared.last_image if hasattr(self.shared, 'last_image') else None
+                LOGGER.warning(
+                    "%s: Failed to generate image from JSON data", self.file_name
+                )
+                return (
+                    self.shared.last_image
+                    if hasattr(self.shared, "last_image")
+                    else None
+                )
 
         except Exception as e:
             LOGGER.error(
                 "%s: Error in async_get_image: %s",
                 self.file_name,
                 str(e),
-                exc_info=True
+                exc_info=True,
             )
-            return self.shared.last_image if hasattr(self.shared, 'last_image') else None
+            return (
+                self.shared.last_image if hasattr(self.shared, "last_image") else None
+            )
 
     def get_charger_position(self) -> ChargerPosition | None:
         """Return the charger position."""

@@ -243,13 +243,13 @@ class Drawable:
 
     @staticmethod
     def _line(
-            layer: np.ndarray,
-            x1: int,
-            y1: int,
-            x2: int,
-            y2: int,
-            color: Color,
-            width: int = 3,
+        layer: np.ndarray,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
+        color: Color,
+        width: int = 3,
     ) -> np.ndarray:
         """
         Draw a line on a NumPy array (layer) from point A to B using Bresenham's algorithm.
@@ -276,16 +276,16 @@ class Drawable:
 
         while True:
             # Draw a filled circle for thickness
-            yy, xx = np.ogrid[-half_w:half_w + 1, -half_w:half_w + 1]
-            mask = xx ** 2 + yy ** 2 <= half_w ** 2
+            yy, xx = np.ogrid[-half_w : half_w + 1, -half_w : half_w + 1]
+            mask = xx**2 + yy**2 <= half_w**2
             y_min = max(0, y1 - half_w)
             y_max = min(h, y1 + half_w + 1)
             x_min = max(0, x1 - half_w)
             x_max = min(w, x1 + half_w + 1)
 
             submask = mask[
-                (y_min - (y1 - half_w)):(y_max - (y1 - half_w)),
-                (x_min - (x1 - half_w)):(x_max - (x1 - half_w))
+                (y_min - (y1 - half_w)) : (y_max - (y1 - half_w)),
+                (x_min - (x1 - half_w)) : (x_max - (x1 - half_w)),
             ]
             layer[y_min:y_max, x_min:x_max][submask] = blended_color
 
@@ -512,7 +512,10 @@ class Drawable:
                 continue
 
             # Adjust polygon points to local bbox coordinates
-            poly_xy = [(int(pts[i] - min_x), int(pts[i + 1] - min_y)) for i in range(0, len(pts), 2)]
+            poly_xy = [
+                (int(pts[i] - min_x), int(pts[i + 1] - min_y))
+                for i in range(0, len(pts), 2)
+            ]
             box_w = max_x - min_x + 1
             box_h = max_y - min_y + 1
 
@@ -809,7 +812,7 @@ class Drawable:
 
     @staticmethod
     async def async_draw_obstacles(
-            image: np.ndarray, obstacle_info_list, color: Color
+        image: np.ndarray, obstacle_info_list, color: Color
     ) -> np.ndarray:
         """
         Optimized async version of draw_obstacles using a precomputed mask
@@ -825,8 +828,8 @@ class Drawable:
         # Precompute circular mask for radius
         radius = 6
         diameter = radius * 2 + 1
-        yy, xx = np.ogrid[-radius:radius + 1, -radius:radius + 1]
-        circle_mask = (xx ** 2 + yy ** 2) <= radius ** 2
+        yy, xx = np.ogrid[-radius : radius + 1, -radius : radius + 1]
+        circle_mask = (xx**2 + yy**2) <= radius**2
 
         # Collect valid obstacles
         centers = []
@@ -839,7 +842,9 @@ class Drawable:
                     continue
 
                 if need_blending:
-                    obs_color = ColorsManagement.sample_and_blend_color(image, x, y, color)
+                    obs_color = ColorsManagement.sample_and_blend_color(
+                        image, x, y, color
+                    )
                 else:
                     obs_color = color
 
