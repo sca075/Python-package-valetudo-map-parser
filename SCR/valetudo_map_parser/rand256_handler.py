@@ -12,8 +12,8 @@ import uuid
 from typing import Any
 
 import numpy as np
-from PIL import Image
 
+from .config.async_utils import AsyncNumPy, AsyncPIL
 from .config.auto_crop import AutoCrop
 from .config.drawable_elements import DrawableElement
 from .config.types import (
@@ -145,7 +145,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
         m_json: JsonType,  # json data
         destinations: None = None,  # MQTT destinations for labels
         return_webp: bool = False,
-    ) -> WebPBytes | Image.Image | None:
+    ) -> WebPBytes | PilPNG | None:
         """Generate Images from the json data.
         @param m_json: The JSON data to use to draw the image.
         @param destinations: MQTT destinations for labels (unused).
@@ -195,8 +195,8 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     del img_np_array  # free memory
                     return webp_bytes
                 else:
-                    # Convert to PIL Image (original behavior)
-                    pil_img = Image.fromarray(img_np_array, mode="RGBA")
+                    # Convert to PIL Image using async utilities
+                    pil_img = await AsyncPIL.async_fromarray(img_np_array, mode="RGBA")
                     del img_np_array  # free memory
                     return await self._finalize_image(pil_img)
 
@@ -296,11 +296,6 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     # Store original rooms_pos and temporarily use the new one
                     original_rooms_pos = self.rooms_pos
                     self.rooms_pos = temp_rooms_pos
-
-                    # Perform robot room detection to check active zones
-                    robot_room_result = await self.async_get_robot_in_room(
-                        robot_position[0], robot_position[1], robot_position_angle
-                    )
 
                     # Restore original rooms_pos
                     self.rooms_pos = original_rooms_pos
@@ -673,3 +668,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
             property_name=property_name,
             value=value,
         )
+
+    async def async_copy_array(self, original_array):
+        """Copy the array using async utilities."""
+        return await AsyncNumPy.async_copy(original_array)

@@ -5,6 +5,11 @@ import json
 import logging
 import cProfile
 import pstats
+import tracemalloc
+import psutil
+import gc
+import time
+from typing import Dict, List, Tuple
 
 import sys
 import os
@@ -14,7 +19,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from SCR.valetudo_map_parser.config.colors import ColorsManagement
 from SCR.valetudo_map_parser.config.shared import CameraSharedManager
-from SCR.valetudo_map_parser.rand25_handler import ReImageHandler
+from SCR.valetudo_map_parser.rand256_handler import ReImageHandler
+from SCR.valetudo_map_parser.config.rand256_parser import RRMapParser as Rand256Parser
+
 
 # Configure logging
 logging.basicConfig(
@@ -25,10 +32,180 @@ logging.basicConfig(
 _LOGGER = logging.getLogger(__name__)
 
 
+class PerformanceProfiler:
+    """Comprehensive profiling for memory and CPU usage analysis."""
+
+    def __init__(self, enable_memory_profiling: bool = True, enable_cpu_profiling: bool = True):
+        self.enable_memory_profiling = enable_memory_profiling
+        self.enable_cpu_profiling = enable_cpu_profiling
+        self.memory_snapshots: List[Tuple[str, tracemalloc.Snapshot]] = []
+        self.cpu_profiles: List[Tuple[str, cProfile.Profile]] = []
+        self.memory_stats: List[Dict] = []
+        self.timing_stats: List[Dict] = []
+
+        if self.enable_memory_profiling:
+            tracemalloc.start()
+            _LOGGER.info("🔍 Memory profiling enabled")
+
+        if self.enable_cpu_profiling:
+            _LOGGER.info("⚡ CPU profiling enabled")
+
+    def take_memory_snapshot(self, label: str) -> None:
+        """Take a memory snapshot with a descriptive label."""
+        if not self.enable_memory_profiling:
+            return
+
+        snapshot = tracemalloc.take_snapshot()
+        self.memory_snapshots.append((label, snapshot))
+
+        # Get current memory usage
+        process = psutil.Process()
+        memory_info = process.memory_info()
+
+        self.memory_stats.append({
+            'label': label,
+            'timestamp': time.time(),
+            'rss_mb': memory_info.rss / 1024 / 1024,  # Resident Set Size in MB
+            'vms_mb': memory_info.vms / 1024 / 1024,  # Virtual Memory Size in MB
+            'percent': process.memory_percent(),
+        })
+
+        _LOGGER.debug(f"📊 Memory snapshot '{label}': RSS={memory_info.rss / 1024 / 1024:.1f}MB")
+
+    def start_cpu_profile(self, label: str) -> cProfile.Profile:
+        """Start CPU profiling for a specific operation."""
+        if not self.enable_cpu_profiling:
+            return None
+
+        profiler = cProfile.Profile()
+        profiler.enable()
+        self.cpu_profiles.append((label, profiler))
+        return profiler
+
+    def stop_cpu_profile(self, profiler: cProfile.Profile) -> None:
+        """Stop CPU profiling."""
+        if profiler:
+            profiler.disable()
+
+    def time_operation(self, label: str, start_time: float, end_time: float) -> None:
+        """Record timing information for an operation."""
+        duration = end_time - start_time
+        self.timing_stats.append({
+            'label': label,
+            'duration_ms': duration * 1000,
+            'timestamp': start_time
+        })
+        _LOGGER.info(f"⏱️  {label}: {duration * 1000:.1f}ms")
+
+    def analyze_memory_usage(self) -> None:
+        """Analyze memory usage patterns and print detailed report."""
+        if not self.enable_memory_profiling or len(self.memory_snapshots) < 2:
+            return
+
+        print("\n" + "="*80)
+        print("📊 MEMORY USAGE ANALYSIS")
+        print("="*80)
+
+        # Memory usage over time
+        print("\n🔍 Memory Usage Timeline:")
+        for i, stats in enumerate(self.memory_stats):
+            print(f"  {i+1:2d}. {stats['label']:30s} | RSS: {stats['rss_mb']:6.1f}MB | VMS: {stats['vms_mb']:6.1f}MB | {stats['percent']:4.1f}%")
+
+        # Memory growth analysis
+        if len(self.memory_stats) >= 2:
+            start_rss = self.memory_stats[0]['rss_mb']
+            peak_rss = max(stats['rss_mb'] for stats in self.memory_stats)
+            end_rss = self.memory_stats[-1]['rss_mb']
+
+            print(f"\n📈 Memory Growth Analysis:")
+            print(f"   Start RSS: {start_rss:.1f}MB")
+            print(f"   Peak RSS:  {peak_rss:.1f}MB (+{peak_rss - start_rss:.1f}MB)")
+            print(f"   End RSS:   {end_rss:.1f}MB ({'+' if end_rss > start_rss else ''}{end_rss - start_rss:.1f}MB from start)")
+
+        # Top memory allocations
+        if len(self.memory_snapshots) >= 2:
+            print(f"\n🔥 Top Memory Allocations (comparing first vs last snapshot):")
+            first_snapshot = self.memory_snapshots[0][1]
+            last_snapshot = self.memory_snapshots[-1][1]
+
+            top_stats = last_snapshot.compare_to(first_snapshot, 'lineno')[:10]
+            for index, stat in enumerate(top_stats):
+                print(f"   {index+1:2d}. {stat}")
+
+    def analyze_cpu_usage(self) -> None:
+        """Analyze CPU usage patterns and print detailed report."""
+        if not self.enable_cpu_profiling or not self.cpu_profiles:
+            return
+
+        print("\n" + "="*80)
+        print("⚡ CPU USAGE ANALYSIS")
+        print("="*80)
+
+        for label, profiler in self.cpu_profiles:
+            print(f"\n🔍 CPU Profile: {label}")
+            print("-" * 50)
+
+            # Create stats object
+            stats = pstats.Stats(profiler)
+            stats.sort_stats('cumulative')
+
+            # Print top 15 functions by cumulative time
+            print("Top 15 functions by cumulative time:")
+            stats.print_stats(15)
+
+    def analyze_timing_patterns(self) -> None:
+        """Analyze timing patterns across operations."""
+        if not self.timing_stats:
+            return
+
+        print("\n" + "="*80)
+        print("⏱️  TIMING ANALYSIS")
+        print("="*80)
+
+        # Group by operation type
+        timing_groups = {}
+        for stat in self.timing_stats:
+            operation = stat['label'].split(' ')[0]  # Get first word as operation type
+            if operation not in timing_groups:
+                timing_groups[operation] = []
+            timing_groups[operation].append(stat['duration_ms'])
+
+        print("\n📊 Timing Summary by Operation:")
+        for operation, durations in timing_groups.items():
+            avg_duration = sum(durations) / len(durations)
+            min_duration = min(durations)
+            max_duration = max(durations)
+            print(f"   {operation:20s} | Avg: {avg_duration:6.1f}ms | Min: {min_duration:6.1f}ms | Max: {max_duration:6.1f}ms | Count: {len(durations)}")
+
+    def generate_report(self) -> None:
+        """Generate comprehensive performance report."""
+        print("\n" + "="*80)
+        print("🎯 COMPREHENSIVE PERFORMANCE REPORT")
+        print("="*80)
+
+        self.analyze_memory_usage()
+        self.analyze_cpu_usage()
+        self.analyze_timing_patterns()
+
+        # Garbage collection stats
+        print(f"\n🗑️  Garbage Collection Stats:")
+        gc_stats = gc.get_stats()
+        for i, stats in enumerate(gc_stats):
+            print(f"   Generation {i}: Collections={stats['collections']}, Collected={stats['collected']}, Uncollectable={stats['uncollectable']}")
+
+        print("\n" + "="*80)
+
+
 class TestRandImageHandler:
-    def __init__(self):
+    def __init__(self, enable_profiling: bool = True):
         self.test_data = None
         self.image = None
+
+        # Initialize profiler
+        self.profiler = PerformanceProfiler(
+            enable_memory_profiling=enable_profiling,
+            enable_cpu_profiling=enable_profiling
+        ) if enable_profiling else None
 
     def setUp(self):
         # Load test data from the rand.json file
@@ -42,6 +219,13 @@ class TestRandImageHandler:
 
     async def test_image_handler(self):
         _LOGGER.info("Starting test_rand_image_handler...")
+
+        # Start profiling for this image generation
+        start_time = time.time()
+        cpu_profiler = None
+        if self.profiler:
+            self.profiler.take_memory_snapshot(f"Before Image Gen - {self.current_file}")
+            cpu_profiler = self.profiler.start_cpu_profile(f"Image Generation - {self.current_file}")
 
         device_info = {
             'platform': 'mqtt_vacuum_camera',
@@ -231,19 +415,40 @@ class TestRandImageHandler:
         # Show the image
         self.image.show()
 
+        # End profiling for this image generation
+        end_time = time.time()
+        if self.profiler:
+            if cpu_profiler:
+                self.profiler.stop_cpu_profile(cpu_profiler)
+            self.profiler.take_memory_snapshot(f"After Image Gen - {self.current_file}")
+            self.profiler.time_operation(f"Image Generation - {self.current_file}", start_time, end_time)
+
 
 def __main__():
-    test = TestRandImageHandler()
+    # Enable comprehensive profiling (disable CPU profiling to avoid conflicts with main cProfile)
+    test = TestRandImageHandler(enable_profiling=True)
+    # Disable CPU profiling in the custom profiler to avoid conflicts
+    if test.profiler:
+        test.profiler.enable_cpu_profiling = False
+
     test.setUp()
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
+    # Legacy cProfile for compatibility
     profiler = cProfile.Profile()
     profiler.enable()
 
     try:
+        if test.profiler:
+            test.profiler.take_memory_snapshot("Test Start")
+
         loop.run_until_complete(test.test_image_handler())
+
+        if test.profiler:
+            test.profiler.take_memory_snapshot("Test Complete")
+
     finally:
         profiler.disable()
         loop.close()
@@ -252,9 +457,16 @@ def __main__():
         profile_output = "profile_output_rand.prof"
         profiler.dump_stats(profile_output)
 
-        # Print profiling summary
+        # Print legacy profiling results
+        print("\n" + "="*80)
+        print("📊 LEGACY CPROFILE RESULTS (Top 50 functions)")
+        print("="*80)
         stats = pstats.Stats(profile_output)
-        stats.strip_dirs().sort_stats("cumulative").print_stats(50)  # Show top 50 functions
+        stats.strip_dirs().sort_stats("cumulative").print_stats(50)
+
+        # Generate comprehensive profiling report
+        if test.profiler:
+            test.profiler.generate_report()
 
 
 if __name__ == "__main__":
