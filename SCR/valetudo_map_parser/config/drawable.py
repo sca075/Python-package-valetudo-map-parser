@@ -537,7 +537,7 @@ class Drawable:
 
         return layers
 
-   @staticmethod
+    @staticmethod
     async def robot(
         layers: NumpyArray,
         x: int,
@@ -618,7 +618,6 @@ class Drawable:
     
         layers[top_left_y:bottom_right_y, top_left_x:bottom_right_x] = tmp_layer
         return layers
-
 
     @staticmethod
     def overlay_robot(
