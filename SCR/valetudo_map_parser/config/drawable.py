@@ -551,7 +551,7 @@ class Drawable:
         Draw the robot with configurable size. All elements scale with radius.
         """
         # Minimum radius to keep things visible
-        radius = max(radius, 8)
+        radius = max(8, min(radius, 25))
     
         height, width = layers.shape[:2]
         if not (0 <= x < width and 0 <= y < height):
