@@ -595,8 +595,8 @@ class Drawable:
     
         # Direction wedge
         angle -= 90
-        a1 = np.deg2rad((angle + 90) - 80)
-        a2 = np.deg2rad((angle + 90) + 80)
+        a1 = ((angle + 90) - 80) / 180 * math.pi
+        a2 = ((angle + 90) + 80) / 180 * math.pi
         x1 = int(tmp_x - r_cover * np.sin(a1))
         y1 = int(tmp_y + r_cover * np.cos(a1))
         x2 = int(tmp_x - r_cover * np.sin(a2))
