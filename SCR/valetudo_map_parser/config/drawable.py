@@ -537,7 +537,7 @@ class Drawable:
 
         return layers
 
-    @staticmethod
+   @staticmethod
     async def robot(
         layers: NumpyArray,
         x: int,
@@ -545,96 +545,80 @@ class Drawable:
         angle: float,
         fill: Color,
         robot_state: str | None = None,
+        radius: int = 25  # user-configurable
     ) -> NumpyArray:
         """
-        Draw the robot on a smaller array to reduce memory cost.
-        Optimized with NumPy vectorized operations for better performance.
+        Draw the robot with configurable size. All elements scale with radius.
         """
-        # Ensure coordinates are within bounds
+        # Minimum radius to keep things visible
+        radius = max(radius, 8)
+    
         height, width = layers.shape[:2]
         if not (0 <= x < width and 0 <= y < height):
             return layers
-
-        # Calculate the bounding box for the robot
-        radius = 25
-        box_size = radius * 2 + 2  # Add a small margin
-
-        # Calculate the region to draw on
+    
+        # Bounding box
+        box_size = radius * 2 + 2
         top_left_x = max(0, x - radius - 1)
         top_left_y = max(0, y - radius - 1)
         bottom_right_x = min(width, x + radius + 1)
         bottom_right_y = min(height, y + radius + 1)
-
-        # Skip if the robot is completely outside the image
+    
         if top_left_x >= bottom_right_x or top_left_y >= bottom_right_y:
             return layers
-
-        # Create a temporary layer for the robot
+    
         tmp_width = bottom_right_x - top_left_x
         tmp_height = bottom_right_y - top_left_y
         tmp_layer = layers[top_left_y:bottom_right_y, top_left_x:bottom_right_x].copy()
-
-        # Calculate the robot center in the temporary layer
+    
         tmp_x = x - top_left_x
         tmp_y = y - top_left_y
-
-        # Calculate robot parameters
-        r_scaled = radius // 11
-        r_cover = r_scaled * 12
+    
+        # All geometry proportional to radius
+        r_scaled = max(1, radius / 11.0)
+        r_cover  = int(r_scaled * 12)
+        r_lidar  = max(1, int(r_scaled * 3))
+        r_button = max(1, int(r_scaled * 1))
+        lidar_offset = int(radius * 0.6)   # was fixed 15
+        button_offset = int(radius * 0.8)  # was fixed 20
+    
         lidar_angle = np.deg2rad(angle + 90)
-        r_lidar = r_scaled * 3
-        r_button = r_scaled * 1
-
-        # Set colors based on robot state
+    
         if robot_state == "error":
             outline = Drawable.ERROR_OUTLINE
             fill = Drawable.ERROR_COLOR
         else:
             outline = (fill[0] // 2, fill[1] // 2, fill[2] // 2, fill[3])
-
-        # Draw the main robot body
-        tmp_layer = Drawable._filled_circle(
-            tmp_layer, (tmp_y, tmp_x), radius, fill, outline, 1
-        )
-
-        # Draw the robot direction indicator
+    
+        # Body
+        tmp_layer = Drawable._filled_circle(tmp_layer, (tmp_y, tmp_x), radius, fill, outline, 1)
+    
+        # Direction wedge
         angle -= 90
-        a1 = ((angle + 90) - 80) / 180 * math.pi
-        a2 = ((angle + 90) + 80) / 180 * math.pi
-        x1 = int(tmp_x - r_cover * math.sin(a1))
-        y1 = int(tmp_y + r_cover * math.cos(a1))
-        x2 = int(tmp_x - r_cover * math.sin(a2))
-        y2 = int(tmp_y + r_cover * math.cos(a2))
-
-        # Draw the direction line
-        if (
-            0 <= x1 < tmp_width
-            and 0 <= y1 < tmp_height
-            and 0 <= x2 < tmp_width
-            and 0 <= y2 < tmp_height
-        ):
+        a1 = np.deg2rad((angle + 90) - 80)
+        a2 = np.deg2rad((angle + 90) + 80)
+        x1 = int(tmp_x - r_cover * np.sin(a1))
+        y1 = int(tmp_y + r_cover * np.cos(a1))
+        x2 = int(tmp_x - r_cover * np.sin(a2))
+        y2 = int(tmp_y + r_cover * np.cos(a2))
+        if 0 <= x1 < tmp_width and 0 <= y1 < tmp_height and 0 <= x2 < tmp_width and 0 <= y2 < tmp_height:
             tmp_layer = Drawable._line(tmp_layer, x1, y1, x2, y2, outline, width=1)
-
-        # Draw the lidar indicator
-        lidar_x = int(tmp_x + 15 * np.cos(lidar_angle))
-        lidar_y = int(tmp_y + 15 * np.sin(lidar_angle))
+    
+        # Lidar
+        lidar_x = int(tmp_x + lidar_offset * np.cos(lidar_angle))
+        lidar_y = int(tmp_y + lidar_offset * np.sin(lidar_angle))
         if 0 <= lidar_x < tmp_width and 0 <= lidar_y < tmp_height:
-            tmp_layer = Drawable._filled_circle(
-                tmp_layer, (lidar_y, lidar_x), r_lidar, outline
-            )
-
-        # Draw the button indicator
-        butt_x = int(tmp_x - 20 * np.cos(lidar_angle))
-        butt_y = int(tmp_y - 20 * np.sin(lidar_angle))
+            tmp_layer = Drawable._filled_circle(tmp_layer, (lidar_y, lidar_x), r_lidar, outline)
+    
+        # Button
+        butt_x = int(tmp_x - button_offset * np.cos(lidar_angle))
+        butt_y = int(tmp_y - button_offset * np.sin(lidar_angle))
         if 0 <= butt_x < tmp_width and 0 <= butt_y < tmp_height:
-            tmp_layer = Drawable._filled_circle(
-                tmp_layer, (butt_y, butt_x), r_button, outline
-            )
-
-        # Copy the robot layer back to the main layer
+            tmp_layer = Drawable._filled_circle(tmp_layer, (butt_y, butt_x), r_button, outline)
+    
         layers[top_left_y:bottom_right_y, top_left_x:bottom_right_x] = tmp_layer
-
         return layers
+
 
     @staticmethod
     def overlay_robot(
