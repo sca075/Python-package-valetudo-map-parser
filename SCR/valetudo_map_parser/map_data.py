@@ -3,7 +3,7 @@ Collections of Json and List routines
 ImageData is part of the Image_Handler
 used functions to search data in the json
 provided for the creation of the new camera frame
-Version: v0.1.6
+Version: v0.1.10
 """
 
 from __future__ import annotations
@@ -119,7 +119,7 @@ class ImageData:
     @staticmethod
     def get_obstacles(
         entity_dict: dict[str, list[PointMapEntity]]
-    ) -> list[dict[str, str | int | None]]
+    ) -> list[dict[str, str | int | None]]:
         """
         Extract obstacle positions from Valetudo entity data.
     
