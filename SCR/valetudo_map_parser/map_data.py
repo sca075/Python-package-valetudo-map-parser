@@ -9,20 +9,102 @@ Version: v0.1.6
 from __future__ import annotations
 
 import numpy as np
+from typing import List, Sequence, TypeVar, Any, TypedDict, NotRequired, Literal, Truple
+from dataclasses import dataclass, field
 
 from .config.types import ImageSize, JsonType
+
+T = TypeVar("T")
+
+# --- Common Nested Structures ---
+
+class RangeStats(TypedDict):
+    min: int
+    max: int
+    mid: int
+    avg: int
+
+class Dimensions(TypedDict):
+    x: RangeStats
+    y: RangeStats
+    pixelCount: int
+
+# --- Layer Types ---
+
+class FloorWallMeta(TypedDict, total=False):
+    area: int
+
+class SegmentMeta(TypedDict, total=False):
+    segmentId: str
+    active: bool
+    source: str
+    area: int
+
+class MapLayerBase(TypedDict):
+    __class__: Literal["MapLayer"]
+    type: str
+    pixels: list[int]
+    compressedPixels: list[int]
+    dimensions: Dimensions
+
+class FloorWallLayer(MapLayerBase):
+    metaData: FloorWallMeta
+    type: Literal["floor", "wall"]
+
+class SegmentLayer(MapLayerBase):
+    metaData: SegmentMeta
+    type: Literal["segment"]
+
+# --- Entity Types ---
+
+class PointMeta(TypedDict, total=False):
+    angle: float
+    label: str
+    id: str
+
+class PointMapEntity(TypedDict):
+    __class__: Literal["PointMapEntity"]
+    type: str
+    points: list[int]
+    metaData: NotRequired[PointMeta]
+
+class PathMapEntity(TypedDict):
+    __class__: Literal["PathMapEntity"]
+    type: str
+    points: list[int]
+    metaData: dict[str, object]  # flexible for now
+
+Entity = PointMapEntity | PathMapEntity
+
+# --- Top-level Map ---
+
+class MapMeta(TypedDict, total=False):
+    version: int
+    totalLayerArea: int
+
+class Size(TypedDict):
+    x: int
+    y: int
+
+class ValetudoMap(TypedDict):
+    __class__: Literal["ValetudoMap"]
+    metaData: MapMeta
+    size: Size
+    pixelSize: int
+    layers: list[FloorWallLayer | SegmentLayer]
+    entities: list[Entity]
 
 
 class ImageData:
     """Class to handle the image data."""
 
     @staticmethod
-    def sublist(lst, n):
+    def sublist(lst: Sequence[T], n: int) -> list[list[T]]:
         """Sub lists of specific n number of elements"""
         return [lst[i : i + n] for i in range(0, len(lst), n)]
 
     @staticmethod
-    def sublist_join(lst, n):
+    def sublist_join(lst: Sequence[T], n: int) -> list[list[T]]:
         """Join the lists in a unique list of n elements"""
         arr = np.array(lst)
         num_windows = len(lst) - n + 1
@@ -35,73 +117,124 @@ class ImageData:
     # Vacuums Json in parallel.
 
     @staticmethod
-    def get_obstacles(entity_dict: dict) -> list:
-        """Get the obstacles positions from the entity data."""
-        try:
-            obstacle_data = entity_dict.get("obstacle")
-        except KeyError:
+    def get_obstacles(
+        entity_dict: dict[str, list[PointMapEntity]]
+    ) -> list[dict[str, str | int | None]]
+        """
+        Extract obstacle positions from Valetudo entity data.
+    
+        Args:
+            entity_dict: Parsed JSON-like dict containing obstacle data.
+    
+        Returns:
+            A list of obstacle dicts with keys:
+                - 'label': obstacle label string
+                - 'points': dict with 'x' and 'y' coordinates
+                - 'id': obstacle image/metadata ID (if any)
+            Returns an empty list if no valid obstacles found.
+        """
+        obstacle_data = entity_dict.get("obstacle")  # .get() won't raise KeyError
+        if not obstacle_data:
             return []
-        obstacle_positions = []
-        if obstacle_data:
-            for obstacle in obstacle_data:
-                label = obstacle.get("metaData", {}).get("label")
-                points = obstacle.get("points", [])
-                image_id = obstacle.get("metaData", {}).get("id")
-
-                if label and points:
-                    obstacle_pos = {
-                        "label": label,
-                        "points": {"x": points[0], "y": points[1]},
-                        "id": image_id,
-                    }
-                    obstacle_positions.append(obstacle_pos)
-            return obstacle_positions
-        return []
+    
+        obstacle_positions: list[dict[str, Any]] = []
+    
+        for obstacle in obstacle_data:
+            meta = obstacle.get("metaData", {}) or {}
+            label = meta.get("label")
+            image_id = meta.get("id")
+            points = obstacle.get("points") or []
+    
+            # Expecting at least two coordinates for a valid obstacle
+            if label and len(points) >= 2:
+                obstacle_positions.append({
+                    "label": label,
+                    "points": {"x": points[0], "y": points[1]},
+                    "id": image_id,
+                })
+    
+        return obstacle_positions
 
     @staticmethod
     def find_layers(
-        json_obj: JsonType, layer_dict: dict, active_list: list
-    ) -> tuple[dict, list]:
-        """Find the layers in the json object."""
-        layer_dict = {} if layer_dict is None else layer_dict
-        active_list = [] if active_list is None else active_list
+        json_obj: JsonType,
+        layer_dict: dict[str, list[Any]] | None,
+        active_list: list[int] | None
+    ) -> tuple[dict[str, list[Any]], list[int]]:
+        """
+        Recursively traverse a JSON-like structure to find MapLayer entries.
+    
+        Args:
+            json_obj: The JSON-like object (dicts/lists) to search.
+            layer_dict: Optional mapping of layer_type to a list of compressed pixel data.
+            active_list: Optional list of active segment flags.
+    
+        Returns:
+            A tuple:
+                - dict mapping layer types to their compressed pixel arrays.
+                - list of integers marking active segment layers.
+        """
+        if layer_dict is None:
+            layer_dict = {}
+        if active_list is None:
+            active_list = []
+    
         if isinstance(json_obj, dict):
-            if "__class" in json_obj and json_obj["__class"] == "MapLayer":
+            if json_obj.get("__class") == "MapLayer":
                 layer_type = json_obj.get("type")
-                active_type = json_obj.get("metaData")
+                meta_data = json_obj.get("metaData") or {}
                 if layer_type:
-                    if layer_type not in layer_dict:
-                        layer_dict[layer_type] = []
-                    layer_dict[layer_type].append(json_obj.get("compressedPixels", []))
+                    layer_dict.setdefault(layer_type, []).append(
+                        json_obj.get("compressedPixels", [])
+                    )
                 if layer_type == "segment":
-                    active_list.append(int(active_type["active"]))
-
-            for value in json_obj.items():
+                    # Safely extract "active" flag if present and convertible to int
+                    try:
+                        active_list.append(int(meta_data.get("active", 0)))
+                    except (ValueError, TypeError):
+                        pass  # skip invalid/missing 'active' values
+    
+            # json_obj.items() yields (key, value), so we only want the values
+            for _, value in json_obj.items():
                 ImageData.find_layers(value, layer_dict, active_list)
+    
         elif isinstance(json_obj, list):
             for item in json_obj:
                 ImageData.find_layers(item, layer_dict, active_list)
+    
         return layer_dict, active_list
 
-    @staticmethod
-    def find_points_entities(json_obj: JsonType, entity_dict: dict = None) -> dict:
-        """Find the points entities in the json object."""
+    def find_points_entities(
+        json_obj: ValetudoMap,
+        entity_dict: dict[str, list[PointMapEntity]] | None = None
+    ) -> dict[str, list[PointMapEntity]]:
+        """
+        Traverse a ValetudoMap and collect PointMapEntity objects by their `type`.
+        
+        Args:
+            json_obj: The full parsed JSON structure of a ValetudoMap.
+            entity_dict: Optional starting dict to append into.
+    
+        Returns:
+            A dict mapping entity type strings to lists of PointMapEntitys.
+        """
         if entity_dict is None:
             entity_dict = {}
-        if isinstance(json_obj, dict):
-            if json_obj.get("__class") == "PointMapEntity":
-                entity_type = json_obj.get("type")
-                if entity_type:
-                    entity_dict.setdefault(entity_type, []).append(json_obj)
-            for value in json_obj.values():
-                ImageData.find_points_entities(value, entity_dict)
-        elif isinstance(json_obj, list):
-            for item in json_obj:
-                ImageData.find_points_entities(item, entity_dict)
+    
+        # Defensive: 'entities' might be absent or empty
+        for entity in json_obj.get("entities", []):
+            if entity["__class__"] == "PointMapEntity":
+                # At this point, mypy knows `entity` is a PointMapEntity
+                entity_type = entity["type"]
+                entity_dict.setdefault(entity_type, []).append(entity)
+    
         return entity_dict
 
     @staticmethod
-    def find_paths_entities(json_obj: JsonType, entity_dict: dict = None) -> dict:
+    def find_paths_entities(
+        json_obj: JsonType,
+        entity_dict: dict[str, list[PathMapEntity]] | None = None
+    ) -> dict[str, list[PathMapEntity]]:
         """Find the paths entities in the json object."""
 
         if entity_dict is None:
@@ -119,7 +252,10 @@ class ImageData:
         return entity_dict
 
     @staticmethod
-    def find_zone_entities(json_obj: JsonType, entity_dict: dict = None) -> dict:
+    def find_zone_entities(
+        json_obj: JsonType,
+        entity_dict: dict[str, list[ZoneMapEntity]] | None = None
+    ) -> dict[str, list[ZoneMapEntity]]:
         """Find the zone entities in the json object."""
         if entity_dict is None:
             entity_dict = {}
@@ -136,61 +272,78 @@ class ImageData:
         return entity_dict
 
     @staticmethod
-    def find_virtual_walls(json_obj: JsonType) -> list:
-        """Find the virtual walls in the json object."""
-        virtual_walls = []
-
-        def find_virtual_walls_recursive(obj):
-            """Find the virtual walls in the json object recursively."""
+    def find_virtual_walls(json_obj: JsonType) -> list[list[tuple[float, float]]]:
+        """
+        Recursively search a JSON-like structure for virtual wall line entities.
+    
+        Args:
+            json_obj: The JSON-like data (dicts/lists) to search.
+    
+        Returns:
+            A list of point lists, where each point list belongs to a virtual wall.
+        """
+        virtual_walls: list[list[tuple[float, float]]] = []
+    
+        def _recurse(obj: Any) -> None:
             if isinstance(obj, dict):
-                if obj.get("__class") == "LineMapEntity":
-                    entity_type = obj.get("type")
-                    if entity_type == "virtual_wall":
-                        virtual_walls.append(obj["points"])
+                if obj.get("__class") == "LineMapEntity" and obj.get("type") == "virtual_wall":
+                    points = obj.get("points")
+                    if isinstance(points, list):
+                        virtual_walls.append(points)  # Type checkers may refine further here
+    
                 for value in obj.values():
-                    find_virtual_walls_recursive(value)
+                    _recurse(value)
+    
             elif isinstance(obj, list):
                 for item in obj:
-                    find_virtual_walls_recursive(item)
-
-        find_virtual_walls_recursive(json_obj)
+                    _recurse(item)
+    
+        _recurse(json_obj)
         return virtual_walls
 
     @staticmethod
     async def async_get_rooms_coordinates(
-        pixels: list, pixel_size: int = 5, rand: bool = False
-    ) -> tuple:
+        pixels: Sequence[tuple[int, int, int]],
+        pixel_size: int = 5,
+        rand: bool = False
+    ) -> tuple[int, int, int, int] | tuple[tuple[int, int], tuple[int, int]]:
         """
-        Extract the room coordinates from the vacuum pixels data.
-        piexels: dict: The pixels data format [[x,y,z], [x1,y1,z1], [xn,yn,zn]].
-        pixel_size: int: The size of the pixel in mm (optional).
-        rand: bool: Return the coordinates in a rand256 format (optional).
+        Extract the room bounding box coordinates from vacuum pixel data.
+    
+        Args:
+            pixels: Sequence of (x, y, z) values representing pixels.
+            pixel_size: Size of each pixel in mm. Defaults to 5.
+            rand: If True, return coordinates in rand256 format.
+    
+        Returns:
+            If rand is True:
+                ((max_x_mm, max_y_mm), (min_x_mm, min_y_mm))
+            Else:
+                (min_x_mm, min_y_mm, max_x_mm, max_y_mm)
         """
-        # Initialize variables to store max and min coordinates
-        max_x, max_y = pixels[0][0], pixels[0][1]
-        min_x, min_y = pixels[0][0], pixels[0][1]
-        # Iterate through the data list to find max and min coordinates
-        for entry in pixels:
+        if not pixels:
+            raise ValueError("Pixels list cannot be empty.")
+    
+        # Initialise min/max using the first pixel
+        first_x, first_y, _ = pixels[0]
+        min_x = max_x = first_x
+        min_y = max_y = first_y
+    
+        for x, y, z in pixels:
             if rand:
-                x, y, _ = entry  # Extract x and y coordinates
-                max_x = max(max_x, x)  # Update max x coordinate
-                max_y = max(max_y, y + pixel_size)  # Update max y coordinate
-                min_x = min(min_x, x)  # Update min x coordinate
-                min_y = min(min_y, y)  # Update min y coordinate
+                max_x = max(max_x, x)
+                max_y = max(max_y, y + pixel_size)
             else:
-                x, y, z = entry  # Extract x and y coordinates
-                max_x = max(max_x, x + z)  # Update max x coordinate
-                max_y = max(max_y, y + pixel_size)  # Update max y coordinate
-                min_x = min(min_x, x)  # Update min x coordinate
-                min_y = min(min_y, y)  # Update min y coordinate
+                max_x = max(max_x, x + z)
+                max_y = max(max_y, y + pixel_size)
+    
+            min_x = min(min_x, x)
+            min_y = min(min_y, y)
+    
         if rand:
-            return (
-                (((max_x * pixel_size) * 10), ((max_y * pixel_size) * 10)),
-                (
-                    ((min_x * pixel_size) * 10),
-                    ((min_y * pixel_size) * 10),
-                ),
-            )
+            to_mm = lambda v: v * pixel_size * 10
+            return ((to_mm(max_x), to_mm(max_y)), (to_mm(min_x), to_mm(min_y)))
+    
         return (
             min_x * pixel_size,
             min_y * pixel_size,
@@ -497,3 +650,39 @@ class RandImageData:
         except KeyError:
             return None
         return seg_ids
+
+@dataclass
+class MapSnapshot:
+    obstacles: dict[str, list[Any]] = field(default_factory=dict)
+    paths: dict[str, list[Any]] = field(default_factory=dict)
+    areas: dict[str, list[Any]] = field(default_factory=dict)
+    virtual_walls: list[list[tuple[float, float]]] = field(default_factory=list)
+    room_bounds: tuple[int, int, int, int] | tuple[tuple[int, int], tuple[int, int]] | None = None
+
+    @classmethod
+    async def from_valetudo_json(cls, json_data: Any) -> "MapSnapshot":
+        """
+        Build a fully-populated MapSnapshot from raw Valetudo JSON
+        using ImageData's helper functions.
+        """
+        # Call into your refactored static/class methods
+        paths = ImageData.find_paths_entities(json_data)
+        areas = ImageData.find_zone_entities(json_data)
+        # Hypothetical obstacles finder, if you have one
+        obstacles = getattr(ImageData, "find_obstacles_entities", lambda *_: {})(json_data)
+        virtual_walls = ImageData.find_virtual_walls(json_data)
+
+        # Extract pixels for bounding box calculation
+        pixels = getattr(ImageData, "_extract_pixels", lambda *_: [])(json_data)
+
+        bounds = None
+        if pixels:
+            bounds = await ImageData.async_get_rooms_coordinates(pixels, pixel_size=5, rand=False)
+
+        return cls(
+            obstacles=obstacles,
+            paths=paths,
+            areas=areas,
+            virtual_walls=virtual_walls,
+            room_bounds=bounds
+        )
