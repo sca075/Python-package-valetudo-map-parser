@@ -22,11 +22,13 @@ from .config.types import (
 from .hypfer_handler import HypferMapImageHandler
 from .rand256_handler import ReImageHandler
 from .rooms_handler import RoomsHandler, RandRoomsHandler
+from .map_data import HyperMapData
 
 
 __all__ = [
     "RoomsHandler",
     "RandRoomsHandler",
+    "HyperMapData",
     "HypferMapImageHandler",
     "ReImageHandler",
     "RRMapParser",

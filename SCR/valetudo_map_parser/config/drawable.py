@@ -11,7 +11,6 @@ Optimized with NumPy and SciPy for better performance.
 from __future__ import annotations
 
 import logging
-import math
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
@@ -160,7 +159,7 @@ class Drawable:
 
         # Get blended colors for flag and pole
         flag_alpha = flag_color[3] if len(flag_color) == 4 else 255
-        pole_color_base = (0, 0, 255)  # Blue for the pole
+        pole_color_base = [0, 0, 255]  # Blue for the pole
         pole_alpha = 255
 
         # Blend flag color if needed
@@ -170,7 +169,12 @@ class Drawable:
             )
 
         # Create pole color with alpha
-        pole_color: Color = (*pole_color_base, pole_alpha)
+        pole_color: Color = (
+            pole_color_base[0],
+            pole_color_base[1],
+            pole_color_base[2],
+            pole_alpha,
+        )
 
         # Blend pole color if needed
         if pole_alpha < 255:
@@ -223,20 +227,18 @@ class Drawable:
 
     @staticmethod
     def point_inside(x: int, y: int, points: list[Tuple[int, int]]) -> bool:
-        """
-        Check if a point (x, y) is inside a polygon defined by a list of points.
-        """
+        """Check if a point (x, y) is inside a polygon defined by a list of points."""
         n = len(points)
         inside = False
-        xinters = 0.0
+        inters_x = 0.0
         p1x, p1y = points[0]
         for i in range(1, n + 1):
             p2x, p2y = points[i % n]
             if y > min(p1y, p2y):
                 if y <= max(p1y, p2y) and x <= max(p1x, p2x):
                     if p1y != p2y:
-                        xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
-                    if p1x == p2x or x <= xinters:
+                        inters_x = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                    if p1x == p2x or x <= inters_x:
                         inside = not inside
             p1x, p1y = p2x, p2y
         return inside
@@ -251,8 +253,7 @@ class Drawable:
         color: Color,
         width: int = 3,
     ) -> np.ndarray:
-        """
-        Draw a line on a NumPy array (layer) from point A to B using Bresenham's algorithm.
+        """Draw a line on a NumPy array (layer) from point A to B using Bresenham's algorithm.
 
         Args:
             layer: The numpy array to draw on (H, W, C)
@@ -283,11 +284,11 @@ class Drawable:
             x_min = max(0, x1 - half_w)
             x_max = min(w, x1 + half_w + 1)
 
-            submask = mask[
+            sub_mask = mask[
                 (y_min - (y1 - half_w)) : (y_max - (y1 - half_w)),
                 (x_min - (x1 - half_w)) : (x_max - (x1 - half_w)),
             ]
-            layer[y_min:y_max, x_min:x_max][submask] = blended_color
+            layer[y_min:y_max, x_min:x_max][sub_mask] = blended_color
 
             if x1 == x2 and y1 == y2:
                 break
@@ -317,12 +318,14 @@ class Drawable:
         return layer
 
     @staticmethod
-    async def lines(arr: NumpyArray, coords, width: int, color: Color) -> NumpyArray:
+    async def lines(
+        arr: NumpyArray, coordinates, width: int, color: Color
+    ) -> NumpyArray:
         """
         Join the coordinates creating a continuous line (path).
         Optimized with vectorized operations for better performance.
         """
-        for coord in coords:
+        for coord in coordinates:
             x0, y0 = coord[0]
             try:
                 x1, y1 = coord[1]
@@ -466,9 +469,6 @@ class Drawable:
             # Adjust points to the mask's coordinate system
             adjusted_points = [(p[0] - min_x, p[1] - min_y) for p in points]
 
-            # Create a grid of coordinates and use it to test all points at once
-            y_indices, x_indices = np.mgrid[0 : mask.shape[0], 0 : mask.shape[1]]
-
             # Test each point in the grid
             for i in range(mask.shape[0]):
                 for j in range(mask.shape[1]):
@@ -545,77 +545,87 @@ class Drawable:
         angle: float,
         fill: Color,
         robot_state: str | None = None,
-        radius: int = 25  # user-configurable
+        radius: int = 25,  # user-configurable
     ) -> NumpyArray:
         """
         Draw the robot with configurable size. All elements scale with radius.
         """
         # Minimum radius to keep things visible
         radius = max(8, min(radius, 25))
-    
+
         height, width = layers.shape[:2]
         if not (0 <= x < width and 0 <= y < height):
             return layers
-    
+
         # Bounding box
-        box_size = radius * 2 + 2
         top_left_x = max(0, x - radius - 1)
         top_left_y = max(0, y - radius - 1)
         bottom_right_x = min(width, x + radius + 1)
         bottom_right_y = min(height, y + radius + 1)
-    
+
         if top_left_x >= bottom_right_x or top_left_y >= bottom_right_y:
             return layers
-    
+
         tmp_width = bottom_right_x - top_left_x
         tmp_height = bottom_right_y - top_left_y
         tmp_layer = layers[top_left_y:bottom_right_y, top_left_x:bottom_right_x].copy()
-    
+
         tmp_x = x - top_left_x
         tmp_y = y - top_left_y
-    
+
         # All geometry proportional to radius
-        r_scaled = max(1, radius / 11.0)
-        r_cover  = int(r_scaled * 12)
-        r_lidar  = max(1, int(r_scaled * 3))
+        r_scaled: float = max(1.0, radius / 11.0)
+        r_cover = int(r_scaled * 10)
+        r_lidar = max(1, int(r_scaled * 3))
         r_button = max(1, int(r_scaled * 1))
-        lidar_offset = int(radius * 0.6)   # was fixed 15
+        lidar_offset = int(radius * 0.6)  # was fixed 15
         button_offset = int(radius * 0.8)  # was fixed 20
-    
+
         lidar_angle = np.deg2rad(angle + 90)
-    
+
         if robot_state == "error":
             outline = Drawable.ERROR_OUTLINE
             fill = Drawable.ERROR_COLOR
         else:
             outline = (fill[0] // 2, fill[1] // 2, fill[2] // 2, fill[3])
-    
+
         # Body
-        tmp_layer = Drawable._filled_circle(tmp_layer, (tmp_y, tmp_x), radius, fill, outline, 1)
-    
+        tmp_layer = Drawable._filled_circle(
+            tmp_layer, (tmp_y, tmp_x), radius, fill, outline, 1
+        )
+
         # Direction wedge
         angle -= 90
-        a1 = ((angle + 90) - 80) / 180 * math.pi
-        a2 = ((angle + 90) + 80) / 180 * math.pi
+        a1 = np.deg2rad((angle + 90) - 80)
+        a2 = np.deg2rad((angle + 90) + 80)
         x1 = int(tmp_x - r_cover * np.sin(a1))
         y1 = int(tmp_y + r_cover * np.cos(a1))
         x2 = int(tmp_x - r_cover * np.sin(a2))
         y2 = int(tmp_y + r_cover * np.cos(a2))
-        if 0 <= x1 < tmp_width and 0 <= y1 < tmp_height and 0 <= x2 < tmp_width and 0 <= y2 < tmp_height:
+        if (
+            0 <= x1 < tmp_width
+            and 0 <= y1 < tmp_height
+            and 0 <= x2 < tmp_width
+            and 0 <= y2 < tmp_height
+        ):
             tmp_layer = Drawable._line(tmp_layer, x1, y1, x2, y2, outline, width=1)
-    
+
         # Lidar
         lidar_x = int(tmp_x + lidar_offset * np.cos(lidar_angle))
         lidar_y = int(tmp_y + lidar_offset * np.sin(lidar_angle))
         if 0 <= lidar_x < tmp_width and 0 <= lidar_y < tmp_height:
-            tmp_layer = Drawable._filled_circle(tmp_layer, (lidar_y, lidar_x), r_lidar, outline)
-    
+            tmp_layer = Drawable._filled_circle(
+                tmp_layer, (lidar_y, lidar_x), r_lidar, outline
+            )
+
         # Button
         butt_x = int(tmp_x - button_offset * np.cos(lidar_angle))
         butt_y = int(tmp_y - button_offset * np.sin(lidar_angle))
         if 0 <= butt_x < tmp_width and 0 <= butt_y < tmp_height:
-            tmp_layer = Drawable._filled_circle(tmp_layer, (butt_y, butt_x), r_button, outline)
-    
+            tmp_layer = Drawable._filled_circle(
+                tmp_layer, (butt_y, butt_x), r_button, outline
+            )
+
         layers[top_left_y:bottom_right_y, top_left_x:bottom_right_x] = tmp_layer
         return layers
 
@@ -764,11 +774,11 @@ class Drawable:
                             continue
 
                         t = np.linspace(0, 1, length * 2)
-                        x_coords = np.round(x1 * (1 - t) + x2 * t).astype(int)
-                        y_coords = np.round(y1 * (1 - t) + y2 * t).astype(int)
+                        x_coordinates = np.round(x1 * (1 - t) + x2 * t).astype(int)
+                        y_coordinates = np.round(y1 * (1 - t) + y2 * t).astype(int)
 
                         # Add line points to mask
-                        for x, y in zip(x_coords, y_coords):
+                        for x, y in zip(x_coordinates, y_coordinates):
                             if width == 1:
                                 mask[y, x] = True
                             else:
@@ -810,7 +820,6 @@ class Drawable:
 
         # Precompute circular mask for radius
         radius = 6
-        diameter = radius * 2 + 1
         yy, xx = np.ogrid[-radius : radius + 1, -radius : radius + 1]
         circle_mask = (xx**2 + yy**2) <= radius**2
 

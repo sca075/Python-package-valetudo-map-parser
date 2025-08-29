@@ -2,7 +2,7 @@
 Hypfer Image Handler Class.
 It returns the PIL PNG image frame relative to the Map Data extrapolated from the vacuum json.
 It also returns calibration, rooms data to the card and other images information to the camera.
-Version: 0.1.9
+Version: 0.1.10
 """
 
 from __future__ import annotations
@@ -122,20 +122,12 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         try:
             if m_json is not None:
                 LOGGER.debug("%s: Creating Image.", self.file_name)
-                # buffer json data
-                self.json_data = m_json
                 # Get the image size from the JSON data
-                size_x = int(m_json["size"]["x"])
-                size_y = int(m_json["size"]["y"])
-                self.img_size = {
-                    "x": size_x,
-                    "y": size_y,
-                    "centre": [(size_x // 2), (size_y // 2)],
-                }
+                self.img_size = self.json_data.image_size
                 # Get the JSON ID from the JSON data.
-                self.json_id = await self.imd.async_get_json_id(m_json)
+                self.json_id = self.json_data.json_id
                 # Check entity data.
-                entity_dict = await self.imd.async_get_entity_data(m_json)
+                entity_dict = self.json_data.entity_dict
                 # Update the Robot position.
                 (
                     robot_pos,
@@ -145,15 +137,15 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
 
                 # Get the pixels size and layers from the JSON data
                 pixel_size = int(m_json["pixelSize"])
-                layers, active = self.data.find_layers(m_json["layers"], {}, [])
-                # Populate active_zones from the JSON data
-                self.active_zones = active
-                new_frame_hash = await self.calculate_array_hash(layers, active)
+
+                new_frame_hash = await self.calculate_array_hash(
+                    self.json_data.layers, self.json_data.active_zones
+                )
                 if self.frame_number == 0:
                     self.img_hash = new_frame_hash
                     # Create empty image
                     img_np_array = await self.draw.create_empty_image(
-                        size_x, size_y, colors["background"]
+                        self.img_size["x"], self.img_size["y"], colors["background"]
                     )
                     # Draw layers and segments if enabled
                     room_id = 0
@@ -162,7 +154,10 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
 
                     if self.drawing_config.is_enabled(DrawableElement.FLOOR):
                         # First pass: identify disabled rooms
-                        for layer_type, compressed_pixels_list in layers.items():
+                        for (
+                            layer_type,
+                            compressed_pixels_list,
+                        ) in self.json_data.layers.items():
                             # Check if this is a room layer
                             if layer_type == "segment":
                                 # The room_id is the current room being processed (0-based index)
@@ -193,7 +188,10 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                         room_id = 0
 
                         # Second pass: draw enabled rooms and walls
-                        for layer_type, compressed_pixels_list in layers.items():
+                        for (
+                            layer_type,
+                            compressed_pixels_list,
+                        ) in self.json_data.layers.items():
                             # Check if this is a room layer
                             is_room_layer = layer_type == "segment"
 
@@ -258,13 +256,13 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                     # Robot and rooms position
                     if (room_id > 0) and not self.room_propriety:
                         self.room_propriety = await self.async_extract_room_properties(
-                            self.json_data
+                            self.json_data.json_data
                         )
 
                     # Ensure room data is available for robot room detection (even if not extracted above)
                     if not self.rooms_pos and not self.room_propriety:
                         self.room_propriety = await self.async_extract_room_properties(
-                            self.json_data
+                            self.json_data.json_data
                         )
 
                     # Always check robot position for zooming (moved outside the condition)
@@ -366,6 +364,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                         y=robot_position[1],
                         angle=robot_position_angle,
                         fill=robot_color,
+                        radius=self.shared.robot_size,
                         robot_state=self.shared.vacuum_state,
                     )
 
@@ -440,7 +439,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         if self.json_data:
             LOGGER.debug("Checking %s Rooms data..", self.file_name)
             self.room_propriety = await self.async_extract_room_properties(
-                self.json_data
+                self.json_data.json_data
             )
             if self.room_propriety:
                 LOGGER.debug("Got %s Rooms Attributes.", self.file_name)

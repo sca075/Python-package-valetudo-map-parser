@@ -443,31 +443,31 @@ RATIO_VALUES = [
 FONTS_AVAILABLE = [
     {
         "label": "Fira Sans",
-        "value": "custom_components/mqtt_vacuum_camera/utils/fonts/FiraSans.ttf",
+        "value": "config/utils/fonts/FiraSans.ttf",
     },
     {
         "label": "Inter",
-        "value": "custom_components/mqtt_vacuum_camera/utils/fonts/Inter-VF.ttf",
+        "value": "config/utils/fonts/Inter-VF.ttf",
     },
     {
         "label": "M Plus Regular",
-        "value": "custom_components/mqtt_vacuum_camera/utils/fonts/MPLUSRegular.ttf",
+        "value": "config/utils/fonts/MPLUSRegular.ttf",
     },
     {
         "label": "Noto Sans CJKhk",
-        "value": "custom_components/mqtt_vacuum_camera/utils/fonts/NotoSansCJKhk-VF.ttf",
+        "value": "config/utils/fonts/NotoSansCJKhk-VF.ttf",
     },
     {
         "label": "Noto Kufi Arabic",
-        "value": "custom_components/mqtt_vacuum_camera/utils/fonts/NotoKufiArabic-VF.ttf",
+        "value": "config/utils/fonts/NotoKufiArabic-VF.ttf",
     },
     {
         "label": "Noto Sans Khojki",
-        "value": "custom_components/mqtt_vacuum_camera/utils/fonts/NotoSansKhojki.ttf",
+        "value": "config/utils/fonts/NotoSansKhojki.ttf",
     },
     {
         "label": "Lato Regular",
-        "value": "custom_components/mqtt_vacuum_camera/utils/fonts/Lato-Regular.ttf",
+        "value": "config/utils/fonts/Lato-Regular.ttf",
     },
 ]
 

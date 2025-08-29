@@ -69,6 +69,7 @@ class CameraShared:
         self.image_last_updated: float = 0.0  # Last image update time
         self.image_format = "image/pil"  # Image format
         self.image_size = None  # Image size
+        self.robot_size = None  # Robot size
         self.image_auto_zoom: bool = False  # Auto zoom image
         self.image_zoom_lock_ratio: bool = True  # Zoom lock ratio
         self.image_ref_height: int = 0  # Image reference height
@@ -306,6 +307,8 @@ class CameraSharedManager:
                 "%s: Updating shared trims with: %s", instance.file_name, trim_data
             )
             instance.trims = TrimsData.from_dict(trim_data)
+            # Robot size
+            instance.robot_size = device_info.get("robot_size", 25)
 
         except TypeError as ex:
             _LOGGER.error("Shared data can't be initialized due to a TypeError! %s", ex)

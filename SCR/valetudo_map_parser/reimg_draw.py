@@ -351,6 +351,7 @@ class ImageDraw:
                 y=robot_pos[1],
                 angle=robot_angle,
                 fill=color_robot,
+                radius=self.img_h.shared.robot_size,
                 robot_state=self.img_h.shared.vacuum_state,
             )
         return np_array
