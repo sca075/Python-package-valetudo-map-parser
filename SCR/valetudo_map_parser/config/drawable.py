@@ -253,7 +253,9 @@ class Drawable:
         color: Color,
         width: int = 3,
     ) -> np.ndarray:
-        """Draw a line on a NumPy array (layer) from point A to B using Bresenham's algorithm.
+        """
+        Draw a line on a NumPy array (layer) from point A to B using Bresenham's algorithm.
+        """
 
         Args:
             layer: The numpy array to draw on (H, W, C)
