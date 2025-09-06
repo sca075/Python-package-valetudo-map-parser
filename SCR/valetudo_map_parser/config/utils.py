@@ -88,6 +88,7 @@ class BaseHandler:
         bytes_format: bool = False,
         text_enabled: bool = False,
         vacuum_status: str | None = None,
+
     ) -> PilPNG | None:
         """
         Unified async function to get PIL image from JSON data for both Hypfer and Rand256 handlers.
@@ -101,6 +102,7 @@ class BaseHandler:
         @param m_json: The JSON data to use to draw the image
         @param destinations: MQTT destinations for labels (used by Rand256)
         @param bytes_format: If True, also convert to PNG bytes and store in shared.binary_image
+
         @param text_enabled: If True, draw text on the image
         @param vacuum_status: Vacuum status to display on the image
         @return: PIL Image or None
