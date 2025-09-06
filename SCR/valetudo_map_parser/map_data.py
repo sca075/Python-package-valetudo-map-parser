@@ -731,7 +731,9 @@ class HyperMapData:
         )
         virtual_walls = ImageData.find_virtual_walls(json_data)
         pixel_size = int(json_data["pixelSize"])
-        layers, active_zones = ImageData.find_layers(json_data["layers"], layers, active_zones)
+        layers, active_zones = ImageData.find_layers(
+            json_data["layers"], layers, active_zones
+        )
         entity_dict = ImageData.find_points_entities(json_data)
 
         return cls(

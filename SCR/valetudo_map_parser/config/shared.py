@@ -197,7 +197,7 @@ class CameraShared:
         attrs = {
             ATTR_CAMERA_MODE: self.camera_mode,
             ATTR_VACUUM_BATTERY: f"{self.vacuum_battery}%",
-            ATTR_VACUUM_CHARGING: self.vacuum_bat_charged,
+            ATTR_VACUUM_CHARGING: self.vacuum_bat_charged(),
             ATTR_VACUUM_POSITION: self.current_room,
             ATTR_VACUUM_STATUS: self.vacuum_state,
             ATTR_VACUUM_JSON_ID: self.vac_json_id,
