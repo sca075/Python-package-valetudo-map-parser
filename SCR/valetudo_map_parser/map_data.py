@@ -217,7 +217,6 @@ class ImageData:
         """
         if layer_dict is None:
             layer_dict = {}
-        if active_list is None:
             active_list = []
 
         if isinstance(json_obj, dict):
@@ -228,12 +227,12 @@ class ImageData:
                     layer_dict.setdefault(layer_type, []).append(
                         json_obj.get("compressedPixels", [])
                     )
-                if layer_type == "segment":
                     # Safely extract "active" flag if present and convertible to int
-                    try:
-                        active_list.append(int(meta_data.get("active", 0)))
-                    except (ValueError, TypeError):
-                        pass  # skip invalid/missing 'active' values
+                    if layer_type == "segment":
+                        try:
+                            active_list.append(int(meta_data.get("active", 0)))
+                        except (ValueError, TypeError):
+                            pass  # skip invalid/missing 'active' values
 
             # json_obj.items() yields (key, value), so we only want the values
             for _, value in json_obj.items():
@@ -724,13 +723,15 @@ class HyperMapData:
         paths = ImageData.find_paths_entities(json_data)
         image_size = ImageData.get_image_size(json_data)
         areas = ImageData.find_zone_entities(json_data)
+        layers = {}
+        active_zones = []
         # Hypothetical obstacles finder, if you have one
         obstacles = getattr(ImageData, "find_obstacles_entities", lambda *_: {})(
             json_data
         )
         virtual_walls = ImageData.find_virtual_walls(json_data)
         pixel_size = int(json_data["pixelSize"])
-        layers, active_zones = ImageData.find_layers(json_data["layers"], {}, [])
+        layers, active_zones = ImageData.find_layers(json_data["layers"], layers, active_zones)
         entity_dict = ImageData.find_points_entities(json_data)
 
         return cls(

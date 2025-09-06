@@ -62,7 +62,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         self.img_work_layer = (
             None  # persistent working buffer to avoid per-frame allocations
         )
-        self.active_zones = None  # vacuum active zones.
+        self.active_zones = []  # vacuum active zones.
         self.svg_wait = False  # SVG image creation wait.
         self.imd = ImDraw(self)  # Image Draw class.
         self.color_grey = (128, 128, 128, 255)
@@ -137,9 +137,10 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
 
                 # Get the pixels size and layers from the JSON data
                 pixel_size = int(m_json["pixelSize"])
+                self.active_zones = self.json_data.active_zones
 
                 new_frame_hash = await self.calculate_array_hash(
-                    self.json_data.layers, self.json_data.active_zones
+                    self.json_data.layers, self.active_zones
                 )
                 if self.frame_number == 0:
                     self.img_hash = new_frame_hash
