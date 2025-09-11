@@ -83,7 +83,7 @@ class CameraShared:
         self.user_colors = Colors  # User base colors
         self.rooms_colors = Colors  # Rooms colors
         self.vacuum_battery = 0  # Vacuum battery state
-        self.vacuum_connection = None  # Vacuum connection state
+        self.vacuum_connection = False  # Vacuum connection state
         self.vacuum_state = None  # Vacuum state
         self.charger_position = None  # Vacuum Charger position
         self.show_vacuum_state = None  # Show vacuum state on the map
