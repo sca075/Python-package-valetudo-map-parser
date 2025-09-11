@@ -18,12 +18,13 @@ class StatusText:
     """
 
     def __init__(self, camera_shared):
-
         self._shared = camera_shared
         self.file_name = self._shared.file_name
 
     @staticmethod
-    async def get_vacuum_status_translation(language: str = "en") -> dict[str, str] | None:
+    async def get_vacuum_status_translation(
+        language: str = "en",
+    ) -> dict[str, str] | None:
         """
         Get the vacuum status translation.
         @param language: Language code, default 'en'.
@@ -59,7 +60,9 @@ class StatusText:
             if not self._shared.vacuum_connection:
                 mqtt_disc = lang_map.get(
                     "mqtt_disconnected",
-                    translations.get("en", {}).get("mqtt_disconnected", "Disconnected from MQTT?"),
+                    translations.get("en", {}).get(
+                        "mqtt_disconnected", "Disconnected from MQTT?"
+                    ),
                 )
                 status_text = [f"{self.file_name}: {mqtt_disc}"]
             else:
@@ -76,7 +79,8 @@ class StatusText:
                         status_text.append(" \u00b7 ")
                         status_text.append(f"{charge_level} ")
                         ready_txt = lang_map.get(
-                            "ready", translations.get("en", {}).get("ready", "Ready."),
+                            "ready",
+                            translations.get("en", {}).get("ready", "Ready."),
                         )
                         status_text.append(ready_txt)
                 else:
@@ -85,5 +89,7 @@ class StatusText:
                     status_text.append(f" {self._shared.vacuum_battery}%")
                 if text_size >= 50 and getattr(text_img, "width", None):
                     text_pixels = max(1, sum(len(text) for text in status_text))
-                    text_size = int((text_size_coverage * text_img.width) // text_pixels)
+                    text_size = int(
+                        (text_size_coverage * text_img.width) // text_pixels
+                    )
         return status_text, text_size

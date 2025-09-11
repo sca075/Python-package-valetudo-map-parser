@@ -26,6 +26,7 @@ from .types import (
 )
 from ..map_data import HyperMapData
 
+
 @dataclass
 class ResizeParams:
     """Resize the image to the given dimensions and aspect ratio."""
@@ -87,7 +88,6 @@ class BaseHandler:
         m_json: dict | None,
         destinations: list | None = None,
         bytes_format: bool = False,
-        text_enabled: bool = False,
     ) -> PilPNG | None:
         """
         Unified async function to get PIL image from JSON data for both Hypfer and Rand256 handlers.
@@ -139,6 +139,18 @@ class BaseHandler:
             # Store the new image in shared data
             if new_image is not None:
                 self.shared.new_image = new_image
+                if self.shared.show_vacuum_state:
+                    text_editor = StatusText(self.shared)
+                    img_text = await text_editor.get_status_text(new_image)
+                    print(img_text)
+                    Drawable.status_text(
+                        new_image,
+                        img_text[1],
+                        self.shared.user_colors[8],
+                        img_text[0],
+                        self.shared.vacuum_status_font,
+                        self.shared.vacuum_status_position,
+                    )
                 # Convert to binary (PNG bytes) if requested
                 if bytes_format:
                     with io.BytesIO() as buf:
