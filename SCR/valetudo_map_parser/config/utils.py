@@ -14,6 +14,7 @@ from PIL import Image, ImageOps
 from .drawable import Drawable
 from .drawable_elements import DrawingConfig
 from .enhanced_drawable import EnhancedDrawable
+from .status_text.status_text import StatusText
 from .types import (
     LOGGER,
     ChargerPosition,
@@ -87,7 +88,6 @@ class BaseHandler:
         destinations: list | None = None,
         bytes_format: bool = False,
         text_enabled: bool = False,
-        vacuum_status: str | None = None,
     ) -> PilPNG | None:
         """
         Unified async function to get PIL image from JSON data for both Hypfer and Rand256 handlers.
@@ -139,7 +139,6 @@ class BaseHandler:
             # Store the new image in shared data
             if new_image is not None:
                 self.shared.new_image = new_image
-
                 # Convert to binary (PNG bytes) if requested
                 if bytes_format:
                     with io.BytesIO() as buf:

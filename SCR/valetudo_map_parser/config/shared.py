@@ -58,6 +58,7 @@ class CameraShared:
         self.frame_number: int = 0  # camera Frame number
         self.destinations: list = []  # MQTT rand destinations
         self.rand256_active_zone: list = []  # Active zone for rand256
+        self.rand256_zone_coordinates: list = []  # Active zone coordinates for rand256
         self.is_rand: bool = False  # MQTT rand data
         self._new_mqtt_message = False  # New MQTT message
         # Initialize last_image with default gray image (250x150 minimum)
