@@ -142,7 +142,7 @@ class BaseHandler:
                 if self.shared.show_vacuum_state:
                     text_editor = StatusText(self.shared)
                     img_text = await text_editor.get_status_text(new_image)
-                    print(img_text)
+                    LOGGER.debug("%s: Status text: %s", self.file_name, img_text)
                     Drawable.status_text(
                         new_image,
                         img_text[1],
