@@ -283,7 +283,7 @@ DEFAULT_VALUES = {
     "auto_zoom": False,
     "zoom_lock_ratio": True,
     "show_vac_status": False,
-    "vac_status_font": "custom_components/mqtt_vacuum_camera/utils/fonts/FiraSans.ttf",
+    "vac_status_font": "SCR/valetudo_map_parser/config/fonts/FiraSans.ttf",
     "vac_status_size": 50,
     "vac_status_position": True,
     "get_svg_file": False,
@@ -443,31 +443,31 @@ RATIO_VALUES = [
 FONTS_AVAILABLE = [
     {
         "label": "Fira Sans",
-        "value": "custom_components/mqtt_vacuum_camera/utils/fonts/FiraSans.ttf",
+        "value": "config/fonts/FiraSans.ttf",
     },
     {
         "label": "Inter",
-        "value": "custom_components/mqtt_vacuum_camera/utils/fonts/Inter-VF.ttf",
+        "value": "config/fonts/Inter-VF.ttf",
     },
     {
         "label": "M Plus Regular",
-        "value": "custom_components/mqtt_vacuum_camera/utils/fonts/MPLUSRegular.ttf",
+        "value": "config/fonts/MPLUSRegular.ttf",
     },
     {
         "label": "Noto Sans CJKhk",
-        "value": "custom_components/mqtt_vacuum_camera/utils/fonts/NotoSansCJKhk-VF.ttf",
+        "value": "config/fonts/NotoSansCJKhk-VF.ttf",
     },
     {
         "label": "Noto Kufi Arabic",
-        "value": "custom_components/mqtt_vacuum_camera/utils/fonts/NotoKufiArabic-VF.ttf",
+        "value": "config/fonts/NotoKufiArabic-VF.ttf",
     },
     {
         "label": "Noto Sans Khojki",
-        "value": "custom_components/mqtt_vacuum_camera/utils/fonts/NotoSansKhojki.ttf",
+        "value": "config/fonts/NotoSansKhojki.ttf",
     },
     {
         "label": "Lato Regular",
-        "value": "custom_components/mqtt_vacuum_camera/utils/fonts/Lato-Regular.ttf",
+        "value": "config/fonts/Lato-Regular.ttf",
     },
 ]
 

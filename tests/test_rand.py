@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import cProfile
 import pstats
@@ -208,17 +207,181 @@ class TestRandImageHandler:
         ) if enable_profiling else None
 
     def setUp(self):
-        # Load test data from the rand.json file
-        test_file_path = os.path.join(os.path.dirname(__file__), "rand.json")
-        logging.getLogger(__name__).info(f"Loading test data from {test_file_path}")
+        """Set up test data for first and last bin files."""
+        _LOGGER.debug("Setting up test data for first and last bin files...")
 
-        with open(test_file_path, "r") as file:
-            self.test_data = json.load(file)
+        if self.profiler:
+            self.profiler.take_memory_snapshot("Test Setup Start")
 
-        _LOGGER.debug("Test data loaded.")
+        # Test with first and last bin files
+        # ("map_data_20250729_084141.bin", "LAST FILE - Multi-room with segments, vacuum at dock")
+        self.test_files = [
+            ("map_data_20250728_185945.bin", "FIRST FILE - Single room, vacuum at dock"),
+            ("map_data_20250728_193950.bin", "FIRST FILE - Single room, vacuum at dock"),
+            ("map_data_20250728_194519.bin", "FIRST FILE - Single room, vacuum at dock"),
+            ("map_data_20250728_204538.bin", "FIRST FILE - Single room, vacuum at dock"),
+            ("map_data_20250728_204552.bin", "FIRST FILE - Single room, vacuum at dock"),
+            ("map_data_20250729_084141.bin", "LAST FILE - Multi-room with segments, vacuum at dock"),
+        ]
+
+        self.test_data_sets = []
+
+        for filename, description in self.test_files:
+            payload_file = os.path.join(os.path.dirname(__file__), filename)
+
+            if not os.path.exists(payload_file):
+                raise FileNotFoundError(f"Test payload file not found: {payload_file}")
+
+            with open(payload_file, "rb") as f:
+                payload = f.read()
+
+            _LOGGER.debug(f"Loaded {filename}: {len(payload)} bytes")
+
+            # Only use the new rand256 parser for both files
+            import time
+            self.new_rand256_parser = Rand256Parser()
+
+            # Measure new_rand256 parser performance
+            start_time = time.time()
+            new_rand256_json = self.new_rand256_parser.parse_data(payload, pixels=True)
+            parse_time = time.time() - start_time
+            parsed_data = new_rand256_json
+            self.test_data_sets.append({
+                'filename': filename,
+                'description': description,
+                'payload': payload,
+                'data': parsed_data,
+                'json': new_rand256_json,
+                'parse_time': parse_time
+            })
+
+            _LOGGER.debug(f"Parsed {filename} in {parse_time:.4f}s")
+
+        # Display data for both files
+        print("\n" + "="*80)
+        print("NEW_RAND256_PARSER DATA COMPARISON")
+        print("="*80)
+
+        for i, dataset in enumerate(self.test_data_sets):
+            print(f"\n📁 {dataset['description']}")
+            print(f"   File: {dataset['filename']}")
+            print(f"   Size: {len(dataset['payload']):,} bytes")
+            print(f"   Parse time: {dataset['parse_time']:.4f} seconds")
+            print(f"   JSON length: {len(dataset['json']):,} characters")
+
+            data = dataset['data']
+            if data:
+                robot = data.get('robot', [0, 0])
+                robot_angle = data.get('robot_angle', 0)
+                charger = data.get('charger', [0, 0])
+                path_data = data.get('path', {})
+                path_points = len(path_data.get('points', []))
+                path_angle = path_data.get('current_angle', 0)
+
+                # Segments info
+                image_data = data.get('image', {})
+                segments = image_data.get('segments', {})
+                segment_count = segments.get('count', 0)
+                segment_ids = segments.get('id', [])
+
+                print(f"   🤖 Robot: {robot}, Angle: {robot_angle}°")
+                print(f"   🔌 Charger: {charger}")
+                print(f"   🛤️  Path: {path_points} points, Angle: {path_angle:.1f}°")
+                print(f"   🏠 Segments: {segment_count} rooms {segment_ids}")
+
+                # Check if robot is at charger (close positions)
+                if robot and charger:
+                    distance = ((robot[0] - charger[0])**2 + (robot[1] - charger[1])**2)**0.5
+                    at_dock = distance < 500  # Within 500 units
+                    print(f"   🏠 At dock: {'✅ YES' if at_dock else '❌ NO'} (distance: {distance:.0f})")
+            else:
+                print("   ❌ PARSING FAILED")
+
+        print("="*80)
+
+        # Use the first dataset for the image test
+        self.test_data = self.test_data_sets[0]['data']
+        self.current_file = self.test_data_sets[0]['filename']
+
+        _LOGGER.debug("Test data loaded and compared.")
+
+    async def simulate_ha_background_task(self, task_name: str, duration: float):
+        """Simulate Home Assistant background tasks like sensors, automations, etc."""
+        start_time = asyncio.get_event_loop().time()
+        while asyncio.get_event_loop().time() - start_time < duration:
+            # Simulate sensor updates
+            await asyncio.sleep(0.1)
+            # Simulate some CPU work
+            _ = sum(i * i for i in range(1000))
+            # Yield control back to event loop
+            await asyncio.sleep(0)
+        _LOGGER.debug(f"Background task {task_name} completed after {duration}s")
+
+    def _generate_single_image_sync(self):
+        """Synchronous wrapper for image generation (for asyncio.to_thread)."""
+        # This will be called in a thread pool, so we need a new event loop
+        try:
+            # Create new event loop for this thread
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(self._generate_single_image())
+        finally:
+            loop.close()
 
     async def test_image_handler(self):
-        _LOGGER.info("Starting test_rand_image_handler...")
+        """Test image generation with Home Assistant environment simulation."""
+        _LOGGER.info("Testing with Home Assistant concurrent environment simulation...")
+
+        for i, dataset in enumerate(self.test_data_sets):
+            print(f"\n{'='*80}")
+            print(f"TESTING IMAGE GENERATION: {dataset['description']}")
+            print(f"File: {dataset['filename']}")
+            print(f"{'='*80}")
+
+            # Set current test data
+            self.test_data = dataset['data']
+            self.current_file = dataset['filename']
+
+            # Simulate Home Assistant concurrent environment
+            background_tasks = []
+
+            # Simulate various HA background operations
+            background_tasks.append(self.simulate_ha_background_task("sensor_updates", 2.0))
+            background_tasks.append(self.simulate_ha_background_task("automation_engine", 1.5))
+            background_tasks.append(self.simulate_ha_background_task("state_machine", 1.8))
+            background_tasks.append(self.simulate_ha_background_task("websocket_handler", 2.2))
+            background_tasks.append(self.simulate_ha_background_task("recorder", 1.3))
+
+            _LOGGER.info(f"🏠 Starting image generation {i+1}/{len(self.test_data_sets)} with HA simulation...")
+
+            try:
+                # Use asyncio.to_thread to simulate HA's approach
+                image_task = asyncio.to_thread(self._generate_single_image_sync)
+
+                # Run image generation concurrently with background tasks
+                start_time = asyncio.get_event_loop().time()
+                results = await asyncio.gather(
+                    image_task,
+                    *background_tasks,
+                    return_exceptions=True
+                )
+                end_time = asyncio.get_event_loop().time()
+
+                # Check if image generation succeeded
+                image_result = results[0]
+                if isinstance(image_result, Exception):
+                    _LOGGER.error(f"❌ Image generation failed: {image_result}")
+                    raise image_result
+
+                _LOGGER.info(f"✅ Image {i+1}/{len(self.test_data_sets)} completed in {end_time - start_time:.3f}s with concurrent load")
+
+            except Exception as e:
+                _LOGGER.error(f"❌ Test failed for {dataset['filename']}: {e}")
+                raise
+
+    async def _generate_single_image(self):
+        """Generate image for the current test data."""
+        _LOGGER.info(f"Generating image for {self.current_file}...")
 
         # Start profiling for this image generation
         start_time = time.time()
@@ -290,14 +453,15 @@ class TestRandImageHandler:
             'alpha_room_13': 255.0,
             'alpha_room_14': 255.0,
             'alpha_room_15': 255.0,
+            'robot_size': 15,
             'offset_top': 0,
             'offset_bottom': 0,
             'offset_left': 10,
             'offset_right': 0,
             'rotate_image': '90',
             'margins': '100',
-            'show_vac_status': False,
-            'vac_status_font': 'custom_components/mqtt_vacuum_camera/utils/fonts/FiraSans.ttf',
+            'show_vac_status': True,
+            'vac_status_font': 'SCR/valetudo_map_parser/config/fonts/FiraSans.ttf',
             'vac_status_position': True,
             'vac_status_size': 50.0,
             'enable_www_snapshots': False,
@@ -339,6 +503,7 @@ class TestRandImageHandler:
         shared_data = CameraSharedManager("test_vacuum", device_info)
         shared = shared_data.get_instance()
         shared.vacuum_state = "cleaning"
+        shared.user_language = "it"
 
         # The room IDs in the test data are 16-20, but the handler uses an internal ID (0-4)
         # We need to set up the active zones array to match the internal IDs
@@ -359,7 +524,8 @@ class TestRandImageHandler:
         # Try to generate an image from the JSON data
         try:
             _LOGGER.info("Attempting to generate image from JSON data...")
-            self.image = await handler.get_image_from_rrm(self.test_data)
+            # Test with PNG output (WebP functionality kept in library but not used in test)
+            self.image = await handler.async_get_image(self.test_data)
             _LOGGER.info("Successfully generated image from JSON data")
             if self.image is None:
                 _LOGGER.error("Failed to generate image from JSON data")
@@ -367,8 +533,17 @@ class TestRandImageHandler:
         except Exception as e:
             _LOGGER.warning(f"Error generating image from JSON: {e}")
 
-        # Display image size and other properties
-        _LOGGER.info(f"Image size: {self.image.size}")
+        # Check if image generation was successful
+        if self.image is None:
+            _LOGGER.error("TEST FAILED: Image generation returned None")
+            return
+        else:
+            _LOGGER.info("TEST PASSED: Image generated successfully")
+            # Image should be PIL Image (not WebP bytes)
+        if hasattr(self.image, 'size'):
+            _LOGGER.info(f"PIL image size: {self.image.size}")
+        else:
+            _LOGGER.warning(f"Unexpected image type: {type(self.image)}")
         _LOGGER.info(f"Trims update: {shared.trims.to_dict()}")
         _LOGGER.info(f"Calibration_data: {handler.get_calibration_data()}")
         _LOGGER.info(await handler.get_rooms_attributes({
@@ -412,8 +587,23 @@ class TestRandImageHandler:
         _LOGGER.info(f"Zoom conditions: zoom={handler.zooming}, vacuum_state={handler.shared.vacuum_state}, image_auto_zoom={handler.shared.image_auto_zoom}")
 
         _LOGGER.info(f"Zooming enabled: {handler.zooming}")
-        # Show the image
-        self.image.show()
+        # Show the image if successful
+        if self.image is not None:
+            print(f"\n🖼️  PROCESSING IMAGE: {self.current_file}")
+
+            # Display PIL image directly without saving to disk
+            if hasattr(self.image, 'size'):
+                print(f"   📐 Image size: {self.image.size}")
+
+                robot_in_room = getattr(handler, 'robot_in_room', 'Unknown')
+                print(f"   🤖 Robot in room: {robot_in_room}")
+
+                # Display the image directly
+                self.image.show()
+            else:
+                print(f"   ❌ Unexpected image type: {type(self.image)}")
+        else:
+            print(f"\n❌ IMAGE GENERATION FAILED: {self.current_file}")
 
         # End profiling for this image generation
         end_time = time.time()

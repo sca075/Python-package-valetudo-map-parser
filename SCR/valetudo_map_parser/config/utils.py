@@ -14,6 +14,7 @@ from PIL import Image, ImageOps
 from .drawable import Drawable
 from .drawable_elements import DrawingConfig
 from .enhanced_drawable import EnhancedDrawable
+from .status_text.status_text import StatusText
 from .types import (
     LOGGER,
     ChargerPosition,
@@ -23,6 +24,7 @@ from .types import (
     RobotPosition,
     WebPBytes,
 )
+from ..map_data import HyperMapData
 
 
 @dataclass
@@ -99,6 +101,8 @@ class BaseHandler:
         @param m_json: The JSON data to use to draw the image
         @param destinations: MQTT destinations for labels (used by Rand256)
         @param bytes_format: If True, also convert to PNG bytes and store in shared.binary_image
+        @param text_enabled: If True, draw text on the image
+        @param vacuum_status: Vacuum status to display on the image
         @return: PIL Image or None
         """
         try:
@@ -116,6 +120,7 @@ class BaseHandler:
                 )
             elif hasattr(self, "async_get_image_from_json"):
                 # This is a Hypfer handler
+                self.json_data = await HyperMapData.async_from_valetudo_json(m_json)
                 new_image = await self.async_get_image_from_json(
                     m_json=m_json,
                     return_webp=False,  # Always return PIL Image
@@ -134,7 +139,18 @@ class BaseHandler:
             # Store the new image in shared data
             if new_image is not None:
                 self.shared.new_image = new_image
-
+                if self.shared.show_vacuum_state:
+                    text_editor = StatusText(self.shared)
+                    img_text = await text_editor.get_status_text(new_image)
+                    LOGGER.debug("%s: Status text: %s", self.file_name, img_text)
+                    Drawable.status_text(
+                        new_image,
+                        img_text[1],
+                        self.shared.user_colors[8],
+                        img_text[0],
+                        self.shared.vacuum_status_font,
+                        self.shared.vacuum_status_position,
+                    )
                 # Convert to binary (PNG bytes) if requested
                 if bytes_format:
                     with io.BytesIO() as buf:

@@ -1,7 +1,7 @@
 """
 Class Camera Shared.
 Keep the data between the modules.
-Version: v0.1.9
+Version: v0.1.10
 """
 
 import asyncio
@@ -58,6 +58,7 @@ class CameraShared:
         self.frame_number: int = 0  # camera Frame number
         self.destinations: list = []  # MQTT rand destinations
         self.rand256_active_zone: list = []  # Active zone for rand256
+        self.rand256_zone_coordinates: list = []  # Active zone coordinates for rand256
         self.is_rand: bool = False  # MQTT rand data
         self._new_mqtt_message = False  # New MQTT message
         # Initialize last_image with default gray image (250x150 minimum)
@@ -69,6 +70,7 @@ class CameraShared:
         self.image_last_updated: float = 0.0  # Last image update time
         self.image_format = "image/pil"  # Image format
         self.image_size = None  # Image size
+        self.robot_size = None  # Robot size
         self.image_auto_zoom: bool = False  # Auto zoom image
         self.image_zoom_lock_ratio: bool = True  # Zoom lock ratio
         self.image_ref_height: int = 0  # Image reference height
@@ -81,8 +83,7 @@ class CameraShared:
         self.user_colors = Colors  # User base colors
         self.rooms_colors = Colors  # Rooms colors
         self.vacuum_battery = 0  # Vacuum battery state
-        self.vacuum_bat_charged: bool = True  # Vacuum charged and ready
-        self.vacuum_connection = None  # Vacuum connection state
+        self.vacuum_connection = False  # Vacuum connection state
         self.vacuum_state = None  # Vacuum state
         self.charger_position = None  # Vacuum Charger position
         self.show_vacuum_state = None  # Show vacuum state on the map
@@ -197,7 +198,7 @@ class CameraShared:
         attrs = {
             ATTR_CAMERA_MODE: self.camera_mode,
             ATTR_VACUUM_BATTERY: f"{self.vacuum_battery}%",
-            ATTR_VACUUM_CHARGING: self.vacuum_bat_charged,
+            ATTR_VACUUM_CHARGING: self.vacuum_bat_charged(),
             ATTR_VACUUM_POSITION: self.current_room,
             ATTR_VACUUM_STATUS: self.vacuum_state,
             ATTR_VACUUM_JSON_ID: self.vac_json_id,
@@ -306,6 +307,8 @@ class CameraSharedManager:
                 "%s: Updating shared trims with: %s", instance.file_name, trim_data
             )
             instance.trims = TrimsData.from_dict(trim_data)
+            # Robot size
+            instance.robot_size = device_info.get("robot_size", 25)
 
         except TypeError as ex:
             _LOGGER.error("Shared data can't be initialized due to a TypeError! %s", ex)

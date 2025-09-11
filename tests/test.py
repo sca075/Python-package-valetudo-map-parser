@@ -31,10 +31,10 @@ logging.basicConfig(
 _LOGGER = logging.getLogger(__name__)
 
 # ----- Test Configuration -----
-FRAME_COUNT = 1  # Set to 1/10/25/50/100 as needed
-ENABLE_PROFILER = False  # Master switch for profiler usage
-ENABLE_CPU_TIMING = True  # Lightweight per-frame CPU timing (process CPU time)
-ENABLE_MEMORY_PROFILING = True  # Use tracemalloc snapshots
+FRAME_COUNT = 10  # Set to 1/10/25/50/100 as needed
+ENABLE_PROFILER = True  # Master switch for profiler usage
+ENABLE_CPU_TIMING = False  # Lightweight per-frame CPU timing (process CPU time)
+ENABLE_MEMORY_PROFILING = False  # Use tracemalloc snapshots
 SNAPSHOT_EVERY_FRAME = False  # If False, snapshot only first and last frame
 ENABLE_LEGACY_CPROFILE = False  # Legacy cProfile around the whole run
 # ------------------------------
@@ -224,7 +224,7 @@ class TestImageHandler:
             self.profiler.take_memory_snapshot("Test Setup Start")
 
         # Load the test.json file
-        test_file_path = os.path.join(os.path.dirname(__file__), "test.json") #glossyhardtofindnarwhal
+        test_file_path = os.path.join(os.path.dirname(__file__), "glossyhardtofindnarwhal.json") #glossyhardtofindnarwhal
         _LOGGER.info(f"Loading test data from {test_file_path}")
 
         with open(test_file_path, "r") as file:
@@ -236,7 +236,6 @@ class TestImageHandler:
 
     async def test_image_handler(self):
         _LOGGER.info("Starting test_image_handler...")
-
         device_info = {
             'platform': 'mqtt_vacuum_camera',
             'unique_id': 'rockrobo_camera',
@@ -249,14 +248,14 @@ class TestImageHandler:
             'alpha_background': 255.0,
             'alpha_charger': 255.0,
             'alpha_go_to': 255.0,
-            'alpha_move': 150.0,  # Higher alpha for better visibility
+            'alpha_move': 50.0,  # Higher alpha for better visibility
             'alpha_no_go': 125.0,
             'alpha_robot': 255.0,
             'alpha_text': 255.0,
             'alpha_wall': 150.0,  # Testing with a lower alpha value
             'alpha_zone_clean': 125.0,
-            'aspect_ratio': '1, 1',
-            'auto_zoom': False,
+            'aspect_ratio': '16, 9',
+            'auto_zoom': True,
             'zoom_lock_ratio': True,
             'color_background': [0, 125, 255],
             'color_charger': [255, 128, 0],
@@ -299,14 +298,15 @@ class TestImageHandler:
             'alpha_room_13': 255.0,
             'alpha_room_14': 255.0,
             'alpha_room_15': 255.0,
+            'robot_size': 20,
             'offset_top': 0,
             'offset_bottom': 0,
             'offset_left': 10,
             'offset_right': 0,
             'rotate_image': '90',
             'margins': '100',
-            'show_vac_status': False,
-            'vac_status_font': 'custom_components/mqtt_vacuum_camera/utils/fonts/FiraSans.ttf',
+            'show_vac_status': True,
+            'vac_status_font': 'SCR/valetudo_map_parser/config/fonts/FiraSans.ttf',
             'vac_status_position': True,
             'vac_status_size': 50.0,
             'enable_www_snapshots': False,
@@ -345,10 +345,11 @@ class TestImageHandler:
             'disable_room_14': False,
             'disable_room_15': False
         }
-
-        shared_data = CameraSharedManager("test_rand256", device_info)
+        file_name = "test_hypfer"
+        shared_data = CameraSharedManager(file_name, device_info)
         shared = shared_data.get_instance()
         shared.vacuum_state = "docked"
+        shared.vacuum_connection = True
         shared.vacuum_battery = 100
         shared.vacuum_ips = "192.168.8.1"
 
@@ -384,7 +385,7 @@ class TestImageHandler:
             start_time = time.time()
 
             # Get the image (PIL format)
-            self.image = await handler.async_get_image(self.test_data, bytes_format=False)
+            self.image = await handler.async_get_image(self.test_data, bytes_format=True)
             if shared.binary_image is None:
                 _LOGGER.warning("❌ Binary image is None")
             else:
@@ -421,7 +422,7 @@ class TestImageHandler:
         _LOGGER.info(f"Calibration_data: {calibration_data}")
 
         _LOGGER.info(f"PIL image size: {self.image.size}")
-        store = RoomStore("test_vacuum")
+        store = RoomStore(file_name)
         t2=time.time(); rooms_data = await handler.async_get_rooms_attributes(); t3=time.time()
         if self.profiler: self.profiler.time_operation("Rooms", t2, t3)
         _LOGGER.info(f"Room Properties: {rooms_data}")
@@ -436,7 +437,6 @@ class TestImageHandler:
 
         _LOGGER.info(f"Calibration_data: {handler.get_calibration_data()}")
         _LOGGER.info(f"PIL image size: {self.image.size}")
-        store = RoomStore("test_vacuum")
         rooms_data = await handler.async_get_rooms_attributes()
         _LOGGER.info(f"Room Properties: {rooms_data}")
         count = store.get_rooms_count()
@@ -463,37 +463,8 @@ class TestImageHandler:
             else:
                 _LOGGER.info(f"Position {i}: OUT_OF_BOUNDS = active: {bool(active)}")
 
-        # Test: Simulate your vacuum's scenario - make "Entrance" active and put robot there
         _LOGGER.info("=== TESTING YOUR VACUUM SCENARIO ===")
 
-        # Find "Entrance" position in room_keys
-        entrance_position = None
-        for i, room_id in enumerate(room_keys):
-            if rooms[room_id]['name'] == 'Entrance':
-                entrance_position = i
-                break
-
-        if entrance_position is not None:
-            # Simulate your vacuum's active zones: [0, 0, 1, 0, 0] where position 2 is active
-            # But we need to make "Entrance" active instead
-            test_active_zones = [0] * len(handler.active_zones)
-            test_active_zones[entrance_position] = 1  # Make Entrance active
-
-            # Override the active zones for testing
-            handler.active_zones = test_active_zones
-            _LOGGER.info(f"Test active zones (Entrance active): {test_active_zones}")
-            _LOGGER.info(f"Entrance is at position {entrance_position} in room_keys")
-
-            # Test robot detection in Entrance
-            entrance_room_data = rooms[room_keys[entrance_position]]
-            test_x, test_y = entrance_room_data['x'], entrance_room_data['y']
-
-            # Test the robot detection function with robot in Entrance
-            test_result = await handler.imd.async_get_robot_in_room(robot_y=test_y, robot_x=test_x, angle=0.0)
-            _LOGGER.info(f"Test robot in Entrance: {test_result}")
-            _LOGGER.info(f"Test zooming enabled: {handler.imd.img_h.zooming}")
-        else:
-            _LOGGER.warning("Entrance room not found in test data")
         _LOGGER.info(f"Trims update: {shared.trims.to_dict()}")
         calibration_data = handler.get_calibration_data()
         _LOGGER.info(f"Calibration Data: {calibration_data}")
@@ -514,7 +485,7 @@ class TestImageHandler:
         # Debug: Check the device_info auto_zoom setting
         _LOGGER.info(f"Device info auto_zoom: {device_info.get('auto_zoom')}")
         _LOGGER.info(f"Shared image_auto_zoom: {handler.shared.image_auto_zoom}")
-
+        _LOGGER.info(f"Camera Attributes: {handler.shared.generate_attributes()}")
         # Debug: Check the zooming flags
         _LOGGER.info(f"Handler zooming: {handler.zooming}")
         _LOGGER.info(f"ImageDraw img_h zooming: {handler.imd.img_h.zooming}")

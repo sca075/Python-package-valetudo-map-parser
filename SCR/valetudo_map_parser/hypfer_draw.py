@@ -1,7 +1,7 @@
 """
 Image Draw Class for Valetudo Hypfer Image Handling.
 This class is used to simplify the ImageHandler class.
-Version: 0.1.9
+Version: 0.1.10
 """
 
 from __future__ import annotations
@@ -310,15 +310,6 @@ class ImageDraw:
             return np_array
         return np_array
 
-    async def async_get_json_id(self, my_json: JsonType) -> str | None:
-        """Return the JSON ID from the image."""
-        try:
-            json_id = my_json["metaData"]["nonce"]
-        except (ValueError, KeyError) as e:
-            _LOGGER.debug("%s: No JsonID provided: %s", self.file_name, str(e))
-            json_id = None
-        return json_id
-
     async def async_draw_zones(
         self,
         m_json: JsonType,
@@ -416,15 +407,6 @@ class ImageDraw:
                     np_array, self.img_h.shared.map_new_path, 5, color_move
                 )
         return np_array
-
-    async def async_get_entity_data(self, m_json: JsonType) -> dict or None:
-        """Get the entity data from the JSON data."""
-        try:
-            entity_dict = self.img_h.data.find_points_entities(m_json)
-        except (ValueError, KeyError):
-            return None
-        _LOGGER.info("%s: Got the points in the json.", self.file_name)
-        return entity_dict
 
     def _check_active_zone_and_set_zooming(self) -> None:
         """Helper function to check active zones and set zooming state."""
