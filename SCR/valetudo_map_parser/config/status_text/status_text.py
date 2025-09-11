@@ -17,8 +17,8 @@ class StatusText:
     Status text of the vacuum cleaners.
     """
 
-    def __init__(self, hass, camera_shared):
-        self.hass = hass
+    def __init__(self, camera_shared):
+
         self._shared = camera_shared
         self.file_name = self._shared.file_name
 
