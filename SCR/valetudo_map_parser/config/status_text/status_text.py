@@ -6,8 +6,8 @@ Class to handle the status text of the vacuum cleaners.
 
 from __future__ import annotations
 
-from SCR.valetudo_map_parser.config.types import LOGGER, PilPNG
-from SCR.valetudo_map_parser.config.status_text.translations import translations
+from ..types import LOGGER, PilPNG
+from .translations import translations
 
 LOGGER.propagate = True
 
