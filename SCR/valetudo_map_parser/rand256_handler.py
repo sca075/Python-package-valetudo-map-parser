@@ -14,6 +14,7 @@ from typing import Any
 import numpy as np
 
 from .config.async_utils import AsyncNumPy, AsyncPIL
+
 # from .config.auto_crop import AutoCrop
 from mvcrender.autocrop import AutoCrop
 from .config.drawable_elements import DrawableElement

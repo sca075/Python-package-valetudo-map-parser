@@ -881,7 +881,10 @@ class Drawable:
         try:
             default_font = ImageFont.truetype(str(default_font_path), size)
         except OSError:
-            _LOGGER.warning("Default font not found at %s; using PIL default font", default_font_path)
+            _LOGGER.warning(
+                "Default font not found at %s; using PIL default font",
+                default_font_path,
+            )
             default_font = ImageFont.load_default()
 
         # Use provided font directly if available; else fall back to default

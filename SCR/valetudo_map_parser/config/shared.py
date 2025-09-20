@@ -307,7 +307,9 @@ class CameraSharedManager:
             instance.robot_size = device_info.get("robot_size", 25)
 
         except TypeError as ex:
-            _LOGGER.warning("Shared data can't be initialized due to a TypeError! %s", ex)
+            _LOGGER.warning(
+                "Shared data can't be initialized due to a TypeError! %s", ex
+            )
         except AttributeError as ex:
             _LOGGER.warning(
                 "Shared data can't be initialized due to an AttributeError! %s", ex

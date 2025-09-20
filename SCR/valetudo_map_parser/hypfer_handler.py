@@ -13,6 +13,7 @@ import numpy as np
 from PIL import Image
 
 from .config.async_utils import AsyncNumPy, AsyncPIL
+
 # from .config.auto_crop import AutoCrop
 from mvcrender.autocrop import AutoCrop
 from .config.drawable_elements import DrawableElement
@@ -374,8 +375,8 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                     int(self.shared.image_rotate),
                     self.zooming,
                 )
-                #self.crop_img_size = [img_np_array.shape[1], img_np_array.shape[0]]
-                #LOGGER.info("%s: Image size: %s", self.file_name, self.crop_img_size)
+                # self.crop_img_size = [img_np_array.shape[1], img_np_array.shape[0]]
+                # LOGGER.info("%s: Image size: %s", self.file_name, self.crop_img_size)
             # If the image is None return None and log the error.
             if img_np_array is None:
                 LOGGER.warning("%s: Image array is None.", self.file_name)

@@ -245,7 +245,6 @@ class BaseHandler:
                 self.offset_x = width - self.crop_img_size[0]
                 self.offset_y = height - self.crop_img_size[1]
 
-
     def _set_image_offset_ratio_3_2(
         self, width: int, height: int, rand256: Optional[bool] = False
     ) -> None:
@@ -269,7 +268,6 @@ class BaseHandler:
             elif rotation in [90, 270]:
                 self.offset_y = (self.crop_img_size[0] - width) // 2
                 self.offset_x = self.crop_img_size[1] - height
-
 
     def _set_image_offset_ratio_5_4(
         self, width: int, height: int, rand256: Optional[bool] = False
@@ -296,7 +294,6 @@ class BaseHandler:
                 self.offset_y = (self.crop_img_size[0] - width) // 2
                 self.offset_x = self.crop_img_size[1] - height
 
-
     def _set_image_offset_ratio_9_16(
         self, width: int, height: int, rand256: Optional[bool] = False
     ) -> None:
@@ -318,7 +315,6 @@ class BaseHandler:
                 self.offset_x = width - self.crop_img_size[0]
                 self.offset_y = height - self.crop_img_size[1]
 
-
     def _set_image_offset_ratio_16_9(
         self, width: int, height: int, rand256: Optional[bool] = False
     ) -> None:
@@ -339,7 +335,6 @@ class BaseHandler:
             elif rotation in [90, 270]:
                 self.offset_x = width - self.crop_img_size[0]
                 self.offset_y = height - self.crop_img_size[1]
-
 
     async def async_map_coordinates_offset(
         self, params: OffsetParams
@@ -584,7 +579,6 @@ async def async_resize_image(params: ResizeParams):
         else:
             new_width = params.pil_img.width
             new_height = int(params.pil_img.width / new_aspect_ratio)
-
 
         if (params.crop_size is not None) and (params.offset_func is not None):
             offset = OffsetParams(wsf, hsf, new_width, new_height, params.is_rand)

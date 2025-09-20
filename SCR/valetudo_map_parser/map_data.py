@@ -9,7 +9,16 @@ Version: v0.1.10
 from __future__ import annotations
 
 import numpy as np
-from typing import List, Sequence, TypeVar, Any, TypedDict, NotRequired, Literal, Optional
+from typing import (
+    List,
+    Sequence,
+    TypeVar,
+    Any,
+    TypedDict,
+    NotRequired,
+    Literal,
+    Optional,
+)
 
 from dataclasses import dataclass, field, asdict
 
@@ -801,5 +810,3 @@ class HyperMapData:
                 except (TypeError, ValueError):
                     continue
             setattr(self, key, value)
-
-

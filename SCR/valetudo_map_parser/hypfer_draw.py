@@ -405,7 +405,6 @@ class ImageDraw:
             room_store = RoomStore(self.file_name)
             room_keys = list(room_store.get_rooms().keys())
 
-
             if segment_id in room_keys:
                 position = room_keys.index(segment_id)
                 if position < len(self.img_h.active_zones):
@@ -552,7 +551,6 @@ class ImageDraw:
                         segment_id = str(self.img_h.robot_in_room["id"])
                         room_store = RoomStore(self.file_name)
                         room_keys = list(room_store.get_rooms().keys())
-
 
                         if segment_id in room_keys:
                             position = room_keys.index(segment_id)
