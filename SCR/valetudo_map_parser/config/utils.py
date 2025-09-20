@@ -71,7 +71,7 @@ class BaseHandler:
         self.crop_img_size = [0, 0]
         self.offset_x = 0
         self.offset_y = 0
-        self.crop_area = None
+        self.crop_area = [0, 0, 0, 0]
         self.zooming = False
         self.async_resize_images = async_resize_image
 
@@ -155,16 +155,10 @@ class BaseHandler:
                     with io.BytesIO() as buf:
                         new_image.save(buf, format="PNG", compress_level=1)
                         self.shared.binary_image = buf.getvalue()
-                    LOGGER.debug(
-                        "%s: Binary image conversion completed", self.file_name
-                    )
                 else:
                     self.shared.binary_image = None
                 # Update the timestamp with current datetime
                 self.shared.image_last_updated = datetime.datetime.fromtimestamp(time())
-                LOGGER.debug(
-                    "%s: Image processed and stored in shared data", self.file_name
-                )
                 return new_image
             else:
                 LOGGER.warning(
@@ -177,7 +171,7 @@ class BaseHandler:
                 )
 
         except Exception as e:
-            LOGGER.error(
+            LOGGER.warning(
                 "%s: Error in async_get_image: %s",
                 self.file_name,
                 str(e),
@@ -229,12 +223,6 @@ class BaseHandler:
             elif rotation in [90, 270]:
                 self.offset_y = (self.crop_img_size[0] - width) // 2
                 self.offset_x = self.crop_img_size[1] - height
-        LOGGER.debug(
-            "%s Image Coordinates Offsets (x,y): %s. %s",
-            self.file_name,
-            self.offset_x,
-            self.offset_y,
-        )
 
     def _set_image_offset_ratio_2_1(
         self, width: int, height: int, rand256: Optional[bool] = False
@@ -257,12 +245,6 @@ class BaseHandler:
                 self.offset_x = width - self.crop_img_size[0]
                 self.offset_y = height - self.crop_img_size[1]
 
-        LOGGER.debug(
-            "%s Image Coordinates Offsets (x,y): %s. %s",
-            self.file_name,
-            self.offset_x,
-            self.offset_y,
-        )
 
     def _set_image_offset_ratio_3_2(
         self, width: int, height: int, rand256: Optional[bool] = False
@@ -288,12 +270,6 @@ class BaseHandler:
                 self.offset_y = (self.crop_img_size[0] - width) // 2
                 self.offset_x = self.crop_img_size[1] - height
 
-        LOGGER.debug(
-            "%s Image Coordinates Offsets (x,y): %s. %s",
-            self.file_name,
-            self.offset_x,
-            self.offset_y,
-        )
 
     def _set_image_offset_ratio_5_4(
         self, width: int, height: int, rand256: Optional[bool] = False
@@ -320,12 +296,6 @@ class BaseHandler:
                 self.offset_y = (self.crop_img_size[0] - width) // 2
                 self.offset_x = self.crop_img_size[1] - height
 
-        LOGGER.debug(
-            "%s Image Coordinates Offsets (x,y): %s. %s",
-            self.file_name,
-            self.offset_x,
-            self.offset_y,
-        )
 
     def _set_image_offset_ratio_9_16(
         self, width: int, height: int, rand256: Optional[bool] = False
@@ -348,12 +318,6 @@ class BaseHandler:
                 self.offset_x = width - self.crop_img_size[0]
                 self.offset_y = height - self.crop_img_size[1]
 
-        LOGGER.debug(
-            "%s Image Coordinates Offsets (x,y): %s. %s",
-            self.file_name,
-            self.offset_x,
-            self.offset_y,
-        )
 
     def _set_image_offset_ratio_16_9(
         self, width: int, height: int, rand256: Optional[bool] = False
@@ -376,12 +340,6 @@ class BaseHandler:
                 self.offset_x = width - self.crop_img_size[0]
                 self.offset_y = height - self.crop_img_size[1]
 
-        LOGGER.debug(
-            "%s Image Coordinates Offsets (x,y): %s. %s",
-            self.file_name,
-            self.offset_x,
-            self.offset_y,
-        )
 
     async def async_map_coordinates_offset(
         self, params: OffsetParams
@@ -438,6 +396,8 @@ class BaseHandler:
         self,
     ) -> list[dict[str, int] | dict[str, int] | dict[str, int] | dict[str, int]]:
         """Return the map points."""
+        if not self.crop_img_size:
+            return ["crop_img_size is not set"]
         return [
             {"x": 0, "y": 0},  # Top-left corner 0
             {"x": self.crop_img_size[0], "y": 0},  # Top-right corner 1
@@ -450,7 +410,8 @@ class BaseHandler:
 
     def get_vacuum_points(self, rotation_angle: int) -> list[dict[str, int]]:
         """Calculate the calibration points based on the rotation angle."""
-
+        if not self.crop_area:
+            return ["crop_area is not set"]
         # get_calibration_data
         vacuum_points = [
             {
@@ -561,7 +522,7 @@ class BaseHandler:
                 }
                 id_count += 1
             if id_count > 1:
-                LOGGER.debug("%s: Zones Properties updated.", self.file_name)
+                pass
         return zone_properties
 
     async def async_points_propriety(self, points_data) -> dict:
@@ -582,7 +543,7 @@ class BaseHandler:
                 }
                 id_count += 1
             if id_count > 1:
-                LOGGER.debug("%s: Point Properties updated.", self.file_name)
+                pass
         return point_properties
 
     @staticmethod
@@ -624,8 +585,6 @@ async def async_resize_image(params: ResizeParams):
             new_width = params.pil_img.width
             new_height = int(params.pil_img.width / new_aspect_ratio)
 
-        LOGGER.debug("Resizing image to aspect ratio: %s, %s", wsf, hsf)
-        LOGGER.debug("New image size: %s x %s", new_width, new_height)
 
         if (params.crop_size is not None) and (params.offset_func is not None):
             offset = OffsetParams(wsf, hsf, new_width, new_height, params.is_rand)

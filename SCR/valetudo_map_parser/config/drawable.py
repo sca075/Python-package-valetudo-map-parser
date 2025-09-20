@@ -877,13 +877,20 @@ class Drawable:
         """Draw the status text on the image."""
         module_dir = Path(__file__).resolve().parent
         default_font_path = module_dir / "fonts" / "FiraSans.ttf"
-        default_font = ImageFont.truetype(str(default_font_path), size)
+        # Load default font with safety fallback to PIL's built-in if missing
+        try:
+            default_font = ImageFont.truetype(str(default_font_path), size)
+        except OSError:
+            _LOGGER.warning("Default font not found at %s; using PIL default font", default_font_path)
+            default_font = ImageFont.load_default()
 
-        user_font_path = Path(path_font)
-        if not user_font_path.is_absolute():
-            repo_root = module_dir.parents[2]
-            user_font_path = (repo_root / user_font_path).resolve()
-        user_font = ImageFont.truetype(str(user_font_path), size)
+        # Use provided font directly if available; else fall back to default
+        user_font = default_font
+        if path_font:
+            try:
+                user_font = ImageFont.truetype(str(path_font), size)
+            except OSError:
+                user_font = default_font
         if position:
             x, y = 10, 10
         else:

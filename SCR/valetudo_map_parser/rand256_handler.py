@@ -14,7 +14,8 @@ from typing import Any
 import numpy as np
 
 from .config.async_utils import AsyncNumPy, AsyncPIL
-from .config.auto_crop import AutoCrop
+# from .config.auto_crop import AutoCrop
+from mvcrender.autocrop import AutoCrop
 from .config.drawable_elements import DrawableElement
 from .config.types import (
     COLORS,
@@ -111,29 +112,19 @@ class ReImageHandler(BaseHandler, AutoCrop):
 
             # Update shared.map_rooms with the room IDs for MQTT active zone mapping
             self.shared.map_rooms = room_ids
-            _LOGGER.debug("Updated shared.map_rooms with room IDs: %s", room_ids)
 
             # get the zones and points data
             zone_properties = await self.async_zone_propriety(zones_data)
             # get the points data
             point_properties = await self.async_points_propriety(points_data)
 
-            if room_properties or zone_properties:
-                extracted_data = [
-                    f"{len(room_properties)} Rooms" if room_properties else None,
-                    f"{len(zone_properties)} Zones" if zone_properties else None,
-                ]
-                extracted_data = ", ".join(filter(None, extracted_data))
-                _LOGGER.debug("Extracted data: %s", extracted_data)
-            else:
+            if not (room_properties or zone_properties):
                 self.rooms_pos = None
-                _LOGGER.debug("%s: Rooms and Zones data not available!", self.file_name)
 
             rooms = RoomStore(self.file_name, room_properties)
-            _LOGGER.debug("Rooms Data: %s", rooms.get_rooms())
             return room_properties, zone_properties, point_properties
         except (RuntimeError, ValueError) as e:
-            _LOGGER.debug(
+            _LOGGER.warning(
                 "No rooms Data or Error in extract_room_properties: %s",
                 e,
                 exc_info=True,
@@ -177,9 +168,6 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 # Increment frame number
                 self.frame_number += 1
                 img_np_array = await self.async_copy_array(self.img_base_layer)
-                _LOGGER.debug(
-                    "%s: Frame number %s", self.file_name, str(self.frame_number)
-                )
                 if self.frame_number > 5:
                     self.frame_number = 0
 
@@ -301,11 +289,6 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     self.rooms_pos = original_rooms_pos
 
             except Exception as e:
-                _LOGGER.debug(
-                    "%s: Early room extraction failed: %s, falling back to robot-position zoom",
-                    self.file_name,
-                    e,
-                )
                 # Fallback to robot-position-based zoom if room extraction fails
                 if (
                     self.shared.image_auto_zoom
@@ -313,10 +296,6 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     and robot_position
                 ):
                     self.zooming = True
-                    _LOGGER.debug(
-                        "%s: Enabling fallback robot-position-based zoom",
-                        self.file_name,
-                    )
 
         return self.img_base_layer, robot_position, robot_position_angle
 
@@ -379,19 +358,10 @@ class ReImageHandler(BaseHandler, AutoCrop):
             active_zones = self.shared.rand256_active_zone
             if active_zones and any(zone for zone in active_zones):
                 self.zooming = True
-                _LOGGER.debug(
-                    "%s: Enabling zoom for Rand256 - active zones detected: %s",
-                    self.file_name,
-                    active_zones,
-                )
             else:
                 self.zooming = False
-                _LOGGER.debug(
-                    "%s: Zoom disabled for Rand256 - no active zones set",
-                    self.file_name,
-                )
 
-        img_np_array = await self.async_auto_trim_and_zoom_image(
+        img_np_array = self.async_auto_trim_and_zoom_image(
             img_np_array,
             detect_colour=colors["background"],
             margin_size=int(self.shared.margins),
@@ -410,7 +380,6 @@ class ReImageHandler(BaseHandler, AutoCrop):
         if self.check_zoom_and_aspect_ratio():
             resize_params = prepare_resize_params(self, pil_img, True)
             pil_img = await self.async_resize_images(resize_params)
-        _LOGGER.debug("%s: Frame Completed.", self.file_name)
         return pil_img
 
     async def get_rooms_attributes(
@@ -420,12 +389,9 @@ class ReImageHandler(BaseHandler, AutoCrop):
         if self.room_propriety:
             return self.room_propriety
         if self.json_data and destinations:
-            _LOGGER.debug("Checking for rooms data..")
             self.room_propriety = await self.extract_room_properties(
                 self.json_data, destinations
             )
-            if self.room_propriety:
-                _LOGGER.debug("Got Rooms Attributes.")
         return self.room_propriety
 
     @staticmethod
@@ -537,12 +503,6 @@ class ReImageHandler(BaseHandler, AutoCrop):
         # This helps prevent false positives for points very far from any room
         map_boundary = 50000  # Typical map size is around 25000-30000 units for Rand25
         if abs(robot_x) > map_boundary or abs(robot_y) > map_boundary:
-            _LOGGER.debug(
-                "%s robot position (%s, %s) is far outside map boundaries.",
-                self.file_name,
-                robot_x,
-                robot_y,
-            )
             self.robot_in_room = last_room
             self.zooming = False
             temp = {
@@ -555,10 +515,6 @@ class ReImageHandler(BaseHandler, AutoCrop):
 
         # Search through all rooms to find which one contains the robot
         if not self.rooms_pos:
-            _LOGGER.debug(
-                "%s: No rooms data available for robot position detection.",
-                self.file_name,
-            )
             self.robot_in_room = last_room
             self.zooming = False
             temp = {
@@ -569,7 +525,6 @@ class ReImageHandler(BaseHandler, AutoCrop):
             }
             return temp
 
-        _LOGGER.debug("%s: Searching for robot in rooms...", self.file_name)
         for room in self.rooms_pos:
             # Check if the room has an outline (polygon points)
             if "outline" in room:
@@ -598,19 +553,10 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     else:
                         self.zooming = False
 
-                    _LOGGER.debug(
-                        "%s is in %s room (polygon detection).",
-                        self.file_name,
-                        self.robot_in_room["room"],
-                    )
                     return temp
             room_count += 1
 
         # Robot not found in any room
-        _LOGGER.debug(
-            "%s not located within any room coordinates.",
-            self.file_name,
-        )
         self.robot_in_room = last_room
         self.zooming = False
         temp = {

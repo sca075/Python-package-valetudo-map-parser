@@ -191,8 +191,7 @@ class ImageDraw:
         Returns:
             The updated image array
         """
-        # Log the wall color to verify alpha is being passed correctly
-        _LOGGER.debug("%s: Drawing walls with color %s", self.file_name, color_wall)
+        # Draw walls
 
         # If there are no disabled rooms, draw all walls
         if not disabled_rooms:
@@ -202,9 +201,6 @@ class ImageDraw:
 
         # If there are disabled rooms, we need to check each wall pixel
         # to see if it belongs to a disabled room
-        _LOGGER.debug(
-            "%s: Filtering walls for disabled rooms: %s", self.file_name, disabled_rooms
-        )
 
         # Get the element map if available
         element_map = getattr(self.img_h, "element_map", None)
@@ -263,12 +259,6 @@ class ImageDraw:
                 filtered_pixels.append((x, y, z))
 
         # Draw the filtered walls
-        _LOGGER.debug(
-            "%s: Drawing %d of %d wall pixels after filtering",
-            self.file_name,
-            len(filtered_pixels),
-            len(pixels),
-        )
         if filtered_pixels:
             return await self.img_h.draw.from_json_to_image(
                 img_np_array, filtered_pixels, pixel_size, color_wall
@@ -415,26 +405,9 @@ class ImageDraw:
             room_store = RoomStore(self.file_name)
             room_keys = list(room_store.get_rooms().keys())
 
-            _LOGGER.debug(
-                "%s: Active zones debug - segment_id: %s, room_keys: %s, active_zones: %s",
-                self.file_name,
-                segment_id,
-                room_keys,
-                self.img_h.active_zones,
-            )
 
             if segment_id in room_keys:
                 position = room_keys.index(segment_id)
-                _LOGGER.debug(
-                    "%s: Segment ID %s found at position %s, active_zones[%s] = %s",
-                    self.file_name,
-                    segment_id,
-                    position,
-                    position,
-                    self.img_h.active_zones[position]
-                    if position < len(self.img_h.active_zones)
-                    else "OUT_OF_BOUNDS",
-                )
                 if position < len(self.img_h.active_zones):
                     self.img_h.zooming = bool(self.img_h.active_zones[position])
                 else:
@@ -531,12 +504,6 @@ class ImageDraw:
         # This helps prevent false positives for points very far from any room
         map_boundary = 20000  # Typical map size is around 5000-10000 units
         if abs(robot_x) > map_boundary or abs(robot_y) > map_boundary:
-            _LOGGER.debug(
-                "%s robot position (%s, %s) is far outside map boundaries.",
-                self.file_name,
-                robot_x,
-                robot_y,
-            )
             self.img_h.robot_in_room = last_room
             self.img_h.zooming = False
             temp = {
@@ -549,10 +516,6 @@ class ImageDraw:
 
         # Search through all rooms to find which one contains the robot
         if self.img_h.rooms_pos is None:
-            _LOGGER.debug(
-                "%s: No rooms data available for robot position detection.",
-                self.file_name,
-            )
             self.img_h.robot_in_room = last_room
             self.img_h.zooming = False
             temp = {
@@ -590,26 +553,9 @@ class ImageDraw:
                         room_store = RoomStore(self.file_name)
                         room_keys = list(room_store.get_rooms().keys())
 
-                        _LOGGER.debug(
-                            "%s: Active zones debug - segment_id: %s, room_keys: %s, active_zones: %s",
-                            self.file_name,
-                            segment_id,
-                            room_keys,
-                            self.img_h.active_zones,
-                        )
 
                         if segment_id in room_keys:
                             position = room_keys.index(segment_id)
-                            _LOGGER.debug(
-                                "%s: Segment ID %s found at position %s, active_zones[%s] = %s",
-                                self.file_name,
-                                segment_id,
-                                position,
-                                position,
-                                self.img_h.active_zones[position]
-                                if position < len(self.img_h.active_zones)
-                                else "OUT_OF_BOUNDS",
-                            )
                             if position < len(self.img_h.active_zones):
                                 self.img_h.zooming = bool(
                                     self.img_h.active_zones[position]
@@ -627,11 +573,6 @@ class ImageDraw:
                     else:
                         self.img_h.zooming = False
 
-                    _LOGGER.debug(
-                        "%s is in %s room (polygon detection).",
-                        self.file_name,
-                        self.img_h.robot_in_room["room"],
-                    )
                     return temp
             # Fallback to bounding box if no outline is available
             elif "corners" in room:
@@ -665,19 +606,10 @@ class ImageDraw:
                     # Handle active zones
                     self._check_active_zone_and_set_zooming()
 
-                    _LOGGER.debug(
-                        "%s is in %s room (bounding box detection).",
-                        self.file_name,
-                        self.img_h.robot_in_room["room"],
-                    )
                     return temp
             room_count += 1
 
         # Robot not found in any room
-        _LOGGER.debug(
-            "%s not located within any room coordinates.",
-            self.file_name,
-        )
         self.img_h.robot_in_room = last_room
         self.img_h.zooming = False
         temp = {

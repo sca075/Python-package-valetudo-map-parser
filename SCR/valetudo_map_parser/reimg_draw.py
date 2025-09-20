@@ -213,7 +213,6 @@ class ImageDraw:
         except KeyError as e:
             _LOGGER.warning("%s: No charger position found: %s", self.file_name, e)
         else:
-            _LOGGER.debug("Charger position: %s", charger_pos)
             if charger_pos:
                 charger_pos_dictionary = {
                     "x": (charger_pos[0] * 10),
@@ -317,11 +316,6 @@ class ImageDraw:
             robot_position_angle = round(angle[0], 0)
             if robot_pos and robot_position_angle:
                 robot_position = robot_pos
-                _LOGGER.debug(
-                    "robot position: %s, robot angle: %s",
-                    str(robot_pos),
-                    str(robot_position_angle),
-                )
                 if self.img_h.rooms_pos is None:
                     self.img_h.robot_pos = {
                         "x": robot_position[0] * 10,

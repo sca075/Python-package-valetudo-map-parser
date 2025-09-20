@@ -13,7 +13,8 @@ import numpy as np
 from PIL import Image
 
 from .config.async_utils import AsyncNumPy, AsyncPIL
-from .config.auto_crop import AutoCrop
+# from .config.auto_crop import AutoCrop
+from mvcrender.autocrop import AutoCrop
 from .config.drawable_elements import DrawableElement
 from .config.shared import CameraShared
 from .config.utils import pil_to_webp_bytes
@@ -50,7 +51,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         AutoCrop.__init__(self, self)
         self.calibration_data = None  # camera shared data.
         self.data = ImageData  # imported Image Data Module.
-
         # Initialize drawing configuration using the shared utility function
         self.drawing_config, self.draw, self.enhanced_draw = initialize_drawing_config(
             self
@@ -83,9 +83,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         )
         if room_properties:
             rooms = RoomStore(self.file_name, room_properties)
-            LOGGER.debug(
-                "%s: Rooms data extracted! %s", self.file_name, rooms.get_rooms()
-            )
             # Convert room_properties to the format expected by async_get_robot_in_room
             self.rooms_pos = []
             for room_id, room_data in room_properties.items():
@@ -97,7 +94,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                     }
                 )
         else:
-            LOGGER.debug("%s: Rooms data not available!", self.file_name)
             self.rooms_pos = None
         return room_properties
 
@@ -121,7 +117,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         # Check if the JSON data is not None else process the image.
         try:
             if m_json is not None:
-                LOGGER.debug("%s: Creating Image.", self.file_name)
                 # Get the image size from the JSON data
                 self.img_size = self.json_data.image_size
                 # Get the JSON ID from the JSON data.
@@ -176,11 +171,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                                     ):
                                         # Add this room to the disabled rooms set
                                         disabled_rooms.add(room_id)
-                                        LOGGER.debug(
-                                            "%s: Room %d is disabled and will be skipped",
-                                            self.file_name,
-                                            current_room_id,
-                                        )
                                 room_id = (
                                     room_id + 1
                                 ) % 16  # Cycle room_id back to 0 after 15
@@ -283,12 +273,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                     new_frame_hash != self.img_hash
                 ):
                     self.frame_number = 0
-                LOGGER.debug(
-                    "%s: %s at Frame Number: %s",
-                    self.file_name,
-                    str(self.json_id),
-                    str(self.frame_number),
-                )
                 # Ensure persistent working buffer exists and matches base (allocate only when needed)
                 if (
                     self.img_work_layer is None
@@ -383,13 +367,15 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                 self.zooming = self.imd.img_h.zooming
 
                 # Resize the image
-                img_np_array = await self.async_auto_trim_and_zoom_image(
+                img_np_array = self.async_auto_trim_and_zoom_image(
                     img_np_array,
                     colors["background"],
                     int(self.shared.margins),
                     int(self.shared.image_rotate),
                     self.zooming,
                 )
+                #self.crop_img_size = [img_np_array.shape[1], img_np_array.shape[0]]
+                #LOGGER.info("%s: Image size: %s", self.file_name, self.crop_img_size)
             # If the image is None return None and log the error.
             if img_np_array is None:
                 LOGGER.warning("%s: Image array is None.", self.file_name)
@@ -415,13 +401,11 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                     # Convert directly from NumPy to WebP for better performance
                     webp_bytes = await numpy_to_webp_bytes(img_np_array)
                     del img_np_array
-                    LOGGER.debug("%s: Frame Completed.", self.file_name)
                     return webp_bytes
                 else:
                     # Convert to PIL Image (original behavior)
                     pil_img = await AsyncPIL.async_fromarray(img_np_array, mode="RGBA")
                     del img_np_array
-                    LOGGER.debug("%s: Frame Completed.", self.file_name)
                     return pil_img
         except (RuntimeError, RuntimeWarning) as e:
             LOGGER.warning(
@@ -438,12 +422,9 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         if self.room_propriety:
             return self.room_propriety
         if self.json_data:
-            LOGGER.debug("Checking %s Rooms data..", self.file_name)
             self.room_propriety = await self.async_extract_room_properties(
                 self.json_data.json_data
             )
-            if self.room_propriety:
-                LOGGER.debug("Got %s Rooms Attributes.", self.file_name)
         return self.room_propriety
 
     def get_calibration_data(self) -> CalibrationPoints:

@@ -9,9 +9,9 @@ Version: v0.1.10
 from __future__ import annotations
 
 import numpy as np
-from typing import List, Sequence, TypeVar, Any, TypedDict, NotRequired, Literal
+from typing import List, Sequence, TypeVar, Any, TypedDict, NotRequired, Literal, Optional
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 
 from .config.types import ImageSize, JsonType
 
@@ -475,7 +475,7 @@ class RandImageData:
         return json_data.get("path", {})
 
     @staticmethod
-    def get_rrm_goto_predicted_path(json_data: JsonType) -> List or None:
+    def get_rrm_goto_predicted_path(json_data: JsonType) -> Optional[list]:
         """Get the predicted path data from the json."""
         try:
             predicted_path = json_data.get("goto_predicted_path", {})
@@ -517,7 +517,7 @@ class RandImageData:
         return angle, json_data.get("robot_angle", 0)
 
     @staticmethod
-    def get_rrm_goto_target(json_data: JsonType) -> list or None:
+    def get_rrm_goto_target(json_data: JsonType) -> Any:
         """Get the goto target from the json."""
         try:
             path_data = json_data.get("goto_target", {})
@@ -544,7 +544,7 @@ class RandImageData:
         return formatted_zones
 
     @staticmethod
-    def _rrm_valetudo_format_zone(coordinates: list) -> Any:
+    def _rrm_valetudo_format_zone(coordinates: list) -> list[dict[str, Any]]:
         """Format the zones from RRM to Valetudo."""
         formatted_zones = []
         for zone_data in coordinates:
@@ -749,3 +749,57 @@ class HyperMapData:
             layers=layers,
             active_zones=active_zones,
         )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a dictionary representation of this dataclass."""
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "HyperMapData":
+        """Construct a HyperMapData from a plain dictionary.
+        Unknown keys are ignored; missing keys use safe defaults.
+        """
+        return cls(
+            json_data=data.get("json_data"),
+            json_id=data.get("json_id") or None,
+            obstacles=data.get("obstacles", {}),
+            paths=data.get("paths", {}),
+            image_size=data.get("image_size", {}),
+            areas=data.get("areas", {}),
+            pixel_size=int(data.get("pixel_size", 0) or 0),
+            entity_dict=data.get("entity_dict", {}),
+            layers=data.get("layers", {}),
+            active_zones=data.get("active_zones", []),
+            virtual_walls=data.get("virtual_walls", []),
+        )
+
+    def update_from_dict(self, updates: dict[str, Any]) -> None:
+        """Update one or more fields in place, preserving the rest.
+        Unknown keys are ignored; pixel_size is coerced to int.
+        """
+        if not updates:
+            return
+        allowed = {
+            "json_data",
+            "json_id",
+            "obstacles",
+            "paths",
+            "image_size",
+            "areas",
+            "pixel_size",
+            "entity_dict",
+            "layers",
+            "active_zones",
+            "virtual_walls",
+        }
+        for key, value in updates.items():
+            if key not in allowed:
+                continue
+            if key == "pixel_size":
+                try:
+                    value = int(value)
+                except (TypeError, ValueError):
+                    continue
+            setattr(self, key, value)
+
+

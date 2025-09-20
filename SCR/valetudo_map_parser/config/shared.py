@@ -205,7 +205,6 @@ class CameraShared:
             ATTR_CALIBRATION_POINTS: self.attr_calibration_points,
         }
         if self.obstacles_pos and self.vacuum_ips:
-            _LOGGER.debug("Generating obstacle links from: %s", self.obstacles_pos)
             self.obstacles_data = self._compose_obstacle_links(
                 self.vacuum_ips, self.obstacles_pos
             )
@@ -303,21 +302,18 @@ class CameraSharedManager:
             )
             # Ensure trims are updated correctly
             trim_data = device_info.get("trims_data", DEFAULT_VALUES["trims_data"])
-            _LOGGER.debug(
-                "%s: Updating shared trims with: %s", instance.file_name, trim_data
-            )
             instance.trims = TrimsData.from_dict(trim_data)
             # Robot size
             instance.robot_size = device_info.get("robot_size", 25)
 
         except TypeError as ex:
-            _LOGGER.error("Shared data can't be initialized due to a TypeError! %s", ex)
+            _LOGGER.warning("Shared data can't be initialized due to a TypeError! %s", ex)
         except AttributeError as ex:
-            _LOGGER.error(
+            _LOGGER.warning(
                 "Shared data can't be initialized due to an AttributeError! %s", ex
             )
         except RuntimeError as ex:
-            _LOGGER.error(
+            _LOGGER.warning(
                 "An unexpected error occurred while initializing shared data %s:", ex
             )
 

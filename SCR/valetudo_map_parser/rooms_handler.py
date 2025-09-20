@@ -104,14 +104,11 @@ class RoomsHandler:
                         is_enabled = self.drawing_config.is_enabled(room_element)
                         if not is_enabled:
                             # Skip this room if it's disabled
-                            LOGGER.debug("Skipping disabled room %s", segment_id)
                             return None, None
             except (ValueError, TypeError):
                 # If segment_id is not a valid integer, we can't map it to a room element
                 # In this case, we'll include the room (fail open)
-                LOGGER.debug(
-                    "Could not convert segment_id %s to room element", segment_id
-                )
+                pass
 
         # Optimization: Create a smaller mask for just the room area
         if not pixels:
@@ -221,9 +218,8 @@ class RoomsHandler:
                 if room_id is not None and room_data is not None:
                     room_properties[room_id] = room_data
 
-        # Log timing information
+        # Log timing information (kept internal, no debug output)
         total_time = time.time() - start_total
-        LOGGER.debug("Room extraction Total time: %.3fs", total_time)
         return room_properties
 
 
@@ -339,11 +335,11 @@ class RandRoomsHandler:
                         is_enabled = self.drawing_config.is_enabled(room_element)
                         if not is_enabled:
                             # Skip this room if it's disabled
-                            LOGGER.debug("Skipping disabled room %s", segment_id)
                             return None, None
             except (ValueError, TypeError):
                 # If segment_id is not a valid integer, we can't map it to a room element
                 # In this case, we'll include the room (fail open)
+                pass
                 LOGGER.debug(
                     "Could not convert segment_id %s to room element", segment_id
                 )
@@ -467,8 +463,6 @@ class RandRoomsHandler:
 
                 room_properties[room_id] = room_data
 
-        # Log timing information
+        # Log timing information (kept internal, no debug output)
         total_time = time.time() - start_total
-        LOGGER.debug("Room extraction Total time: %.3fs", total_time)
-
         return room_properties
