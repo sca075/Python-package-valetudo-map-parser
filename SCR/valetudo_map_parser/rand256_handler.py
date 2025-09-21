@@ -15,8 +15,8 @@ import numpy as np
 
 from .config.async_utils import AsyncNumPy, AsyncPIL
 
-from .config.auto_crop import AutoCrop
-# from mvcrender.autocrop import AutoCrop
+# from .config.auto_crop import AutoCrop
+from mvcrender.autocrop import AutoCrop
 from .config.drawable_elements import DrawableElement
 from .config.types import (
     COLORS,
@@ -362,7 +362,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
             else:
                 self.zooming = False
 
-        img_np_array = await self.async_auto_trim_and_zoom_image(
+        img_np_array = self.async_auto_trim_and_zoom_image(
             img_np_array,
             detect_colour=colors["background"],
             margin_size=int(self.shared.margins),

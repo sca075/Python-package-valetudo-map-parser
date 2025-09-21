@@ -14,8 +14,8 @@ from PIL import Image
 
 from .config.async_utils import AsyncNumPy, AsyncPIL
 
-from .config.auto_crop import AutoCrop
-# from mvcrender.autocrop import AutoCrop
+# from .config.auto_crop import AutoCrop
+from mvcrender.autocrop import AutoCrop
 from .config.drawable_elements import DrawableElement
 from .config.shared import CameraShared
 from .config.utils import pil_to_webp_bytes
@@ -368,7 +368,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                 self.zooming = self.imd.img_h.zooming
 
                 # Resize the image
-                img_np_array = await self.async_auto_trim_and_zoom_image(
+                img_np_array = self.async_auto_trim_and_zoom_image(
                     img_np_array,
                     colors["background"],
                     int(self.shared.margins),
