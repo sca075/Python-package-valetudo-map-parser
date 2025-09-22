@@ -556,8 +556,12 @@ class BaseHandler:
 
 async def async_resize_image(params: ResizeParams):
     """Resize the image to the given dimensions and aspect ratio."""
-    if params.aspect_ratio:
-        wsf, hsf = [int(x) for x in params.aspect_ratio.split(",")]
+
+    if params.aspect_ratio == "None":
+        return params.pil_img
+    if params.aspect_ratio != "None":
+        wsf, hsf = [int(x) for x in params.aspect_ratio.split(":")]
+
 
         if wsf == 0 or hsf == 0 or params.width <= 0 or params.height <= 0:
             LOGGER.warning(
@@ -586,15 +590,15 @@ async def async_resize_image(params: ResizeParams):
 
         return ImageOps.pad(params.pil_img, (new_width, new_height))
 
-    return ImageOps.pad(params.pil_img, (params.width, params.height))
+    return params.pil_img
 
 
 def prepare_resize_params(handler, pil_img, rand):
     """Prepare resize parameters for image resizing."""
     return ResizeParams(
         pil_img=pil_img,
-        width=handler.shared.image_ref_width,
-        height=handler.shared.image_ref_height,
+        width=pil_img.width,
+        height=pil_img.height,
         aspect_ratio=handler.shared.image_aspect_ratio,
         crop_size=handler.crop_img_size,
         offset_func=handler.async_map_coordinates_offset,
