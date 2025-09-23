@@ -556,11 +556,13 @@ class BaseHandler:
 
 async def async_resize_image(params: ResizeParams):
     """Resize the image to the given dimensions and aspect ratio."""
-
+    LOGGER.debug("Resizing image to aspect ratio: %s", params.aspect_ratio)
+    LOGGER.debug("Original image size: %s x %s", params.width, params.height)
+    LOGGER.debug("Image crop size: %s", params.crop_size)
     if params.aspect_ratio == "None":
         return params.pil_img
     if params.aspect_ratio != "None":
-        wsf, hsf = [int(x) for x in params.aspect_ratio.split(":")]
+        wsf, hsf = [int(x) for x in params.aspect_ratio.split(",")]
 
 
         if wsf == 0 or hsf == 0 or params.width <= 0 or params.height <= 0:
@@ -587,7 +589,7 @@ async def async_resize_image(params: ResizeParams):
         if (params.crop_size is not None) and (params.offset_func is not None):
             offset = OffsetParams(wsf, hsf, new_width, new_height, params.is_rand)
             params.crop_size[0], params.crop_size[1] = await params.offset_func(offset)
-
+        LOGGER.debug("New image size: %r * %r", new_width, new_height)
         return ImageOps.pad(params.pil_img, (new_width, new_height))
 
     return params.pil_img
@@ -597,8 +599,8 @@ def prepare_resize_params(handler, pil_img, rand):
     """Prepare resize parameters for image resizing."""
     return ResizeParams(
         pil_img=pil_img,
-        width=pil_img.width,
-        height=pil_img.height,
+        width=handler.shared.image_ref_width, #pil_img.width,
+        height=handler.shared.image_ref_height, # pil_img.height,
         aspect_ratio=handler.shared.image_aspect_ratio,
         crop_size=handler.crop_img_size,
         offset_func=handler.async_map_coordinates_offset,
