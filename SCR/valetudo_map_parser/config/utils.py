@@ -612,7 +612,8 @@ async def async_resize_image(params: ResizeParams):
     if params.aspect_ratio == "None":
         return params.pil_img
     if params.aspect_ratio != "None":
-        wsf, hsf = [int(x) for x in params.aspect_ratio.split(":")]
+        ratio = params.aspect_ratio.replace(",", ":").replace(" ", "")
+        wsf, hsf = [int(x) for x in ratio.split(":")]
 
         if wsf == 0 or hsf == 0 or params.width <= 0 or params.height <= 0:
             LOGGER.warning(
