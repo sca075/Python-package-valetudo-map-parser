@@ -15,16 +15,17 @@ from .drawable import Drawable
 from .drawable_elements import DrawingConfig
 from .enhanced_drawable import EnhancedDrawable
 from .status_text.status_text import StatusText
+
 from .types import (
     LOGGER,
     ChargerPosition,
-    ImageSize,
+    Size,
     NumpyArray,
     PilPNG,
     RobotPosition,
-    WebPBytes,
 )
 from ..map_data import HyperMapData
+from .async_utils import AsyncNumPy
 
 
 @dataclass
@@ -74,12 +75,16 @@ class BaseHandler:
         self.crop_area = [0, 0, 0, 0]
         self.zooming = False
         self.async_resize_images = async_resize_image
+        # Drawing components are initialized by initialize_drawing_config in handlers
+        self.drawing_config: Optional[DrawingConfig] = None
+        self.draw: Optional[Drawable] = None
+        self.enhanced_draw: Optional[EnhancedDrawable] = None
 
     def get_frame_number(self) -> int:
         """Return the frame number of the image."""
         return self.frame_number
 
-    def get_robot_position(self) -> RobotPosition | None:
+    def get_robot_position(self) -> RobotPosition:
         """Return the robot position."""
         return self.robot_pos
 
@@ -88,7 +93,7 @@ class BaseHandler:
         m_json: dict | None,
         destinations: list | None = None,
         bytes_format: bool = False,
-    ) -> PilPNG | None:
+    ) -> PilPNG | bytes:
         """
         Unified async function to get PIL image from JSON data for both Hypfer and Rand256 handlers.
 
@@ -116,14 +121,12 @@ class BaseHandler:
                 new_image = await self.get_image_from_rrm(
                     m_json=m_json,
                     destinations=destinations,
-                    return_webp=False,  # Always return PIL Image
                 )
             elif hasattr(self, "async_get_image_from_json"):
                 # This is a Hypfer handler
                 self.json_data = await HyperMapData.async_from_valetudo_json(m_json)
                 new_image = await self.async_get_image_from_json(
                     m_json=m_json,
-                    return_webp=False,  # Always return PIL Image
                 )
             else:
                 LOGGER.warning(
@@ -152,11 +155,9 @@ class BaseHandler:
                     )
                 # Convert to binary (PNG bytes) if requested
                 if bytes_format:
-                    with io.BytesIO() as buf:
-                        new_image.save(buf, format="PNG", compress_level=1)
-                        self.shared.binary_image = buf.getvalue()
+                    self.shared.binary_image = pil_to_png_bytes(new_image)
                 else:
-                    self.shared.binary_image = None
+                    self.shared.binary_image = pil_to_png_bytes(self.shared.last_image)
                 # Update the timestamp with current datetime
                 self.shared.image_last_updated = datetime.datetime.fromtimestamp(time())
                 return new_image
@@ -164,6 +165,8 @@ class BaseHandler:
                 LOGGER.warning(
                     "%s: Failed to generate image from JSON data", self.file_name
                 )
+                if bytes_format and hasattr(self.shared, "last_image"):
+                    return pil_to_png_bytes(self.shared.last_image)
                 return (
                     self.shared.last_image
                     if hasattr(self.shared, "last_image")
@@ -181,11 +184,23 @@ class BaseHandler:
                 self.shared.last_image if hasattr(self.shared, "last_image") else None
             )
 
+    def prepare_resize_params(self, pil_img: PilPNG, rand: bool=False) -> ResizeParams:
+        """Prepare resize parameters for image resizing."""
+        return ResizeParams(
+            pil_img=pil_img,
+            width=self.shared.image_ref_width,  # pil_img.width,
+            height=self.shared.image_ref_height,  # pil_img.height,
+            aspect_ratio=self.shared.image_aspect_ratio,
+            crop_size=self.crop_img_size,
+            offset_func=self.async_map_coordinates_offset,
+            is_rand=rand,
+        )
+
     def get_charger_position(self) -> ChargerPosition | None:
         """Return the charger position."""
         return self.charger_pos
 
-    def get_img_size(self) -> ImageSize | None:
+    def get_img_size(self) -> Size | None:
         """Return the size of the image."""
         return self.img_size
 
@@ -201,6 +216,30 @@ class BaseHandler:
             and self.zooming
             and self.shared.image_zoom_lock_ratio
             or self.shared.image_aspect_ratio != "None"
+        )
+
+    # Element selection methods centralized here
+    def enable_element(self, element_code):
+        """Enable drawing of a specific element."""
+        if hasattr(self, "drawing_config") and self.drawing_config is not None:
+            self.drawing_config.enable_element(element_code)
+
+    def disable_element(self, element_code):
+        """Disable drawing of a specific element."""
+        manage_drawable_elements(self, "disable", element_code=element_code)
+
+    def set_elements(self, element_codes: list):
+        """Enable only the specified elements, disable all others."""
+        manage_drawable_elements(self, "set_elements", element_codes=element_codes)
+
+    def set_element_property(self, element_code, property_name: str, value):
+        """Set a drawing property for an element."""
+        manage_drawable_elements(
+            self,
+            "set_property",
+            element_code=element_code,
+            property_name=property_name,
+            value=value,
         )
 
     def _set_image_offset_ratio_1_1(
@@ -382,17 +421,21 @@ class BaseHandler:
             return hashlib.sha256(data_json.encode()).hexdigest()
         return None
 
-    @staticmethod
-    async def async_copy_array(original_array: NumpyArray) -> NumpyArray:
-        """Copy the array."""
-        return NumpyArray.copy(original_array)
+    async def async_copy_array(self, original_array: NumpyArray) -> NumpyArray:
+        """Copy the array using AsyncNumPy to yield control to the event loop."""
+        return await AsyncNumPy.async_copy(original_array)
 
     def get_map_points(
         self,
     ) -> list[dict[str, int] | dict[str, int] | dict[str, int] | dict[str, int]]:
         """Return the map points."""
         if not self.crop_img_size:
-            return ["crop_img_size is not set"]
+            return [
+                {"x": 0, "y": 0},
+                {"x": 0, "y": 0},
+                {"x": 0, "y": 0},
+                {"x": 0, "y": 0},
+            ]
         return [
             {"x": 0, "y": 0},  # Top-left corner 0
             {"x": self.crop_img_size[0], "y": 0},  # Top-right corner 1
@@ -406,7 +449,12 @@ class BaseHandler:
     def get_vacuum_points(self, rotation_angle: int) -> list[dict[str, int]]:
         """Calculate the calibration points based on the rotation angle."""
         if not self.crop_area:
-            return ["crop_area is not set"]
+            return [
+                {"x": 0, "y": 0},
+                {"x": 0, "y": 0},
+                {"x": 0, "y": 0},
+                {"x": 0, "y": 0},
+            ]
         # get_calibration_data
         vacuum_points = [
             {
@@ -499,7 +547,8 @@ class BaseHandler:
 
         return vacuum_points
 
-    async def async_zone_propriety(self, zones_data) -> dict:
+    @staticmethod
+    async def async_zone_propriety(zones_data) -> dict:
         """Get the zone propriety"""
         zone_properties = {}
         id_count = 1
@@ -520,7 +569,8 @@ class BaseHandler:
                 pass
         return zone_properties
 
-    async def async_points_propriety(self, points_data) -> dict:
+    @staticmethod
+    async def async_points_propriety(points_data) -> dict:
         """Get the point propriety"""
         point_properties = {}
         id_count = 1
@@ -562,8 +612,7 @@ async def async_resize_image(params: ResizeParams):
     if params.aspect_ratio == "None":
         return params.pil_img
     if params.aspect_ratio != "None":
-        wsf, hsf = [int(x) for x in params.aspect_ratio.split(",")]
-
+        wsf, hsf = [int(x) for x in params.aspect_ratio.split(":")]
 
         if wsf == 0 or hsf == 0 or params.width <= 0 or params.height <= 0:
             LOGGER.warning(
@@ -593,19 +642,6 @@ async def async_resize_image(params: ResizeParams):
         return ImageOps.pad(params.pil_img, (new_width, new_height))
 
     return params.pil_img
-
-
-def prepare_resize_params(handler, pil_img, rand):
-    """Prepare resize parameters for image resizing."""
-    return ResizeParams(
-        pil_img=pil_img,
-        width=handler.shared.image_ref_width, #pil_img.width,
-        height=handler.shared.image_ref_height, # pil_img.height,
-        aspect_ratio=handler.shared.image_aspect_ratio,
-        crop_size=handler.crop_img_size,
-        offset_func=handler.async_map_coordinates_offset,
-        is_rand=rand,
-    )
 
 
 def initialize_drawing_config(handler):
@@ -759,6 +795,51 @@ def manage_drawable_elements(
         and property_name is not None
     ):
         handler.drawing_config.set_property(element_code, property_name, value)
+
+
+def point_in_polygon(x: int, y: int, polygon: list) -> bool:
+    """
+    Check if a point is inside a polygon using ray casting algorithm.
+    Enhanced version with better handling of edge cases.
+
+    Args:
+        x: X coordinate of the point
+        y: Y coordinate of the point
+        polygon: List of (x, y) tuples forming the polygon
+
+    Returns:
+        True if the point is inside the polygon, False otherwise
+    """
+    # Ensure we have a valid polygon with at least 3 points
+    if len(polygon) < 3:
+        return False
+
+    # Make sure the polygon is closed (last point equals first point)
+    if polygon[0] != polygon[-1]:
+        polygon = polygon + [polygon[0]]
+
+    # Use winding number algorithm for better accuracy
+    wn = 0  # Winding number counter
+
+    # Loop through all edges of the polygon
+    for i in range(len(polygon) - 1):  # Last vertex is first vertex
+        p1x, p1y = polygon[i]
+        p2x, p2y = polygon[i + 1]
+
+        # Test if a point is left/right/on the edge defined by two vertices
+        if p1y <= y:  # Start y <= P.y
+            if p2y > y:  # End y > P.y (upward crossing)
+                # Point left of edge
+                if ((p2x - p1x) * (y - p1y) - (x - p1x) * (p2y - p1y)) > 0:
+                    wn += 1  # Valid up intersect
+        else:  # Start y > P.y
+            if p2y <= y:  # End y <= P.y (downward crossing)
+                # Point right of edge
+                if ((p2x - p1x) * (y - p1y) - (x - p1x) * (p2y - p1y)) < 0:
+                    wn -= 1  # Valid down intersect
+
+    # If winding number is not 0, the point is inside the polygon
+    return wn != 0
 
 
 def handle_room_outline_error(file_name, room_id, error):
@@ -917,83 +998,14 @@ async def async_extract_room_outline(
         return rect_outline
 
 
-async def numpy_to_webp_bytes(
-    img_np_array: np.ndarray, quality: int = 85, lossless: bool = False
-) -> WebPBytes:
-    """
-    Convert NumPy array directly to WebP bytes.
-
-    Args:
-        img_np_array: RGBA NumPy array
-        quality: WebP quality (0-100, ignored if lossless=True)
-        lossless: Use lossless WebP compression
-
-    Returns:
-        WebP image as bytes
-    """
-    # Convert NumPy array to PIL Image
-    pil_img = Image.fromarray(img_np_array, mode="RGBA")
-
-    # Create bytes buffer
-    webp_buffer = io.BytesIO()
-
-    # Save as WebP - PIL images should use lossless=True for best results
-    pil_img.save(
-        webp_buffer,
-        format="WEBP",
-        lossless=True,  # Always lossless for PIL images
-        method=1,  # Fastest method for lossless
-    )
-
-    # Get bytes and cleanup
-    webp_bytes = webp_buffer.getvalue()
-    webp_buffer.close()
-
-    return webp_bytes
+def pil_to_png_bytes(pil_img: Image.Image, compress_level: int = 1) -> bytes:
+    """Convert PIL Image to PNG bytes asynchronously."""
+    with io.BytesIO() as buf:
+        pil_img.save(buf, format="PNG", compress_level=compress_level)
+        return buf.getvalue()
 
 
-async def pil_to_webp_bytes(
-    pil_img: Image.Image, quality: int = 85, lossless: bool = False
-) -> bytes:
-    """
-    Convert PIL Image to WebP bytes.
-
-    Args:
-        pil_img: PIL Image object
-        quality: WebP quality (0-100, ignored if lossless=True)
-        lossless: Use lossless WebP compression
-
-    Returns:
-        WebP image as bytes
-    """
-    # Create bytes buffer
-    webp_buffer = io.BytesIO()
-
-    # Save as WebP - PIL images should use lossless=True for best results
-    pil_img.save(
-        webp_buffer,
-        format="WEBP",
-        lossless=True,  # Always lossless for PIL images
-        method=1,  # Fastest method for lossless
-    )
-
-    # Get bytes and cleanup
-    webp_bytes = webp_buffer.getvalue()
-    webp_buffer.close()
-
-    return webp_bytes
-
-
-def webp_bytes_to_pil(webp_bytes: bytes) -> Image.Image:
-    """
-    Convert WebP bytes back to PIL Image for display or further processing.
-
-    Args:
-        webp_bytes: WebP image as bytes
-
-    Returns:
-        PIL Image object
-    """
-    webp_buffer = io.BytesIO(webp_bytes)
-    pil_img = Image.open(webp_buffer)
-    return pil_img
+def png_bytes_to_pil(png_bytes: bytes) -> Image.Image:
+    """Convert PNG bytes back to a PIL Image."""
+    png_buffer = io.BytesIO(png_bytes)
+    return Image.open(png_buffer)

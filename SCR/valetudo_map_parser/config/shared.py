@@ -304,7 +304,17 @@ class CameraSharedManager:
             trim_data = device_info.get("trims_data", DEFAULT_VALUES["trims_data"])
             instance.trims = TrimsData.from_dict(trim_data)
             # Robot size
-            instance.robot_size = device_info.get("robot_size", 25)
+            robot_size = device_info.get("robot_size", 25)
+            try:
+                robot_size = int(robot_size)
+            except (ValueError, TypeError):
+                robot_size = 25
+            # Clamp robot_size to [8, 25]
+            if robot_size < 8:
+                robot_size = 8
+            elif robot_size > 25:
+                robot_size = 25
+            instance.robot_size = robot_size
 
         except TypeError as ex:
             _LOGGER.warning(

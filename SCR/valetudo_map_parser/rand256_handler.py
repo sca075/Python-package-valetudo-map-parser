@@ -13,7 +13,7 @@ from typing import Any
 
 import numpy as np
 
-from .config.async_utils import AsyncNumPy, AsyncPIL
+from .config.async_utils import AsyncPIL
 
 # from .config.auto_crop import AutoCrop
 from mvcrender.autocrop import AutoCrop
@@ -28,14 +28,11 @@ from .config.types import (
     RobotPosition,
     RoomsProperties,
     RoomStore,
-    WebPBytes,
 )
 from .config.utils import (
     BaseHandler,
     initialize_drawing_config,
-    manage_drawable_elements,
-    numpy_to_webp_bytes,
-    prepare_resize_params,
+    point_in_polygon,
 )
 from .map_data import RandImageData
 from .reimg_draw import ImageDraw
@@ -136,13 +133,11 @@ class ReImageHandler(BaseHandler, AutoCrop):
         self,
         m_json: JsonType,  # json data
         destinations: None = None,  # MQTT destinations for labels
-        return_webp: bool = False,
-    ) -> WebPBytes | PilPNG | None:
+    ) -> PilPNG | None:
         """Generate Images from the json data.
         @param m_json: The JSON data to use to draw the image.
         @param destinations: MQTT destinations for labels (unused).
-        @param return_webp: If True, return WebP bytes; if False, return PIL Image (default).
-        @return WebPBytes | Image.Image: WebP bytes or PIL Image depending on return_webp parameter.
+        @return Image.Image: PIL Image.
         """
         colors: Colors = {
             name: self.shared.user_colors[idx] for idx, name in enumerate(COLORS)
@@ -177,17 +172,10 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     img_np_array, m_json, colors, robot_position, robot_position_angle
                 )
 
-                # Return WebP bytes or PIL Image based on parameter
-                if return_webp:
-                    # Convert directly to WebP bytes for better performance
-                    webp_bytes = await numpy_to_webp_bytes(img_np_array)
-                    del img_np_array  # free memory
-                    return webp_bytes
-                else:
-                    # Convert to PIL Image using async utilities
-                    pil_img = await AsyncPIL.async_fromarray(img_np_array, mode="RGBA")
-                    del img_np_array  # free memory
-                    return await self._finalize_image(pil_img)
+                # Return PIL Image using async utilities
+                pil_img = await AsyncPIL.async_fromarray(img_np_array, mode="RGBA")
+                del img_np_array  # free memory
+                return await self._finalize_image(pil_img)
 
         except (RuntimeError, RuntimeWarning) as e:
             _LOGGER.warning(
@@ -379,7 +367,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
             )
             return pil_img
         if self.check_zoom_and_aspect_ratio():
-            resize_params = prepare_resize_params(self, pil_img, True)
+            resize_params = self.prepare_resize_params(pil_img, True)
             pil_img = await self.async_resize_images(resize_params)
         return pil_img
 
@@ -395,51 +383,6 @@ class ReImageHandler(BaseHandler, AutoCrop):
             )
         return self.room_propriety
 
-    @staticmethod
-    def point_in_polygon(x: int, y: int, polygon: list) -> bool:
-        """
-        Check if a point is inside a polygon using ray casting algorithm.
-        Enhanced version with better handling of edge cases.
-
-        Args:
-            x: X coordinate of the point
-            y: Y coordinate of the point
-            polygon: List of (x, y) tuples forming the polygon
-
-        Returns:
-            True if the point is inside the polygon, False otherwise
-        """
-        # Ensure we have a valid polygon with at least 3 points
-        if len(polygon) < 3:
-            return False
-
-        # Make sure the polygon is closed (last point equals first point)
-        if polygon[0] != polygon[-1]:
-            polygon = polygon + [polygon[0]]
-
-        # Use winding number algorithm for better accuracy
-        wn = 0  # Winding number counter
-
-        # Loop through all edges of the polygon
-        for i in range(len(polygon) - 1):  # Last vertex is first vertex
-            p1x, p1y = polygon[i]
-            p2x, p2y = polygon[i + 1]
-
-            # Test if a point is left/right/on the edge defined by two vertices
-            if p1y <= y:  # Start y <= P.y
-                if p2y > y:  # End y > P.y (upward crossing)
-                    # Point left of edge
-                    if ((p2x - p1x) * (y - p1y) - (x - p1x) * (p2y - p1y)) > 0:
-                        wn += 1  # Valid up intersect
-            else:  # Start y > P.y
-                if p2y <= y:  # End y <= P.y (downward crossing)
-                    # Point right of edge
-                    if ((p2x - p1x) * (y - p1y) - (x - p1x) * (p2y - p1y)) < 0:
-                        wn -= 1  # Valid down intersect
-
-        # If winding number is not 0, the point is inside the polygon
-        return wn != 0
-
     async def async_get_robot_in_room(
         self, robot_x: int, robot_y: int, angle: float
     ) -> RobotPosition:
@@ -449,7 +392,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
             # If we have outline data, use point_in_polygon for accurate detection
             if "outline" in self.robot_in_room:
                 outline = self.robot_in_room["outline"]
-                if self.point_in_polygon(int(robot_x), int(robot_y), outline):
+                if point_in_polygon(int(robot_x), int(robot_y), outline):
                     temp = {
                         "x": robot_x,
                         "y": robot_y,
@@ -531,7 +474,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
             if "outline" in room:
                 outline = room["outline"]
                 # Use point_in_polygon for accurate detection with complex shapes
-                if self.point_in_polygon(int(robot_x), int(robot_y), outline):
+                if point_in_polygon(int(robot_x), int(robot_y), outline):
                     # Robot is in this room
                     self.robot_in_room = {
                         "id": room_count,
@@ -590,32 +533,3 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 self.calibration_data.append(calibration_point)
 
         return self.calibration_data
-
-    # Element selection methods
-    def enable_element(self, element_code: DrawableElement) -> None:
-        """Enable drawing of a specific element."""
-        self.drawing_config.enable_element(element_code)
-
-    def disable_element(self, element_code: DrawableElement) -> None:
-        """Disable drawing of a specific element."""
-        manage_drawable_elements(self, "disable", element_code=element_code)
-
-    def set_elements(self, element_codes: list[DrawableElement]) -> None:
-        """Enable only the specified elements, disable all others."""
-        manage_drawable_elements(self, "set_elements", element_codes=element_codes)
-
-    def set_element_property(
-        self, element_code: DrawableElement, property_name: str, value
-    ) -> None:
-        """Set a drawing property for an element."""
-        manage_drawable_elements(
-            self,
-            "set_property",
-            element_code=element_code,
-            property_name=property_name,
-            value=value,
-        )
-
-    async def async_copy_array(self, original_array):
-        """Copy the array using async utilities."""
-        return await AsyncNumPy.async_copy(original_array)

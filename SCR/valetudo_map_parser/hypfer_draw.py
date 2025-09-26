@@ -10,6 +10,7 @@ import logging
 
 from .config.drawable_elements import DrawableElement
 from .config.types import Color, JsonType, NumpyArray, RobotPosition, RoomStore
+from .config.utils import point_in_polygon
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -22,51 +23,6 @@ class ImageDraw:
     def __init__(self, image_handler):
         self.img_h = image_handler
         self.file_name = self.img_h.shared.file_name
-
-    @staticmethod
-    def point_in_polygon(x: int, y: int, polygon: list) -> bool:
-        """
-        Check if a point is inside a polygon using ray casting algorithm.
-        Enhanced version with better handling of edge cases.
-
-        Args:
-            x: X coordinate of the point
-            y: Y coordinate of the point
-            polygon: List of (x, y) tuples forming the polygon
-
-        Returns:
-            True if the point is inside the polygon, False otherwise
-        """
-        # Ensure we have a valid polygon with at least 3 points
-        if len(polygon) < 3:
-            return False
-
-        # Make sure the polygon is closed (last point equals first point)
-        if polygon[0] != polygon[-1]:
-            polygon = polygon + [polygon[0]]
-
-        # Use winding number algorithm for better accuracy
-        wn = 0  # Winding number counter
-
-        # Loop through all edges of the polygon
-        for i in range(len(polygon) - 1):  # Last vertex is first vertex
-            p1x, p1y = polygon[i]
-            p2x, p2y = polygon[i + 1]
-
-            # Test if a point is left/right/on the edge defined by two vertices
-            if p1y <= y:  # Start y <= P.y
-                if p2y > y:  # End y > P.y (upward crossing)
-                    # Point left of edge
-                    if ((p2x - p1x) * (y - p1y) - (x - p1x) * (p2y - p1y)) > 0:
-                        wn += 1  # Valid up intersect
-            else:  # Start y > P.y
-                if p2y <= y:  # End y <= P.y (downward crossing)
-                    # Point right of edge
-                    if ((p2x - p1x) * (y - p1y) - (x - p1x) * (p2y - p1y)) < 0:
-                        wn -= 1  # Valid down intersect
-
-        # If winding number is not 0, the point is inside the polygon
-        return wn != 0
 
     async def draw_go_to_flag(
         self, np_array: NumpyArray, entity_dict: dict, color_go_to: Color
@@ -243,7 +199,7 @@ class ImageDraw:
                     # Get the element at this position
                     element = element_map[check_y, check_x]
 
-                    # Check if this element is a disabled room
+                    # Check if this element is a disabled one
                     # Room elements are in the range 101-115 (ROOM_1 to ROOM_15)
                     if 101 <= element <= 115:
                         room_id = element - 101  # Convert to 0-based index
@@ -422,37 +378,6 @@ class ImageDraw:
         else:
             self.img_h.zooming = False
 
-    @staticmethod
-    def point_in_polygon(x: int, y: int, polygon: list) -> bool:
-        """
-        Check if a point is inside a polygon using ray casting algorithm.
-
-        Args:
-            x: X coordinate of the point
-            y: Y coordinate of the point
-            polygon: List of (x, y) tuples forming the polygon
-
-        Returns:
-            True if the point is inside the polygon, False otherwise
-        """
-        n = len(polygon)
-        inside = False
-
-        p1x, p1y = polygon[0]
-        xinters = None  # Initialize with default value
-        for i in range(1, n + 1):
-            p2x, p2y = polygon[i % n]
-            if y > min(p1y, p2y):
-                if y <= max(p1y, p2y):
-                    if x <= max(p1x, p2x):
-                        if p1y != p2y:
-                            xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
-                        if p1x == p2x or (xinters is not None and x <= xinters):
-                            inside = not inside
-            p1x, p1y = p2x, p2y
-
-        return inside
-
     async def async_get_robot_in_room(
         self, robot_y: int = 0, robot_x: int = 0, angle: float = 0.0
     ) -> RobotPosition:
@@ -462,7 +387,7 @@ class ImageDraw:
             # If we have outline data, use point_in_polygon for accurate detection
             if "outline" in self.img_h.robot_in_room:
                 outline = self.img_h.robot_in_room["outline"]
-                if self.point_in_polygon(int(robot_x), int(robot_y), outline):
+                if point_in_polygon(int(robot_x), int(robot_y), outline):
                     temp = {
                         "x": robot_x,
                         "y": robot_y,
@@ -530,7 +455,7 @@ class ImageDraw:
             if "outline" in room:
                 outline = room["outline"]
                 # Use point_in_polygon for accurate detection with complex shapes
-                if self.point_in_polygon(int(robot_x), int(robot_y), outline):
+                if point_in_polygon(int(robot_x), int(robot_y), outline):
                     # Robot is in this room
                     self.img_h.robot_in_room = {
                         "id": room.get(

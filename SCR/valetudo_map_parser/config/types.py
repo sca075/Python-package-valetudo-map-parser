@@ -81,6 +81,8 @@ class RoomStore:
                 instance = super(RoomStore, cls).__new__(cls)
                 instance.vacuum_id = vacuum_id
                 instance.vacuums_data = rooms_data or {}
+                instance.rooms_count = instance.get_rooms_count()
+                instance.floor = None
                 cls._instances[vacuum_id] = instance
             else:
                 if rooms_data is not None:
@@ -126,10 +128,10 @@ class UserLanguageStore:
         async with self._lock:
             self.user_languages[user_id] = language
 
-    async def get_user_language(self, user_id: str) -> str or None:
+    async def get_user_language(self, user_id: str) -> str:
         """Get the user language."""
         async with self._lock:
-            return self.user_languages.get(user_id, None)
+            return self.user_languages.get(user_id, "")
 
     async def get_all_languages(self):
         """Get all the user languages."""
@@ -197,13 +199,13 @@ class SnapshotStore:
 Color = Union[Tuple[int, int, int], Tuple[int, int, int, int]]
 Colors = Dict[str, Color]
 CalibrationPoints = list[dict[str, Any]]
-RobotPosition = dict[str, int | float]
+RobotPosition = Optional[dict[str, Union[int | float]]]
 ChargerPosition = dict[str, Any]
 RoomsProperties = dict[str, RoomProperty]
 ImageSize = dict[str, int | list[int]]
+Size = dict[str, int]
 JsonType = Any  # json.loads() return type is Any
 PilPNG = Image.Image  # Keep for backward compatibility
-WebPBytes = bytes  # WebP image as bytes
 NumpyArray = np.ndarray
 Point = Tuple[int, int]
 
