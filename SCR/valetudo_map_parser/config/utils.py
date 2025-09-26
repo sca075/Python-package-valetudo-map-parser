@@ -186,10 +186,16 @@ class BaseHandler:
 
     def prepare_resize_params(self, pil_img: PilPNG, rand: bool=False) -> ResizeParams:
         """Prepare resize parameters for image resizing."""
+        if self.shared.image_rotate in [0, 180]:
+            width, height = pil_img.size
+        else:
+            height, width = pil_img.size
+        LOGGER.debug("Shared PIL image size: %s x %s", self.shared.image_ref_width,
+                     self.shared.image_ref_height)
         return ResizeParams(
             pil_img=pil_img,
-            width=self.shared.image_ref_width,  # pil_img.width,
-            height=self.shared.image_ref_height,  # pil_img.height,
+            width=width,
+            height=height,
             aspect_ratio=self.shared.image_aspect_ratio,
             crop_size=self.crop_img_size,
             offset_func=self.async_map_coordinates_offset,
