@@ -11,6 +11,7 @@ Optimized with NumPy and SciPy for better performance.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
@@ -874,11 +875,25 @@ class Drawable:
         position: bool,
     ) -> None:
         """Draw the status text on the image."""
-        path_default_font = (
-            "custom_components/mqtt_vacuum_camera/utils/fonts/FiraSans.ttf"
-        )
-        default_font = ImageFont.truetype(path_default_font, size)
-        user_font = ImageFont.truetype(path_font, size)
+        module_dir = Path(__file__).resolve().parent
+        default_font_path = module_dir / "fonts" / "FiraSans.ttf"
+        # Load default font with safety fallback to PIL's built-in if missing
+        try:
+            default_font = ImageFont.truetype(str(default_font_path), size)
+        except OSError:
+            _LOGGER.warning(
+                "Default font not found at %s; using PIL default font",
+                default_font_path,
+            )
+            default_font = ImageFont.load_default()
+
+        # Use provided font directly if available; else fall back to default
+        user_font = default_font
+        if path_font:
+            try:
+                user_font = ImageFont.truetype(str(path_font), size)
+            except OSError:
+                user_font = default_font
         if position:
             x, y = 10, 10
         else:

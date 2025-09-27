@@ -6,10 +6,9 @@ from __future__ import annotations
 import logging
 
 import numpy as np
-from numpy import rot90
 from scipy import ndimage
 
-from .async_utils import AsyncNumPy, make_async
+from .async_utils import AsyncNumPy
 from .types import Color, NumpyArray, TrimCropData, TrimsData
 from .utils import BaseHandler
 
@@ -91,7 +90,6 @@ class AutoCrop:
 
     async def _async_auto_crop_data(self, tdata: TrimsData):  # , tdata=None
         """Load the auto crop data from the Camera config."""
-        _LOGGER.debug("Auto Crop init data: %s, %s", str(tdata), str(self.auto_crop))
         if not self.auto_crop:
             trims_data = TrimCropData.from_dict(dict(tdata.to_dict())).to_list()
             (
@@ -100,7 +98,6 @@ class AutoCrop:
                 self.trim_right,
                 self.trim_down,
             ) = trims_data
-            _LOGGER.debug("Auto Crop trims data: %s", trims_data)
             if trims_data != [0, 0, 0, 0]:
                 self._calculate_trimmed_dimensions()
             else:
@@ -118,10 +115,6 @@ class AutoCrop:
 
     async def _init_auto_crop(self):
         """Initialize the auto crop data."""
-        _LOGGER.debug("Auto Crop Init data: %s", str(self.auto_crop))
-        _LOGGER.debug(
-            "Auto Crop Init trims data: %r", self.handler.shared.trims.to_dict()
-        )
         if not self.auto_crop:  # and self.handler.shared.vacuum_state == "docked":
             self.auto_crop = await self._async_auto_crop_data(self.handler.shared.trims)
             if self.auto_crop:
@@ -131,7 +124,6 @@ class AutoCrop:
 
         # Fallback: Ensure auto_crop is valid
         if not self.auto_crop or any(v < 0 for v in self.auto_crop):
-            _LOGGER.debug("Auto-crop data unavailable. Scanning full image.")
             self.auto_crop = None
 
         return self.auto_crop
@@ -164,14 +156,6 @@ class AutoCrop:
         min_y, max_y = y_slice.start, y_slice.stop - 1
         min_x, max_x = x_slice.start, x_slice.stop - 1
 
-        _LOGGER.debug(
-            "%s: Found trims max and min values (y,x) (%s, %s) (%s, %s)...",
-            self.handler.file_name,
-            int(max_y),
-            int(max_x),
-            int(min_y),
-            int(min_x),
-        )
         return min_y, min_x, max_x, max_y
 
     async def async_get_room_bounding_box(
@@ -247,7 +231,7 @@ class AutoCrop:
             return None
 
         except Exception as e:
-            _LOGGER.error(
+            _LOGGER.warning(
                 "%s: Error calculating room bounding box for '%s': %s",
                 self.handler.file_name,
                 room_name,
@@ -403,7 +387,6 @@ class AutoCrop:
         try:
             self.auto_crop = await self._init_auto_crop()
             if (self.auto_crop is None) or (self.auto_crop == [0, 0, 0, 0]):
-                _LOGGER.debug("%s: Calculating auto trim box", self.handler.file_name)
                 # Find the coordinates of the first occurrence of a non-background color
                 min_y, min_x, max_x, max_y = await self.async_image_margins(
                     image_array, detect_colour
@@ -456,15 +439,7 @@ class AutoCrop:
             # Rotate the cropped image based on the given angle
             rotated = await self.async_rotate_the_image(trimmed, rotate)
             del trimmed  # Free memory.
-            _LOGGER.debug(
-                "%s: Auto Trim Box data: %s", self.handler.file_name, self.crop_area
-            )
             self.handler.crop_img_size = [rotated.shape[1], rotated.shape[0]]
-            _LOGGER.debug(
-                "%s: Auto Trimmed image size: %s",
-                self.handler.file_name,
-                self.handler.crop_img_size,
-            )
 
         except RuntimeError as e:
             _LOGGER.warning(

@@ -81,6 +81,8 @@ class RoomStore:
                 instance = super(RoomStore, cls).__new__(cls)
                 instance.vacuum_id = vacuum_id
                 instance.vacuums_data = rooms_data or {}
+                instance.rooms_count = instance.get_rooms_count()
+                instance.floor = None
                 cls._instances[vacuum_id] = instance
             else:
                 if rooms_data is not None:
@@ -126,10 +128,10 @@ class UserLanguageStore:
         async with self._lock:
             self.user_languages[user_id] = language
 
-    async def get_user_language(self, user_id: str) -> str or None:
+    async def get_user_language(self, user_id: str) -> str:
         """Get the user language."""
         async with self._lock:
-            return self.user_languages.get(user_id, None)
+            return self.user_languages.get(user_id, "")
 
     async def get_all_languages(self):
         """Get all the user languages."""
@@ -197,13 +199,13 @@ class SnapshotStore:
 Color = Union[Tuple[int, int, int], Tuple[int, int, int, int]]
 Colors = Dict[str, Color]
 CalibrationPoints = list[dict[str, Any]]
-RobotPosition = dict[str, int | float]
+RobotPosition = Optional[dict[str, Union[int | float]]]
 ChargerPosition = dict[str, Any]
 RoomsProperties = dict[str, RoomProperty]
 ImageSize = dict[str, int | list[int]]
+Size = dict[str, int]
 JsonType = Any  # json.loads() return type is Any
 PilPNG = Image.Image  # Keep for backward compatibility
-WebPBytes = bytes  # WebP image as bytes
 NumpyArray = np.ndarray
 Point = Tuple[int, int]
 
@@ -283,7 +285,7 @@ DEFAULT_VALUES = {
     "auto_zoom": False,
     "zoom_lock_ratio": True,
     "show_vac_status": False,
-    "vac_status_font": "custom_components/mqtt_vacuum_camera/utils/fonts/FiraSans.ttf",
+    "vac_status_font": "SCR/valetudo_map_parser/config/fonts/FiraSans.ttf",
     "vac_status_size": 50,
     "vac_status_position": True,
     "get_svg_file": False,
@@ -443,31 +445,31 @@ RATIO_VALUES = [
 FONTS_AVAILABLE = [
     {
         "label": "Fira Sans",
-        "value": "custom_components/mqtt_vacuum_camera/utils/fonts/FiraSans.ttf",
+        "value": "config/fonts/FiraSans.ttf",
     },
     {
         "label": "Inter",
-        "value": "custom_components/mqtt_vacuum_camera/utils/fonts/Inter-VF.ttf",
+        "value": "config/fonts/Inter-VF.ttf",
     },
     {
         "label": "M Plus Regular",
-        "value": "custom_components/mqtt_vacuum_camera/utils/fonts/MPLUSRegular.ttf",
+        "value": "config/fonts/MPLUSRegular.ttf",
     },
     {
         "label": "Noto Sans CJKhk",
-        "value": "custom_components/mqtt_vacuum_camera/utils/fonts/NotoSansCJKhk-VF.ttf",
+        "value": "config/fonts/NotoSansCJKhk-VF.ttf",
     },
     {
         "label": "Noto Kufi Arabic",
-        "value": "custom_components/mqtt_vacuum_camera/utils/fonts/NotoKufiArabic-VF.ttf",
+        "value": "config/fonts/NotoKufiArabic-VF.ttf",
     },
     {
         "label": "Noto Sans Khojki",
-        "value": "custom_components/mqtt_vacuum_camera/utils/fonts/NotoSansKhojki.ttf",
+        "value": "config/fonts/NotoSansKhojki.ttf",
     },
     {
         "label": "Lato Regular",
-        "value": "custom_components/mqtt_vacuum_camera/utils/fonts/Lato-Regular.ttf",
+        "value": "config/fonts/Lato-Regular.ttf",
     },
 ]
 
