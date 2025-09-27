@@ -709,7 +709,7 @@ class HyperMapData:
     """Class to handle the map data snapshots."""
 
     json_data: Any = None
-    json_id: str = "" or None
+    json_id: Optional[str] = None
     obstacles: dict[str, list[Any]] = field(default_factory=dict)
     paths: dict[str, list[Any]] = field(default_factory=dict)
     image_size: dict[str, int | list[int]] = field(default_factory=dict)
