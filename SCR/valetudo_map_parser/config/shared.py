@@ -173,7 +173,7 @@ class CameraShared:
             setattr(self, key, value)
 
     async def batch_get(self, *args):
-        """Get all data from Shared"""
+        """Batch get multiple attributes."""
         return {key: getattr(self, key) for key in args}
 
     def generate_attributes(self) -> dict:
