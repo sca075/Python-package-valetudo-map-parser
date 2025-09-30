@@ -177,7 +177,7 @@ class CameraShared:
         return {key: getattr(self, key) for key in args}
 
     def generate_attributes(self) -> dict:
-        """Generate entity attributes"""
+        """Generate and return the shared attribute's dictionary."""
         attrs = {
             ATTR_CAMERA_MODE: self.camera_mode,
             ATTR_VACUUM_BATTERY: f"{self.vacuum_battery}%",
