@@ -155,7 +155,7 @@ class CameraShared:
         return self.user_colors
 
     def update_rooms_colors(self, user_colors):
-        """Rooms Colors Update"""
+        """Update the rooms colors."""
         self.rooms_colors = user_colors
 
     def get_rooms_colors(self):
