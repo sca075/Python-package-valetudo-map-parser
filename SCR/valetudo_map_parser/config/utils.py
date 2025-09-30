@@ -197,7 +197,7 @@ class BaseHandler:
         """Update the shared data with the latest information."""
 
         if hasattr(self, "get_rooms_attributes") and (
-                self.shared.map_rooms is None and destinations
+                self.shared.map_rooms is None and destinations is not None
         ):
             (
                 self.shared.map_rooms,
