@@ -147,7 +147,7 @@ class CameraShared:
         return obstacle_links
 
     def update_user_colors(self, user_colors):
-        """Update user colors pallete"""
+        """Update user colors palette"""
         self.user_colors = user_colors
 
     def get_user_colors(self):
