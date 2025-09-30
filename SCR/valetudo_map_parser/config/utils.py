@@ -5,7 +5,7 @@ from time import time
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Tuple
 import io
 
 import numpy as np
@@ -23,6 +23,7 @@ from .types import (
     NumpyArray,
     PilPNG,
     RobotPosition,
+    Destinations
 )
 from ..map_data import HyperMapData
 from .async_utils import AsyncNumPy
@@ -91,9 +92,9 @@ class BaseHandler:
     async def async_get_image(
         self,
         m_json: dict | None,
-        destinations: list | None = None,
+        destinations: Destinations | None = None,
         bytes_format: bool = False,
-    ) -> PilPNG | bytes:
+    ) -> Tuple[PilPNG | bytes, dict]:
         """
         Unified async function to get PIL image from JSON data for both Hypfer and Rand256 handlers.
 
@@ -108,7 +109,7 @@ class BaseHandler:
         @param bytes_format: If True, also convert to PNG bytes and store in shared.binary_image
         @param text_enabled: If True, draw text on the image
         @param vacuum_status: Vacuum status to display on the image
-        @return: PIL Image or None
+        @return: PIL Image or None and data dictionary
         """
         try:
             # Backup current image to last_image before processing new one
@@ -122,6 +123,7 @@ class BaseHandler:
                     m_json=m_json,
                     destinations=destinations,
                 )
+
             elif hasattr(self, "async_get_image_from_json"):
                 # This is a Hypfer handler
                 self.json_data = await HyperMapData.async_from_valetudo_json(m_json)
@@ -141,7 +143,10 @@ class BaseHandler:
 
             # Store the new image in shared data
             if new_image is not None:
+                # Update shared data
+                await self._async_update_shared_data(destinations)
                 self.shared.new_image = new_image
+                # Add text to the image
                 if self.shared.show_vacuum_state:
                     text_editor = StatusText(self.shared)
                     img_text = await text_editor.get_status_text(new_image)
@@ -160,18 +165,22 @@ class BaseHandler:
                     self.shared.binary_image = pil_to_png_bytes(self.shared.last_image)
                 # Update the timestamp with current datetime
                 self.shared.image_last_updated = datetime.datetime.fromtimestamp(time())
-                return new_image
+                LOGGER.debug("%s: Frame Completed.", self.file_name)
+                data = {}
+                if bytes_format:
+                    data = self.shared.to_dict()
+                return new_image, data
             else:
                 LOGGER.warning(
                     "%s: Failed to generate image from JSON data", self.file_name
                 )
                 if bytes_format and hasattr(self.shared, "last_image"):
-                    return pil_to_png_bytes(self.shared.last_image)
+                    return pil_to_png_bytes(self.shared.last_image), {}
                 return (
                     self.shared.last_image
                     if hasattr(self.shared, "last_image")
                     else None
-                )
+                ), {}
 
         except Exception as e:
             LOGGER.warning(
@@ -183,6 +192,41 @@ class BaseHandler:
             return (
                 self.shared.last_image if hasattr(self.shared, "last_image") else None
             )
+
+    async def _async_update_shared_data(self, destinations: Destinations | None = None):
+        """Update the shared data with the latest information."""
+
+        if hasattr(self, "get_rooms_attributes") and (
+                self.shared.map_rooms is None and destinations is not None
+        ):
+            (
+                self.shared.map_rooms,
+                self.shared.map_pred_zones,
+                self.shared.map_pred_points,
+            ) = await self.get_rooms_attributes(destinations)
+            if self.shared.map_rooms:
+                LOGGER.debug("%s: Rand256 attributes rooms updated", self.file_name)
+
+        if hasattr(self, "async_get_rooms_attributes") and (
+                self.shared.map_rooms is None
+        ):
+            if self.shared.map_rooms is None:
+                self.shared.map_rooms = await self.async_get_rooms_attributes()
+                if self.shared.map_rooms:
+                    LOGGER.debug("%s: Hyper attributes rooms updated", self.file_name)
+
+        if hasattr(self, "get_calibration_data") and self.shared.attr_calibration_points is None:
+            self.shared.attr_calibration_points = self.get_calibration_data(self.shared.image_rotate)
+
+        if not self.shared.image_size:
+            self.shared.image_size = self.get_img_size()
+
+        self.shared.vac_json_id = self.get_json_id()
+
+        if not self.shared.charger_position:
+            self.shared.charger_position = self.get_charger_position()
+
+        self.shared.current_room = self.get_robot_position()
 
     def prepare_resize_params(self, pil_img: PilPNG, rand: bool=False) -> ResizeParams:
         """Prepare resize parameters for image resizing."""

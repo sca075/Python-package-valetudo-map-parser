@@ -409,11 +409,10 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
             )
         return self.room_propriety
 
-    def get_calibration_data(self) -> CalibrationPoints:
+    def get_calibration_data(self, rotation_angle: int = 0) -> CalibrationPoints:
         """Get the calibration data from the JSON data.
         this will create the attribute calibration points."""
         calibration_data = []
-        rotation_angle = self.shared.image_rotate
         LOGGER.info("Getting %s Calibrations points.", self.file_name)
 
         # Define the map points (fixed)
