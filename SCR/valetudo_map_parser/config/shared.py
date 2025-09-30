@@ -159,7 +159,7 @@ class CameraShared:
         self.rooms_colors = user_colors
 
     def get_rooms_colors(self):
-        """Return rooms colours"""
+        """Return rooms colors"""
         return self.rooms_colors
 
     def reset_trims(self) -> dict:
