@@ -211,8 +211,8 @@ class CameraShared:
         return {
             "image": {
                 "binary": self.binary_image,
-                "pil_last_image": self.last_image,
-                "size": self.image_size,
+                "pil_last_image":  self.new_image.size,
+                "size": self.new_image.size if self.new_image else None,
                 "format": self.image_format,
                 "updated": self.image_last_updated,
             },

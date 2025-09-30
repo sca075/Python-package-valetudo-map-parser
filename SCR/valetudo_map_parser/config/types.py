@@ -8,7 +8,7 @@ import json
 import logging
 import threading
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, Optional, Tuple, TypedDict, Union
+from typing import Any, Dict, Optional, Tuple, TypedDict, Union, List, NotRequired
 
 import numpy as np
 from PIL import Image
@@ -18,6 +18,23 @@ DEFAULT_ROOMS = 1
 
 LOGGER = logging.getLogger(__package__)
 
+class Spot(TypedDict):
+    name: str
+    coordinates: List[int]  # [x, y]
+
+class Zone(TypedDict):
+    name: str
+    coordinates: List[List[int]]  # [[x1, y1, x2, y2, repeats], ...]
+
+class Room(TypedDict):
+    name: str
+    id: int
+
+class Destinations(TypedDict, total=False):
+    spots: NotRequired[Optional[List[Spot]]]
+    zones: NotRequired[Optional[List[Zone]]]
+    rooms: NotRequired[Optional[List[Room]]]
+    updated: NotRequired[Optional[int]]
 
 class RoomProperty(TypedDict):
     number: int
