@@ -193,7 +193,7 @@ class BaseHandler:
                 self.shared.last_image if hasattr(self.shared, "last_image") else None
             )
 
-    async def _async_update_shared_data(self, destinations: list | None = None):
+    async def _async_update_shared_data(self, destinations: Destinations | None = None):
         """Update the shared data with the latest information."""
 
         if hasattr(self, "get_rooms_attributes") and (
