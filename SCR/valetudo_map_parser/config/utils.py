@@ -180,7 +180,7 @@ class BaseHandler:
                     self.shared.last_image
                     if hasattr(self.shared, "last_image")
                     else None
-                )
+                ), {}
 
         except Exception as e:
             LOGGER.warning(
