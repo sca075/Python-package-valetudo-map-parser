@@ -163,7 +163,7 @@ class CameraShared:
         return self.rooms_colors
 
     def reset_trims(self) -> dict:
-        """Reset Cropping trims"""
+        """Reset the trims."""
         self.trims = TrimsData.from_dict(DEFAULT_VALUES["trims_data"])
         return self.trims
 
