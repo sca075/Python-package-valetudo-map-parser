@@ -7,7 +7,6 @@ Version: 0.1.9.a6
 
 from __future__ import annotations
 
-import logging
 import uuid
 from typing import Any
 
@@ -15,7 +14,6 @@ import numpy as np
 
 from .config.async_utils import AsyncPIL
 
-# from .config.auto_crop import AutoCrop
 from mvcrender.autocrop import AutoCrop
 from .config.drawable_elements import DrawableElement
 from .config.types import (
@@ -28,6 +26,7 @@ from .config.types import (
     RobotPosition,
     RoomsProperties,
     RoomStore,
+    LOGGER,
 )
 from .config.utils import (
     BaseHandler,
@@ -37,9 +36,6 @@ from .config.utils import (
 from .map_data import RandImageData
 from .reimg_draw import ImageDraw
 from .rooms_handler import RandRoomsHandler
-
-
-_LOGGER = logging.getLogger(__name__)
 
 
 # noinspection PyTypeChecker
@@ -112,17 +108,17 @@ class ReImageHandler(BaseHandler, AutoCrop):
             self.shared.map_rooms = room_ids
 
             # get the zones and points data
-            zone_properties = await self.async_zone_propriety(zones_data)
+            self.shared.map_pred_zones = await self.async_zone_propriety(zones_data)
             # get the points data
-            point_properties = await self.async_points_propriety(points_data)
+            self.shared.map_pred_points = await self.async_points_propriety(points_data)
 
-            if not (room_properties or zone_properties):
+            if not (room_properties or self.shared.map_pred_zones):
                 self.rooms_pos = None
 
             rooms = RoomStore(self.file_name, room_properties)
-            return room_properties, zone_properties, point_properties
+            return room_properties
         except (RuntimeError, ValueError) as e:
-            _LOGGER.warning(
+            LOGGER.warning(
                 "No rooms Data or Error in extract_room_properties: %s",
                 e,
                 exc_info=True,
@@ -146,12 +142,12 @@ class ReImageHandler(BaseHandler, AutoCrop):
 
         try:
             if (m_json is not None) and (not isinstance(m_json, tuple)):
-                _LOGGER.info("%s: Composing the image for the camera.", self.file_name)
+                LOGGER.info("%s: Composing the image for the camera.", self.file_name)
                 self.json_data = m_json
                 size_x, size_y = self.data.get_rrm_image_size(m_json)
                 self.img_size = DEFAULT_IMAGE_SIZE
                 self.json_id = str(uuid.uuid4())  # image id
-                _LOGGER.info("Vacuum Data ID: %s", self.json_id)
+                LOGGER.info("Vacuum Data ID: %s", self.json_id)
 
                 (
                     img_np_array,
@@ -178,7 +174,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 return await self._finalize_image(pil_img)
 
         except (RuntimeError, RuntimeWarning) as e:
-            _LOGGER.warning(
+            LOGGER.warning(
                 "%s: Runtime Error %s during image creation.",
                 self.file_name,
                 str(e),
@@ -214,7 +210,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     colors["background"],
                     DEFAULT_PIXEL_SIZE,
                 )
-                _LOGGER.info("%s: Completed base Layers", self.file_name)
+                LOGGER.info("%s: Completed base Layers", self.file_name)
 
                 # Update element map for rooms
                 if 0 < room_id <= 15:
@@ -362,7 +358,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
 
     async def _finalize_image(self, pil_img):
         if not self.shared.image_ref_width or not self.shared.image_ref_height:
-            _LOGGER.warning(
+            LOGGER.warning(
                 "Image finalization failed: Invalid image dimensions. Returning original image."
             )
             return pil_img
@@ -515,7 +511,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
         """Return the map calibration data."""
         if not self.calibration_data and self.crop_img_size:
             self.calibration_data = []
-            _LOGGER.info(
+            LOGGER.info(
                 "%s: Getting Calibrations points %s",
                 self.file_name,
                 str(self.crop_area),

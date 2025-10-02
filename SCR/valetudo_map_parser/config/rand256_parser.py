@@ -68,6 +68,52 @@ class RRMapParser:
         return value if value < 0x80000000 else value - 0x100000000
 
     @staticmethod
+    def _parse_area(header: bytes, data: bytes) -> list:
+        area_pairs = RRMapParser._get_int16(header, 0x08)
+        areas = []
+        for area_start in range(0, area_pairs * 16, 16):
+            x0 = RRMapParser._get_int16(data, area_start + 0)
+            y0 = RRMapParser._get_int16(data, area_start + 2)
+            x1 = RRMapParser._get_int16(data, area_start + 4)
+            y1 = RRMapParser._get_int16(data, area_start + 6)
+            x2 = RRMapParser._get_int16(data, area_start + 8)
+            y2 = RRMapParser._get_int16(data, area_start + 10)
+            x3 = RRMapParser._get_int16(data, area_start + 12)
+            y3 = RRMapParser._get_int16(data, area_start + 14)
+            areas.append(
+                [
+                    x0,
+                    RRMapParser.Tools.DIMENSION_MM - y0,
+                    x1,
+                    RRMapParser.Tools.DIMENSION_MM - y1,
+                    x2,
+                    RRMapParser.Tools.DIMENSION_MM - y2,
+                    x3,
+                    RRMapParser.Tools.DIMENSION_MM - y3,
+                ]
+            )
+        return areas
+
+    @staticmethod
+    def _parse_zones(data: bytes, header: bytes) -> list:
+        zone_pairs = RRMapParser._get_int16(header, 0x08)
+        zones = []
+        for zone_start in range(0, zone_pairs * 8, 8):
+            x0 = RRMapParser._get_int16(data, zone_start + 0)
+            y0 = RRMapParser._get_int16(data, zone_start + 2)
+            x1 = RRMapParser._get_int16(data, zone_start + 4)
+            y1 = RRMapParser._get_int16(data, zone_start + 6)
+            zones.append(
+                [
+                    x0,
+                    RRMapParser.Tools.DIMENSION_MM - y0,
+                    x1,
+                    RRMapParser.Tools.DIMENSION_MM - y1,
+                ]
+            )
+        return zones
+
+    @staticmethod
     def _parse_object_position(block_data_length: int, data: bytes) -> Dict[str, Any]:
         """Parse object position using Xiaomi method."""
         x = RRMapParser._get_int32(data, 0x00)
@@ -159,6 +205,12 @@ class RRMapParser:
                     blocks[block_type] = self._parse_path_block(
                         raw, block_start_position, block_data_length
                     )
+                elif block_type == self.Types.CURRENTLY_CLEANED_ZONES.value:
+                    blocks[block_type] = {"zones": self._parse_zones(data, header)}
+                elif block_type == self.Types.FORBIDDEN_ZONES.value:
+                    blocks[block_type] = {
+                        "forbidden_zones": self._parse_area(header, data)
+                    }
                 elif block_type == self.Types.GOTO_TARGET.value:
                     blocks[block_type] = {"position": self._parse_goto_target(data)}
                 elif block_type == self.Types.IMAGE.value:
@@ -365,8 +417,21 @@ class RRMapParser:
                 ]
 
             # Add missing fields to match expected JSON format
-            parsed_map_data["forbidden_zones"] = []
-            parsed_map_data["virtual_walls"] = []
+            parsed_map_data["currently_cleaned_zones"] = (
+                blocks[self.Types.CURRENTLY_CLEANED_ZONES.value]["zones"]
+                if self.Types.CURRENTLY_CLEANED_ZONES.value in blocks
+                else []
+            )
+            parsed_map_data["forbidden_zones"] = (
+                blocks[self.Types.FORBIDDEN_ZONES.value]["forbidden_zones"]
+                if self.Types.FORBIDDEN_ZONES.value in blocks
+                else []
+            )
+            parsed_map_data["virtual_walls"] = (
+                blocks[self.Types.VIRTUAL_WALLS.value]["virtual_walls"]
+                if self.Types.VIRTUAL_WALLS.value in blocks
+                else []
+            )
 
             return parsed_map_data
 

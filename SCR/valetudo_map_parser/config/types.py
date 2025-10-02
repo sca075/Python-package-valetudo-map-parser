@@ -18,23 +18,29 @@ DEFAULT_ROOMS = 1
 
 LOGGER = logging.getLogger(__package__)
 
+
 class Spot(TypedDict):
     name: str
     coordinates: List[int]  # [x, y]
+
 
 class Zone(TypedDict):
     name: str
     coordinates: List[List[int]]  # [[x1, y1, x2, y2, repeats], ...]
 
+
 class Room(TypedDict):
     name: str
     id: int
 
+
+# list[dict[str, str | list[int]]] | list[dict[str, str | list[list[int]]]] | list[dict[str, str | int]] | int]'
 class Destinations(TypedDict, total=False):
     spots: NotRequired[Optional[List[Spot]]]
     zones: NotRequired[Optional[List[Zone]]]
     rooms: NotRequired[Optional[List[Room]]]
-    updated: NotRequired[Optional[int]]
+    updated: NotRequired[Optional[float]]
+
 
 class RoomProperty(TypedDict):
     number: int
@@ -227,9 +233,11 @@ NumpyArray = np.ndarray
 Point = Tuple[int, int]
 
 CAMERA_STORAGE = "valetudo_camera"
+ATTR_IMAGE_LAST_UPDATED = "image_last_updated"
 ATTR_ROTATE = "rotate_image"
 ATTR_CROP = "crop_image"
 ATTR_MARGINS = "margins"
+ATTR_CONTENT_TYPE = "content_type"
 CONF_OFFSET_TOP = "offset_top"
 CONF_OFFSET_BOTTOM = "offset_bottom"
 CONF_OFFSET_LEFT = "offset_left"
