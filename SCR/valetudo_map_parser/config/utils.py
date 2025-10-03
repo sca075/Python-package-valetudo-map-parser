@@ -23,7 +23,7 @@ from .types import (
     NumpyArray,
     PilPNG,
     RobotPosition,
-    Destinations
+    Destinations,
 )
 from ..map_data import HyperMapData
 from .async_utils import AsyncNumPy
@@ -197,26 +197,27 @@ class BaseHandler:
         """Update the shared data with the latest information."""
 
         if hasattr(self, "get_rooms_attributes") and (
-                self.shared.map_rooms is None and destinations is not None
+            self.shared.map_rooms is None and destinations is not None
         ):
-            (
-                self.shared.map_rooms,
-                self.shared.map_pred_zones,
-                self.shared.map_pred_points,
-            ) = await self.get_rooms_attributes(destinations)
+            (self.shared.map_rooms,) = await self.get_rooms_attributes(destinations)
             if self.shared.map_rooms:
                 LOGGER.debug("%s: Rand256 attributes rooms updated", self.file_name)
 
         if hasattr(self, "async_get_rooms_attributes") and (
-                self.shared.map_rooms is None
+            self.shared.map_rooms is None
         ):
             if self.shared.map_rooms is None:
                 self.shared.map_rooms = await self.async_get_rooms_attributes()
                 if self.shared.map_rooms:
                     LOGGER.debug("%s: Hyper attributes rooms updated", self.file_name)
 
-        if hasattr(self, "get_calibration_data") and self.shared.attr_calibration_points is None:
-            self.shared.attr_calibration_points = self.get_calibration_data(self.shared.image_rotate)
+        if (
+            hasattr(self, "get_calibration_data")
+            and self.shared.attr_calibration_points is None
+        ):
+            self.shared.attr_calibration_points = self.get_calibration_data(
+                self.shared.image_rotate
+            )
 
         if not self.shared.image_size:
             self.shared.image_size = self.get_img_size()
@@ -228,14 +229,19 @@ class BaseHandler:
 
         self.shared.current_room = self.get_robot_position()
 
-    def prepare_resize_params(self, pil_img: PilPNG, rand: bool=False) -> ResizeParams:
+    def prepare_resize_params(
+        self, pil_img: PilPNG, rand: bool = False
+    ) -> ResizeParams:
         """Prepare resize parameters for image resizing."""
         if self.shared.image_rotate in [0, 180]:
             width, height = pil_img.size
         else:
             height, width = pil_img.size
-        LOGGER.debug("Shared PIL image size: %s x %s", self.shared.image_ref_width,
-                     self.shared.image_ref_height)
+        LOGGER.debug(
+            "Shared PIL image size: %s x %s",
+            self.shared.image_ref_width,
+            self.shared.image_ref_height,
+        )
         return ResizeParams(
             pil_img=pil_img,
             width=width,

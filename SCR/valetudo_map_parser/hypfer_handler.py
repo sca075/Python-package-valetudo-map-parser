@@ -14,7 +14,6 @@ from PIL import Image
 
 from .config.async_utils import AsyncPIL
 
-# from .config.auto_crop import AutoCrop
 from mvcrender.autocrop import AutoCrop
 from .config.drawable_elements import DrawableElement
 from .config.shared import CameraShared
@@ -60,7 +59,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
             None  # persistent working buffer to avoid per-frame allocations
         )
         self.active_zones = []  # vacuum active zones.
-        self.svg_wait = False  # SVG image creation wait.
         self.imd = ImDraw(self)  # Image Draw class.
         self.color_grey = (128, 128, 128, 255)
         self.file_name = self.shared.file_name  # file name of the vacuum.
@@ -362,7 +360,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                 self.zooming = self.imd.img_h.zooming
 
                 # Resize the image
-                img_np_array = self.async_auto_trim_and_zoom_image(
+                img_np_array = self.auto_trim_and_zoom_image(
                     img_np_array,
                     colors["background"],
                     int(self.shared.margins),

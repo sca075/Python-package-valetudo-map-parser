@@ -12,12 +12,13 @@ from PIL import Image
 from .types import (
     ATTR_CALIBRATION_POINTS,
     ATTR_CAMERA_MODE,
+    ATTR_CONTENT_TYPE,
     ATTR_MARGINS,
     ATTR_OBSTACLES,
     ATTR_POINTS,
     ATTR_ROOMS,
     ATTR_ROTATE,
-    ATTR_SNAPSHOT,
+    ATTR_IMAGE_LAST_UPDATED,
     ATTR_VACUUM_BATTERY,
     ATTR_VACUUM_CHARGING,
     ATTR_VACUUM_JSON_ID,
@@ -179,12 +180,14 @@ class CameraShared:
     def generate_attributes(self) -> dict:
         """Generate and return the shared attribute's dictionary."""
         attrs = {
+            ATTR_IMAGE_LAST_UPDATED: self.image_last_updated,
+            ATTR_CONTENT_TYPE: self.image_format,
+            ATTR_VACUUM_JSON_ID: self.vac_json_id,
             ATTR_CAMERA_MODE: self.camera_mode,
+            ATTR_VACUUM_STATUS: self.vacuum_state,
             ATTR_VACUUM_BATTERY: f"{self.vacuum_battery}%",
             ATTR_VACUUM_CHARGING: self.vacuum_bat_charged(),
             ATTR_VACUUM_POSITION: self.current_room,
-            ATTR_VACUUM_STATUS: self.vacuum_state,
-            ATTR_VACUUM_JSON_ID: self.vac_json_id,
             ATTR_CALIBRATION_POINTS: self.attr_calibration_points,
         }
         if self.obstacles_pos and self.vacuum_ips:
@@ -192,8 +195,6 @@ class CameraShared:
                 self.vacuum_ips, self.obstacles_pos
             )
             attrs[ATTR_OBSTACLES] = self.obstacles_data
-
-        attrs[ATTR_SNAPSHOT] = self.snapshot_take if self.enable_snapshots else False
 
         shared_attrs = {
             ATTR_ROOMS: self.map_rooms,
@@ -211,10 +212,8 @@ class CameraShared:
         return {
             "image": {
                 "binary": self.binary_image,
-                "pil_image_size": self.new_image.size,
-                "size": self.new_image.size if self.new_image else None,
-                "format": self.image_format,
-                "updated": self.image_last_updated,
+                "pil_image": self.new_image,
+                "size": self.new_image.size if self.new_image else (10, 10),
             },
             "attributes": self.generate_attributes(),
         }
