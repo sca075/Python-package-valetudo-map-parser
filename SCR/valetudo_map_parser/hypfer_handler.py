@@ -60,7 +60,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
             None  # persistent working buffer to avoid per-frame allocations
         )
         self.active_zones = []  # vacuum active zones.
-        self.svg_wait = False  # SVG image creation wait.
         self.imd = ImDraw(self)  # Image Draw class.
         self.color_grey = (128, 128, 128, 255)
         self.file_name = self.shared.file_name  # file name of the vacuum.

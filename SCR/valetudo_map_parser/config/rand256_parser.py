@@ -24,6 +24,14 @@ class RRMapParser:
         VIRTUAL_WALLS = 10
         CURRENTLY_CLEANED_BLOCKS = 11
         FORBIDDEN_MOP_ZONES = 12
+        OBSTACLES = 13
+        IGNORED_OBSTACLES = 14
+        OBSTACLES_WITH_PHOTO = 15
+        IGNORED_OBSTACLES_WITH_PHOTO = 16
+        CARPET_MAP = 17
+        MOP_PATH = 18
+        NO_CARPET_AREAS = 19
+        DIGEST = 1024
 
     class Tools:
         """Tools for coordinate transformations."""
@@ -33,6 +41,7 @@ class RRMapParser:
 
     def __init__(self):
         """Initialize the parser."""
+        self.is_valid = False
         self.map_data: Dict[str, Any] = {}
 
     # Xiaomi/Roborock style byte extraction methods
@@ -66,6 +75,15 @@ class RRMapParser:
         """Get a 32-bit signed integer."""
         value = RRMapParser._get_int32(data, address)
         return value if value < 0x80000000 else value - 0x100000000
+
+    @staticmethod
+    def _parse_carpet_map(data: bytes) -> set[int]:
+        carpet_map = set()
+
+        for i, v in enumerate(data):
+            if v:
+                carpet_map.add(i)
+        return carpet_map
 
     @staticmethod
     def _parse_area(header: bytes, data: bytes) -> list:
@@ -128,6 +146,19 @@ class RRMapParser:
                 angle = raw_angle
         return {"position": [x, y], "angle": angle}
 
+
+    @staticmethod
+    def _parse_walls(data: bytes, header: bytes) -> list:
+        wall_pairs = RRMapParser._get_int16(header, 0x08)
+        walls = []
+        for wall_start in range(0, wall_pairs * 8, 8):
+            x0 = RRMapParser._get_int16(data, wall_start + 0)
+            y0 = RRMapParser._get_int16(data, wall_start + 2)
+            x1 = RRMapParser._get_int16(data, wall_start + 4)
+            y1 = RRMapParser._get_int16(data, wall_start + 6)
+            walls.append([x0, RRMapParser.Tools.DIMENSION_MM - y0, x1, RRMapParser.Tools.DIMENSION_MM - y1])
+        return walls
+
     @staticmethod
     def _parse_path_block(buf: bytes, offset: int, length: int) -> Dict[str, Any]:
         """Parse path block using EXACT same method as working parser."""
@@ -173,65 +204,45 @@ class RRMapParser:
             return {}
 
     def parse_blocks(self, raw: bytes, pixels: bool = True) -> Dict[int, Any]:
-        """Parse all blocks using Xiaomi method."""
         blocks = {}
         map_header_length = self._get_int16(raw, 0x02)
         block_start_position = map_header_length
-
         while block_start_position < len(raw):
             try:
-                # Parse block header using Xiaomi method
                 block_header_length = self._get_int16(raw, block_start_position + 0x02)
                 header = self._get_bytes(raw, block_start_position, block_header_length)
                 block_type = self._get_int16(header, 0x00)
                 block_data_length = self._get_int32(header, 0x04)
                 block_data_start = block_start_position + block_header_length
                 data = self._get_bytes(raw, block_data_start, block_data_length)
+                match block_type:
+                    case self.Types.DIGEST.value:
+                        self.is_valid = True
+                    case self.Types.ROBOT_POSITION.value | self.Types.CHARGER_LOCATION.value:
+                        blocks[block_type] = self._parse_object_position(block_data_length, data)
+                    case self.Types.PATH.value | self.Types.GOTO_PREDICTED_PATH.value:
+                        blocks[block_type] = self._parse_path_block(raw, block_start_position, block_data_length)
+                    case self.Types.CURRENTLY_CLEANED_ZONES.value:
+                        blocks[block_type] = {"zones": self._parse_zones(data, header)}
+                    case self.Types.FORBIDDEN_ZONES.value:
+                        blocks[block_type] = {"forbidden_zones": self._parse_area(header, data)}
+                    case self.Types.FORBIDDEN_MOP_ZONES.value:
+                        blocks[block_type] = {"forbidden_mop_zones": self._parse_area(header, data)}
+                    case self.Types.GOTO_TARGET.value:
+                        blocks[block_type] = {"position": self._parse_goto_target(data)}
+                    case self.Types.VIRTUAL_WALLS.value:
+                        blocks[block_type] = {"virtual_walls": self._parse_walls(data, header)}
+                    case self.Types.CARPET_MAP.value:
+                        data = RRMapParser._get_bytes(raw, block_data_start, block_data_length)
+                        blocks[block_type] = {"carpet_map": self._parse_carpet_map(data)}
+                    case self.Types.IMAGE.value:
+                        header_length = self._get_int8(header, 2)
+                        blocks[block_type] = self._parse_image_block(
+                            raw, block_start_position, block_data_length, header_length, pixels)
 
-                # Parse different block types
-                if block_type == self.Types.ROBOT_POSITION.value:
-                    blocks[block_type] = self._parse_object_position(
-                        block_data_length, data
-                    )
-                elif block_type == self.Types.CHARGER_LOCATION.value:
-                    blocks[block_type] = self._parse_object_position(
-                        block_data_length, data
-                    )
-                elif block_type == self.Types.PATH.value:
-                    blocks[block_type] = self._parse_path_block(
-                        raw, block_start_position, block_data_length
-                    )
-                elif block_type == self.Types.GOTO_PREDICTED_PATH.value:
-                    blocks[block_type] = self._parse_path_block(
-                        raw, block_start_position, block_data_length
-                    )
-                elif block_type == self.Types.CURRENTLY_CLEANED_ZONES.value:
-                    blocks[block_type] = {"zones": self._parse_zones(data, header)}
-                elif block_type == self.Types.FORBIDDEN_ZONES.value:
-                    blocks[block_type] = {
-                        "forbidden_zones": self._parse_area(header, data)
-                    }
-                elif block_type == self.Types.GOTO_TARGET.value:
-                    blocks[block_type] = {"position": self._parse_goto_target(data)}
-                elif block_type == self.Types.IMAGE.value:
-                    # Get header length for Gen1/Gen3 detection
-                    header_length = self._get_int8(header, 2)
-                    blocks[block_type] = self._parse_image_block(
-                        raw,
-                        block_start_position,
-                        block_data_length,
-                        header_length,
-                        pixels,
-                    )
-
-                # Move to next block using Xiaomi method
-                block_start_position = (
-                    block_start_position + block_data_length + self._get_int8(header, 2)
-                )
-
+                block_start_position = block_start_position + block_data_length + self._get_int8(header, 2)
             except (struct.error, IndexError):
                 break
-
         return blocks
 
     def _parse_image_block(
@@ -427,11 +438,22 @@ class RRMapParser:
                 if self.Types.FORBIDDEN_ZONES.value in blocks
                 else []
             )
+            parsed_map_data["forbidden_mop_zones"] = (
+                blocks[self.Types.FORBIDDEN_MOP_ZONES.value]["forbidden_mop_zones"]
+                if self.Types.FORBIDDEN_MOP_ZONES.value in blocks
+                else []
+            )
             parsed_map_data["virtual_walls"] = (
                 blocks[self.Types.VIRTUAL_WALLS.value]["virtual_walls"]
                 if self.Types.VIRTUAL_WALLS.value in blocks
                 else []
             )
+            parsed_map_data["carpet_areas"] = (
+                blocks[self.Types.CARPET_MAP.value]["carpet_map"]
+                if self.Types.CARPET_MAP.value in blocks
+                else []
+            )
+            parsed_map_data["is_valid"] = self.is_valid
 
             return parsed_map_data
 
@@ -453,8 +475,3 @@ class RRMapParser:
             except (struct.error, IndexError, ValueError):
                 return None
         return self.map_data
-
-    @staticmethod
-    def get_int32(data: bytes, address: int) -> int:
-        """Get a 32-bit integer from the data - kept for compatibility."""
-        return struct.unpack_from("<i", data, address)[0]
