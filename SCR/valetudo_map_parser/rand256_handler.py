@@ -346,7 +346,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
             else:
                 self.zooming = False
 
-        img_np_array = self.async_auto_trim_and_zoom_image(
+        img_np_array = self.auto_trim_and_zoom_image(
             img_np_array,
             detect_colour=colors["background"],
             margin_size=int(self.shared.margins),
