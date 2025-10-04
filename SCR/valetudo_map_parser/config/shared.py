@@ -7,18 +7,19 @@ Version: v0.1.12
 import asyncio
 import logging
 from typing import List
+
 from PIL import Image
 
 from .types import (
     ATTR_CALIBRATION_POINTS,
     ATTR_CAMERA_MODE,
     ATTR_CONTENT_TYPE,
+    ATTR_IMAGE_LAST_UPDATED,
     ATTR_MARGINS,
     ATTR_OBSTACLES,
     ATTR_POINTS,
     ATTR_ROOMS,
     ATTR_ROTATE,
-    ATTR_IMAGE_LAST_UPDATED,
     ATTR_VACUUM_BATTERY,
     ATTR_VACUUM_CHARGING,
     ATTR_VACUUM_JSON_ID,
@@ -40,8 +41,8 @@ from .types import (
     DEFAULT_VALUES,
     CameraModes,
     Colors,
-    TrimsData,
     PilPNG,
+    TrimsData,
 )
 
 

@@ -14,10 +14,10 @@ import logging
 from pathlib import Path
 
 import numpy as np
+from mvcrender.blend import get_blended_color, sample_and_blend_color
+from mvcrender.draw import circle_u8, line_u8
 from PIL import Image, ImageDraw, ImageFont
 
-from .color_utils import get_blended_color
-from .colors import ColorsManagement
 from .types import Color, NumpyArray, PilPNG, Point, Tuple, Union
 
 
@@ -85,7 +85,7 @@ class Drawable:
                         and 0 <= center_x < image_array.shape[1]
                     ):
                         # Get blended color
-                        blended_color = ColorsManagement.sample_and_blend_color(
+                        blended_color = sample_and_blend_color(
                             image_array, center_x, center_y, full_color
                         )
                         # Apply blended color to the region
@@ -131,9 +131,7 @@ class Drawable:
             center_x = (start_col + end_col) // 2
 
             # Get blended color
-            blended_color = ColorsManagement.sample_and_blend_color(
-                layers, center_x, center_y, color
-            )
+            blended_color = sample_and_blend_color(layers, center_x, center_y, color)
 
             # Apply blended color
             layers[start_row:end_row, start_col:end_col] = blended_color
@@ -165,9 +163,7 @@ class Drawable:
 
         # Blend flag color if needed
         if flag_alpha < 255:
-            flag_color = ColorsManagement.sample_and_blend_color(
-                layer, x, y, flag_color
-            )
+            flag_color = sample_and_blend_color(layer, x, y, flag_color)
 
         # Create pole color with alpha
         pole_color: Color = (
@@ -179,9 +175,7 @@ class Drawable:
 
         # Blend pole color if needed
         if pole_alpha < 255:
-            pole_color = ColorsManagement.sample_and_blend_color(
-                layer, x, y, pole_color
-            )
+            pole_color = sample_and_blend_color(layer, x, y, pole_color)
 
         flag_size = 50
         pole_width = 6
@@ -246,62 +240,19 @@ class Drawable:
 
     @staticmethod
     def _line(
-        layer: np.ndarray,
+        layer: NumpyArray,
         x1: int,
         y1: int,
         x2: int,
         y2: int,
         color: Color,
         width: int = 3,
-    ) -> np.ndarray:
-        """Draw a line on a NumPy array (layer) from point A to B using Bresenham's algorithm.
-
-        Args:
-            layer: The numpy array to draw on (H, W, C)
-            x1, y1: Start point coordinates
-            x2, y2: End point coordinates
-            color: Color to draw with (tuple or array)
-            width: Width of the line in pixels
-        """
-        x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-
-        blended_color = get_blended_color(x1, y1, x2, y2, layer, color)
-
-        dx = abs(x2 - x1)
-        dy = abs(y2 - y1)
-        sx = 1 if x1 < x2 else -1
-        sy = 1 if y1 < y2 else -1
-        err = dx - dy
-
-        half_w = width // 2
-        h, w = layer.shape[:2]
-
-        while True:
-            # Draw a filled circle for thickness
-            yy, xx = np.ogrid[-half_w : half_w + 1, -half_w : half_w + 1]
-            mask = xx**2 + yy**2 <= half_w**2
-            y_min = max(0, y1 - half_w)
-            y_max = min(h, y1 + half_w + 1)
-            x_min = max(0, x1 - half_w)
-            x_max = min(w, x1 + half_w + 1)
-
-            sub_mask = mask[
-                (y_min - (y1 - half_w)) : (y_max - (y1 - half_w)),
-                (x_min - (x1 - half_w)) : (x_max - (x1 - half_w)),
-            ]
-            layer[y_min:y_max, x_min:x_max][sub_mask] = blended_color
-
-            if x1 == x2 and y1 == y2:
-                break
-
-            e2 = 2 * err
-            if e2 > -dy:
-                err -= dy
-                x1 += sx
-            if e2 < dx:
-                err += dx
-                y1 += sy
-
+    ) -> NumpyArray:
+        """Segment-aware preblend, then stamp a solid line."""
+        width = int(max(1, width))
+        # Preblend once for this segment
+        seg = get_blended_color(int(x1), int(y1), int(x2), int(y2), layer, color)
+        line_u8(layer, int(x1), int(y1), int(x2), int(y2), seg, width)
         return layer
 
     @staticmethod
@@ -355,35 +306,31 @@ class Drawable:
         outline_width: int = 0,
     ) -> NumpyArray:
         """
-        Draw a filled circle on the image using NumPy.
-        Optimized to only process the bounding box of the circle.
+        Draw a filled circle and optional outline using mvcrender.draw.circle_u8.
+        If alpha<255, preblend once at the center and stamp solid.
         """
-        y, x = center
-        height, width = image.shape[:2]
+        cy, cx = (
+            int(center[0]),
+            int(center[1]),
+        )  # incoming Point is (y,x) in your codebase
+        h, w = image.shape[:2]
+        if not (0 <= cx < w and 0 <= cy < h):
+            return image
 
-        # Calculate the bounding box of the circle
-        min_y = max(0, y - radius - outline_width)
-        max_y = min(height, y + radius + outline_width + 1)
-        min_x = max(0, x - radius - outline_width)
-        max_x = min(width, x + radius + outline_width + 1)
+        fill_rgba = color
+        if fill_rgba[3] < 255:
+            fill_rgba = sample_and_blend_color(image, cx, cy, fill_rgba)
 
-        # Create coordinate arrays for the bounding box
-        y_indices, x_indices = np.ogrid[min_y:max_y, min_x:max_x]
+        circle_u8(image, int(cx), int(cy), int(radius), fill_rgba, -1)
 
-        # Calculate distances from center
-        dist_sq = (y_indices - y) ** 2 + (x_indices - x) ** 2
-
-        # Create masks for the circle and outline
-        circle_mask = dist_sq <= radius**2
-
-        # Apply the fill color
-        image[min_y:max_y, min_x:max_x][circle_mask] = color
-
-        # Draw the outline if needed
-        if outline_width > 0 and outline_color is not None:
-            outer_mask = dist_sq <= (radius + outline_width) ** 2
-            outline_mask = outer_mask & ~circle_mask
-            image[min_y:max_y, min_x:max_x][outline_mask] = outline_color
+        if outline_color is not None and outline_width > 0:
+            out_rgba = outline_color
+            if out_rgba[3] < 255:
+                out_rgba = sample_and_blend_color(image, cx, cy, out_rgba)
+            # outlined stroke thickness = outline_width
+            circle_u8(
+                image, int(cx), int(cy), int(radius), out_rgba, int(outline_width)
+            )
 
         return image
 
@@ -835,9 +782,7 @@ class Drawable:
                     continue
 
                 if need_blending:
-                    obs_color = ColorsManagement.sample_and_blend_color(
-                        image, x, y, color
-                    )
+                    obs_color = sample_and_blend_color(image, x, y, color)
                 else:
                     obs_color = color
 

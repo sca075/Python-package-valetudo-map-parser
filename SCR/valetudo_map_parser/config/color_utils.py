@@ -1,8 +1,7 @@
 """Utility functions for color operations in the map parser."""
 
-from typing import Optional, Tuple
+from typing import Optional
 
-from .colors import ColorsManagement
 from .types import Color, NumpyArray
 
 
@@ -36,8 +35,8 @@ def get_blended_color(
         # Sample background at midpoint
         mid_x, mid_y = (x0 + x1) // 2, (y0 + y1) // 2
         if 0 <= mid_y < arr.shape[0] and 0 <= mid_x < arr.shape[1]:
-            return tuple(arr[mid_y, mid_x])
-        return (0, 0, 0, 0)  # Default if out of bounds
+            return Color(arr[mid_y, mid_x])
+        return Color(0, 0, 0, 0)  # Default if out of bounds
 
     # Calculate direction vector for offset sampling
     dx = x1 - x0

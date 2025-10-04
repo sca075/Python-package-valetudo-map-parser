@@ -8,21 +8,21 @@ Version: v0.1.10
 
 from __future__ import annotations
 
-import numpy as np
+from dataclasses import asdict, dataclass, field
 from typing import (
-    List,
-    Sequence,
-    TypeVar,
     Any,
-    TypedDict,
-    NotRequired,
     Literal,
+    NotRequired,
     Optional,
+    Sequence,
+    TypedDict,
+    TypeVar,
 )
 
-from dataclasses import dataclass, field, asdict
+import numpy as np
 
 from .config.types import ImageSize, JsonType
+
 
 T = TypeVar("T")
 
@@ -373,6 +373,11 @@ class ImageData:
             Else:
                 (min_x_mm, min_y_mm, max_x_mm, max_y_mm)
         """
+
+        def to_mm(coord):
+            """Convert pixel coordinates to millimeters."""
+            return round(coord * pixel_size * 10)
+
         if not pixels:
             raise ValueError("Pixels list cannot be empty.")
 
@@ -393,7 +398,6 @@ class ImageData:
             min_y = min(min_y, y)
 
         if rand:
-            to_mm = lambda v: v * pixel_size * 10
             return (to_mm(max_x), to_mm(max_y)), (to_mm(min_x), to_mm(min_y))
 
         return (

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from .config.drawable import Drawable
 from .config.drawable_elements import DrawableElement
-from .config.types import Color, JsonType, NumpyArray, LOGGER
+from .config.types import LOGGER, Color, JsonType, NumpyArray
 from .map_data import ImageData, RandImageData
 
 

@@ -11,22 +11,21 @@ import uuid
 from typing import Any
 
 import numpy as np
+from mvcrender.autocrop import AutoCrop
 
 from .config.async_utils import AsyncPIL
-
-from mvcrender.autocrop import AutoCrop
 from .config.drawable_elements import DrawableElement
 from .config.types import (
     COLORS,
     DEFAULT_IMAGE_SIZE,
     DEFAULT_PIXEL_SIZE,
+    LOGGER,
     Colors,
     JsonType,
     PilPNG,
     RobotPosition,
     RoomsProperties,
     RoomStore,
-    LOGGER,
 )
 from .config.utils import (
     BaseHandler,
@@ -55,9 +54,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
         self.data = RandImageData  # Image Data
 
         # Initialize drawing configuration using the shared utility function
-        self.drawing_config, self.draw, self.enhanced_draw = initialize_drawing_config(
-            self
-        )
+        self.drawing_config, self.draw = initialize_drawing_config(self)
         self.go_to = None  # Go to position data
         self.img_base_layer = None  # Base image layer
         self.img_rotate = shared_data.image_rotate  # Image rotation
@@ -115,7 +112,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
             if not (room_properties or self.shared.map_pred_zones):
                 self.rooms_pos = None
 
-            rooms = RoomStore(self.file_name, room_properties)
+            _ = RoomStore(self.file_name, room_properties)
             return room_properties
         except (RuntimeError, ValueError) as e:
             LOGGER.warning(
@@ -273,7 +270,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     # Restore original rooms_pos
                     self.rooms_pos = original_rooms_pos
 
-            except Exception as e:
+            except (ValueError, KeyError, TypeError):
                 # Fallback to robot-position-based zoom if room extraction fails
                 if (
                     self.shared.image_auto_zoom
@@ -357,14 +354,14 @@ class ReImageHandler(BaseHandler, AutoCrop):
         return img_np_array
 
     async def _finalize_image(self, pil_img):
-        if not self.shared.image_ref_width or not self.shared.image_ref_height:
-            LOGGER.warning(
-                "Image finalization failed: Invalid image dimensions. Returning original image."
-            )
-            return pil_img
         if self.check_zoom_and_aspect_ratio():
             resize_params = self.prepare_resize_params(pil_img, True)
             pil_img = await self.async_resize_images(resize_params)
+        else:
+            LOGGER.warning(
+                "%s: Invalid image dimensions. Returning original image.",
+                self.file_name,
+            )
         return pil_img
 
     async def get_rooms_attributes(
