@@ -552,8 +552,9 @@ class RandImageData:
     @staticmethod
     def get_rrm_forbidden_zones(json_data: JsonType) -> list[dict[str, Any]]:
         """Get the forbidden zones from the json."""
-        re_zones = json_data.get("forbidden_zones", [])
-        re_zones.extend(json_data.get("forbidden_mop_zones", []))
+        re_zones = json_data.get("forbidden_zones", []) + json_data.get(
+            "forbidden_mop_zones", []
+        )
         formatted_zones = RandImageData._rrm_valetudo_format_zone(re_zones)
         return formatted_zones
 

@@ -196,9 +196,10 @@ class BaseHandler:
         if hasattr(self, "get_rooms_attributes") and (
             self.shared.map_rooms is None and destinations is not None
         ):
-            (self.shared.map_rooms,) = await self.get_rooms_attributes(destinations)
+            self.shared.map_rooms = await self.get_rooms_attributes(destinations)
             if self.shared.map_rooms:
                 LOGGER.debug("%s: Rand256 attributes rooms updated", self.file_name)
+
 
         if hasattr(self, "async_get_rooms_attributes") and (
             self.shared.map_rooms is None

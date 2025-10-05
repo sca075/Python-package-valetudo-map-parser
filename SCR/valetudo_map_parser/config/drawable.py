@@ -288,11 +288,8 @@ class Drawable:
             if x0 == x1 and y0 == y1:
                 continue
 
-            # Get blended color for this line segment
-            blended_color = get_blended_color(x0, y0, x1, y1, arr, color)
-
             # Use the optimized line drawing method
-            arr = Drawable._line(arr, x0, y0, x1, y1, blended_color, width)
+            arr = Drawable._line(arr, x0, y0, x1, y1, color, width)
 
         return arr
 
