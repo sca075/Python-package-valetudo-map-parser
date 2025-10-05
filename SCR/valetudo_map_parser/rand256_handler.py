@@ -19,7 +19,6 @@ from .config.types import (
     COLORS,
     DEFAULT_IMAGE_SIZE,
     DEFAULT_PIXEL_SIZE,
-    LOGGER,
     Colors,
     JsonType,
     PilPNG,
