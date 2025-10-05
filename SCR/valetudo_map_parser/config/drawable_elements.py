@@ -9,8 +9,6 @@ from __future__ import annotations
 from enum import IntEnum
 from typing import Dict, List, Tuple, Union
 
-import numpy as np
-
 from .colors import DefaultColors, SupportedColor
 from .types import LOGGER
 

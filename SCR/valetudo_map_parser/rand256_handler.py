@@ -2,7 +2,7 @@
 Image Handler Module for Valetudo Re Vacuums.
 It returns the PIL PNG image frame relative to the Map Data extrapolated from the vacuum json.
 It also returns calibration, rooms data to the card and other images information to the camera.
-Version: 0.1.9.a6
+Version: 0.1.10
 """
 
 from __future__ import annotations
@@ -11,10 +11,9 @@ import uuid
 from typing import Any
 
 import numpy as np
+from mvcrender.autocrop import AutoCrop
 
 from .config.async_utils import AsyncPIL
-
-from mvcrender.autocrop import AutoCrop
 from .config.drawable_elements import DrawableElement
 from .config.types import (
     COLORS,
@@ -55,9 +54,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
         self.data = RandImageData  # Image Data
 
         # Initialize drawing configuration using the shared utility function
-        self.drawing_config, self.draw, self.enhanced_draw = initialize_drawing_config(
-            self
-        )
+        self.drawing_config, self.draw = initialize_drawing_config(self)
         self.go_to = None  # Go to position data
         self.img_base_layer = None  # Base image layer
         self.img_rotate = shared_data.image_rotate  # Image rotation
@@ -96,17 +93,13 @@ class ReImageHandler(BaseHandler, AutoCrop):
 
             # Update self.rooms_pos from room_properties for compatibility with other methods
             self.rooms_pos = []
-            room_ids = []  # Collect room IDs for shared.map_rooms
             for room_id, room_data in room_properties.items():
                 self.rooms_pos.append(
                     {"name": room_data["name"], "outline": room_data["outline"]}
                 )
-                # Store the room number (segment ID) for MQTT active zone mapping
-                room_ids.append(room_data["number"])
 
-            # Update shared.map_rooms with the room IDs for MQTT active zone mapping
-            self.shared.map_rooms = room_ids
-
+            # Update shared.map_rooms with the full room properties (consistent with Hypfer)
+            self.shared.map_rooms = room_properties
             # get the zones and points data
             self.shared.map_pred_zones = await self.async_zone_propriety(zones_data)
             # get the points data
@@ -115,7 +108,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
             if not (room_properties or self.shared.map_pred_zones):
                 self.rooms_pos = None
 
-            rooms = RoomStore(self.file_name, room_properties)
+            _ = RoomStore(self.file_name, room_properties)
             return room_properties
         except (RuntimeError, ValueError) as e:
             LOGGER.warning(
@@ -123,7 +116,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 e,
                 exc_info=True,
             )
-            return None, None, None
+            return None
 
     async def get_image_from_rrm(
         self,
@@ -188,6 +181,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
     async def _setup_robot_and_image(
         self, m_json, size_x, size_y, colors, destinations
     ):
+        """Set up the elements of the map and the image."""
         (
             _,
             robot_position,
@@ -212,12 +206,6 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 )
                 LOGGER.info("%s: Completed base Layers", self.file_name)
 
-                # Update element map for rooms
-                if 0 < room_id <= 15:
-                    # This is a simplification - in a real implementation we would
-                    # need to identify the exact pixels that belong to each room
-                    pass
-
                 if room_id > 0 and not self.room_propriety:
                     self.room_propriety = await self.get_rooms_attributes(destinations)
 
@@ -225,8 +213,10 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 if not self.rooms_pos and not self.room_propriety:
                     self.room_propriety = await self.get_rooms_attributes(destinations)
 
-                # Always check robot position for zooming (fallback)
-                if self.rooms_pos and robot_position and not hasattr(self, "robot_pos"):
+                # Always check robot position for zooming (update if room info is missing)
+                if self.rooms_pos and robot_position and (
+                    self.robot_pos is None or "in_room" not in self.robot_pos
+                ):
                     self.robot_pos = await self.async_get_robot_in_room(
                         (robot_position[0] * 10),
                         (robot_position[1] * 10),
@@ -273,7 +263,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     # Restore original rooms_pos
                     self.rooms_pos = original_rooms_pos
 
-            except Exception as e:
+            except (ValueError, KeyError, TypeError):
                 # Fallback to robot-position-based zoom if room extraction fails
                 if (
                     self.shared.image_auto_zoom
@@ -287,6 +277,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
     async def _draw_map_elements(
         self, img_np_array, m_json, colors, robot_position, robot_position_angle
     ):
+        """Draw map elements on the image."""
         # Draw charger if enabled
         if self.drawing_config.is_enabled(DrawableElement.CHARGER):
             img_np_array, self.charger_pos = await self.imd.async_draw_charger(
@@ -357,22 +348,24 @@ class ReImageHandler(BaseHandler, AutoCrop):
         return img_np_array
 
     async def _finalize_image(self, pil_img):
-        if not self.shared.image_ref_width or not self.shared.image_ref_height:
-            LOGGER.warning(
-                "Image finalization failed: Invalid image dimensions. Returning original image."
-            )
-            return pil_img
+        """Finalize the image by resizing if needed."""
+        if pil_img is None:
+            LOGGER.warning("%s: Image is None. Returning None.", self.file_name)
+            return None
         if self.check_zoom_and_aspect_ratio():
             resize_params = self.prepare_resize_params(pil_img, True)
             pil_img = await self.async_resize_images(resize_params)
+        else:
+            LOGGER.warning(
+                "%s: Invalid image dimensions. Returning original image.",
+                self.file_name,
+            )
         return pil_img
 
     async def get_rooms_attributes(
         self, destinations: JsonType = None
     ) -> tuple[RoomsProperties, Any, Any]:
         """Return the rooms attributes."""
-        if self.room_propriety:
-            return self.room_propriety
         if self.json_data and destinations:
             self.room_propriety = await self.extract_room_properties(
                 self.json_data, destinations
@@ -397,6 +390,12 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     }
                     # Handle active zones
                     self.active_zones = self.shared.rand256_active_zone
+                    LOGGER.debug(
+                        "%s: Robot is in %s room (polygon detection). %s",
+                        self.file_name,
+                        self.robot_in_room["room"],
+                        self.active_zones,
+                    )
                     self.zooming = False
                     if self.active_zones and (
                         self.robot_in_room["id"] in range(len(self.active_zones))

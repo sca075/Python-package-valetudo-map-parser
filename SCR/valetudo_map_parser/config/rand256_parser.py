@@ -1,7 +1,7 @@
 """New Rand256 Map Parser - Based on Xiaomi/Roborock implementation with precise binary parsing."""
 
-import struct
 import math
+import struct
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -160,6 +160,25 @@ class RRMapParser:
         return walls
 
     @staticmethod
+    def _parse_walls(data: bytes, header: bytes) -> list:
+        wall_pairs = RRMapParser._get_int16(header, 0x08)
+        walls = []
+        for wall_start in range(0, wall_pairs * 8, 8):
+            x0 = RRMapParser._get_int16(data, wall_start + 0)
+            y0 = RRMapParser._get_int16(data, wall_start + 2)
+            x1 = RRMapParser._get_int16(data, wall_start + 4)
+            y1 = RRMapParser._get_int16(data, wall_start + 6)
+            walls.append(
+                [
+                    x0,
+                    RRMapParser.Tools.DIMENSION_MM - y0,
+                    x1,
+                    RRMapParser.Tools.DIMENSION_MM - y1,
+                ]
+            )
+        return walls
+
+    @staticmethod
     def _parse_path_block(buf: bytes, offset: int, length: int) -> Dict[str, Any]:
         """Parse path block using EXACT same method as working parser."""
         points = [
@@ -218,29 +237,53 @@ class RRMapParser:
                 match block_type:
                     case self.Types.DIGEST.value:
                         self.is_valid = True
-                    case self.Types.ROBOT_POSITION.value | self.Types.CHARGER_LOCATION.value:
-                        blocks[block_type] = self._parse_object_position(block_data_length, data)
+                    case (
+                        self.Types.ROBOT_POSITION.value
+                        | self.Types.CHARGER_LOCATION.value
+                    ):
+                        blocks[block_type] = self._parse_object_position(
+                            block_data_length, data
+                        )
                     case self.Types.PATH.value | self.Types.GOTO_PREDICTED_PATH.value:
-                        blocks[block_type] = self._parse_path_block(raw, block_start_position, block_data_length)
+                        blocks[block_type] = self._parse_path_block(
+                            raw, block_start_position, block_data_length
+                        )
                     case self.Types.CURRENTLY_CLEANED_ZONES.value:
                         blocks[block_type] = {"zones": self._parse_zones(data, header)}
                     case self.Types.FORBIDDEN_ZONES.value:
-                        blocks[block_type] = {"forbidden_zones": self._parse_area(header, data)}
+                        blocks[block_type] = {
+                            "forbidden_zones": self._parse_area(header, data)
+                        }
                     case self.Types.FORBIDDEN_MOP_ZONES.value:
-                        blocks[block_type] = {"forbidden_mop_zones": self._parse_area(header, data)}
+                        blocks[block_type] = {
+                            "forbidden_mop_zones": self._parse_area(header, data)
+                        }
                     case self.Types.GOTO_TARGET.value:
                         blocks[block_type] = {"position": self._parse_goto_target(data)}
                     case self.Types.VIRTUAL_WALLS.value:
-                        blocks[block_type] = {"virtual_walls": self._parse_walls(data, header)}
+                        blocks[block_type] = {
+                            "virtual_walls": self._parse_walls(data, header)
+                        }
                     case self.Types.CARPET_MAP.value:
-                        data = RRMapParser._get_bytes(raw, block_data_start, block_data_length)
-                        blocks[block_type] = {"carpet_map": self._parse_carpet_map(data)}
+                        data = RRMapParser._get_bytes(
+                            raw, block_data_start, block_data_length
+                        )
+                        blocks[block_type] = {
+                            "carpet_map": self._parse_carpet_map(data)
+                        }
                     case self.Types.IMAGE.value:
                         header_length = self._get_int8(header, 2)
                         blocks[block_type] = self._parse_image_block(
-                            raw, block_start_position, block_data_length, header_length, pixels)
+                            raw,
+                            block_start_position,
+                            block_data_length,
+                            header_length,
+                            pixels,
+                        )
 
-                block_start_position = block_start_position + block_data_length + self._get_int8(header, 2)
+                block_start_position = (
+                    block_start_position + block_data_length + self._get_int8(header, 2)
+                )
             except (struct.error, IndexError):
                 break
         return blocks

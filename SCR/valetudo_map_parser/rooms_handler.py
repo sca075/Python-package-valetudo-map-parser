@@ -7,7 +7,6 @@ Version: 0.1.9
 
 from __future__ import annotations
 
-import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -16,8 +15,7 @@ from scipy.spatial import ConvexHull
 
 from .config.drawable_elements import DrawableElement, DrawingConfig
 from .config.types import LOGGER, RoomsProperties
-
-from .map_data import RandImageData, ImageData
+from .map_data import RandImageData
 
 
 class RoomsHandler:
@@ -204,7 +202,6 @@ class RoomsHandler:
         Returns:
             Dictionary of room properties
         """
-        start_total = time.time()
         room_properties = {}
         pixel_size = json_data.get("pixelSize", 5)
         height = json_data["size"]["y"]
@@ -217,9 +214,6 @@ class RoomsHandler:
                 )
                 if room_id is not None and room_data is not None:
                     room_properties[room_id] = room_data
-
-        # Log timing information (kept internal, no debug output)
-        total_time = time.time() - start_total
         return room_properties
 
 
@@ -395,7 +389,6 @@ class RandRoomsHandler:
         Returns:
             Dictionary of room properties
         """
-        start_total = time.time()
         room_properties = {}
 
         # Get basic map information
@@ -463,6 +456,4 @@ class RandRoomsHandler:
 
                 room_properties[room_id] = room_data
 
-        # Log timing information (kept internal, no debug output)
-        total_time = time.time() - start_total
         return room_properties

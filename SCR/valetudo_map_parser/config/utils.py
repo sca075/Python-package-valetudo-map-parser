@@ -1,32 +1,30 @@
 """Utility code for the valetudo map parser."""
 
 import datetime
-from time import time
 import hashlib
+import io
 import json
 from dataclasses import dataclass
+from time import time
 from typing import Callable, List, Optional, Tuple
-import io
 
 import numpy as np
 from PIL import Image, ImageOps
 
+from ..map_data import HyperMapData
+from .async_utils import AsyncNumPy
 from .drawable import Drawable
 from .drawable_elements import DrawingConfig
-from .enhanced_drawable import EnhancedDrawable
 from .status_text.status_text import StatusText
-
 from .types import (
     LOGGER,
     ChargerPosition,
-    Size,
+    Destinations,
     NumpyArray,
     PilPNG,
     RobotPosition,
-    Destinations,
+    Size,
 )
-from ..map_data import HyperMapData
-from .async_utils import AsyncNumPy
 
 
 @dataclass
@@ -79,7 +77,6 @@ class BaseHandler:
         # Drawing components are initialized by initialize_drawing_config in handlers
         self.drawing_config: Optional[DrawingConfig] = None
         self.draw: Optional[Drawable] = None
-        self.enhanced_draw: Optional[EnhancedDrawable] = None
 
     def get_frame_number(self) -> int:
         """Return the frame number of the image."""
@@ -199,9 +196,10 @@ class BaseHandler:
         if hasattr(self, "get_rooms_attributes") and (
             self.shared.map_rooms is None and destinations is not None
         ):
-            (self.shared.map_rooms,) = await self.get_rooms_attributes(destinations)
+            self.shared.map_rooms = await self.get_rooms_attributes(destinations)
             if self.shared.map_rooms:
                 LOGGER.debug("%s: Rand256 attributes rooms updated", self.file_name)
+
 
         if hasattr(self, "async_get_rooms_attributes") and (
             self.shared.map_rooms is None
@@ -709,7 +707,7 @@ def initialize_drawing_config(handler):
         handler: The handler instance with shared data and file_name attributes
 
     Returns:
-        Tuple of (DrawingConfig, Drawable, EnhancedDrawable)
+        Tuple of (DrawingConfig, Drawable)
     """
 
     # Initialize drawing configuration
@@ -721,11 +719,10 @@ def initialize_drawing_config(handler):
     ):
         drawing_config.update_from_device_info(handler.shared.device_info)
 
-    # Initialize both drawable systems for backward compatibility
-    draw = Drawable()  # Legacy drawing utilities
-    enhanced_draw = EnhancedDrawable(drawing_config)  # New enhanced drawing system
+    # Initialize drawing utilities
+    draw = Drawable()
 
-    return drawing_config, draw, enhanced_draw
+    return drawing_config, draw
 
 
 def blend_colors(base_color, overlay_color):

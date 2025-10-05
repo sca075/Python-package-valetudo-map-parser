@@ -9,6 +9,7 @@ from __future__ import annotations
 from ..types import LOGGER, PilPNG
 from .translations import translations
 
+
 LOGGER.propagate = True
 
 

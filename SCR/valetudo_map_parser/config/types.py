@@ -8,7 +8,7 @@ import json
 import logging
 import threading
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, Optional, Tuple, TypedDict, Union, List, NotRequired
+from typing import Any, Dict, List, NotRequired, Optional, Tuple, TypedDict, Union
 
 import numpy as np
 from PIL import Image
@@ -222,7 +222,9 @@ class SnapshotStore:
 Color = Union[Tuple[int, int, int], Tuple[int, int, int, int]]
 Colors = Dict[str, Color]
 CalibrationPoints = list[dict[str, Any]]
-RobotPosition = Optional[dict[str, Union[int | float]]]
+RobotPosition: type[tuple[Any, Any, dict[str, int | float] | None]] = tuple[
+    Any, Any, dict[str, int | float] | None
+]
 ChargerPosition = dict[str, Any]
 RoomsProperties = dict[str, RoomProperty]
 ImageSize = dict[str, int | list[int]]

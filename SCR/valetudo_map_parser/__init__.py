@@ -6,27 +6,26 @@ from pathlib import Path
 from .config.colors import ColorsManagement
 from .config.drawable import Drawable
 from .config.drawable_elements import DrawableElement, DrawingConfig
-from .config.enhanced_drawable import EnhancedDrawable
 from .config.rand256_parser import RRMapParser
 from .config.shared import CameraShared, CameraSharedManager
+from .config.status_text.status_text import StatusText
+from .config.status_text.translations import translations as STATUS_TEXT_TRANSLATIONS
 from .config.types import (
     CameraModes,
+    ImageSize,
+    JsonType,
+    NumpyArray,
+    PilPNG,
     RoomsProperties,
     RoomStore,
     SnapshotStore,
     TrimCropData,
     UserLanguageStore,
-    JsonType,
-    PilPNG,
-    NumpyArray,
-    ImageSize,
 )
-from .config.status_text.status_text import StatusText
-from .config.status_text.translations import translations as STATUS_TEXT_TRANSLATIONS
 from .hypfer_handler import HypferMapImageHandler
-from .rand256_handler import ReImageHandler
-from .rooms_handler import RoomsHandler, RandRoomsHandler
 from .map_data import HyperMapData
+from .rand256_handler import ReImageHandler
+from .rooms_handler import RandRoomsHandler, RoomsHandler
 
 
 def get_default_font_path() -> str:
@@ -51,7 +50,6 @@ __all__ = [
     "Drawable",
     "DrawableElement",
     "DrawingConfig",
-    "EnhancedDrawable",
     "SnapshotStore",
     "UserLanguageStore",
     "RoomStore",

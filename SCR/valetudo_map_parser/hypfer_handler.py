@@ -8,24 +8,22 @@ Version: 0.1.10
 from __future__ import annotations
 
 import asyncio
-import numpy as np
 
+import numpy as np
+from mvcrender.autocrop import AutoCrop
 from PIL import Image
 
 from .config.async_utils import AsyncPIL
-
-from mvcrender.autocrop import AutoCrop
 from .config.drawable_elements import DrawableElement
 from .config.shared import CameraShared
-
 from .config.types import (
     COLORS,
     LOGGER,
     CalibrationPoints,
     Colors,
+    JsonType,
     RoomsProperties,
     RoomStore,
-    JsonType,
 )
 from .config.utils import (
     BaseHandler,
@@ -48,9 +46,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         self.calibration_data = None  # camera shared data.
         self.data = ImageData  # imported Image Data Module.
         # Initialize drawing configuration using the shared utility function
-        self.drawing_config, self.draw, self.enhanced_draw = initialize_drawing_config(
-            self
-        )
+        self.drawing_config, self.draw = initialize_drawing_config(self)
 
         self.go_to = None  # vacuum go to data
         self.img_hash = None  # hash of the image calculated to check differences.
@@ -77,7 +73,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
             json_data
         )
         if room_properties:
-            rooms = RoomStore(self.file_name, room_properties)
+            _ = RoomStore(self.file_name, room_properties)
             # Convert room_properties to the format expected by async_get_robot_in_room
             self.rooms_pos = []
             for room_id, room_data in room_properties.items():
@@ -346,16 +342,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                         robot_state=self.shared.vacuum_state,
                     )
 
-                    # Update element map for robot position
-                    if (
-                        hasattr(self.shared, "element_map")
-                        and self.shared.element_map is not None
-                    ):
-                        update_element_map_with_robot(
-                            self.shared.element_map,
-                            robot_position,
-                            DrawableElement.ROBOT,
-                        )
                 # Synchronize zooming state from ImageDraw to handler before auto-crop
                 self.zooming = self.imd.img_h.zooming
 
