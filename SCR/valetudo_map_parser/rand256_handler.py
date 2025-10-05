@@ -26,6 +26,7 @@ from .config.types import (
     RobotPosition,
     RoomsProperties,
     RoomStore,
+    LOGGER,
 )
 from .config.utils import (
     BaseHandler,
