@@ -200,6 +200,7 @@ class BaseHandler:
             if self.shared.map_rooms:
                 LOGGER.debug("%s: Rand256 attributes rooms updated", self.file_name)
 
+
         if hasattr(self, "async_get_rooms_attributes") and (
             self.shared.map_rooms is None
         ):

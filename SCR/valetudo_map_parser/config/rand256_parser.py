@@ -170,6 +170,25 @@ class RRMapParser:
         return walls
 
     @staticmethod
+    def _parse_walls(data: bytes, header: bytes) -> list:
+        wall_pairs = RRMapParser._get_int16(header, 0x08)
+        walls = []
+        for wall_start in range(0, wall_pairs * 8, 8):
+            x0 = RRMapParser._get_int16(data, wall_start + 0)
+            y0 = RRMapParser._get_int16(data, wall_start + 2)
+            x1 = RRMapParser._get_int16(data, wall_start + 4)
+            y1 = RRMapParser._get_int16(data, wall_start + 6)
+            walls.append(
+                [
+                    x0,
+                    RRMapParser.Tools.DIMENSION_MM - y0,
+                    x1,
+                    RRMapParser.Tools.DIMENSION_MM - y1,
+                ]
+            )
+        return walls
+
+    @staticmethod
     def _parse_path_block(buf: bytes, offset: int, length: int) -> Dict[str, Any]:
         """Parse path block using EXACT same method as working parser."""
         points = [
