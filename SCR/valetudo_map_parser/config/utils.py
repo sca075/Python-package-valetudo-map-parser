@@ -230,10 +230,7 @@ class BaseHandler:
         self, pil_img: PilPNG, rand: bool = False
     ) -> ResizeParams:
         """Prepare resize parameters for image resizing."""
-        width, height = pil_size_rotation(
-            self.shared.image_rotate,
-            pil_img
-        )
+        width, height = pil_size_rotation(self.shared.image_rotate, pil_img)
 
         return ResizeParams(
             pil_img=pil_img,
@@ -690,6 +687,7 @@ async def async_resize_image(params: ResizeParams):
 
     return params.pil_img
 
+
 def pil_size_rotation(image_rotate, pil_img):
     """Return the size of the image."""
     if not pil_img:
@@ -725,6 +723,7 @@ def initialize_drawing_config(handler):
     draw = Drawable()
 
     return drawing_config, draw
+
 
 def manage_drawable_elements(
     handler,

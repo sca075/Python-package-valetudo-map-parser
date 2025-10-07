@@ -269,8 +269,6 @@ class ImageDraw:
             zone_clean = self.img_h.data.find_zone_entities(m_json)
         except (ValueError, KeyError):
             zone_clean = None
-        else:
-            _LOGGER.info("%s: Got zones.", self.file_name)
 
         if zone_clean:
             # Process zones sequentially to avoid memory-intensive array copies

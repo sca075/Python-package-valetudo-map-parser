@@ -53,49 +53,30 @@ class Drawable:
     ) -> NumpyArray:
         """Draw the layers (rooms) from the vacuum JSON data onto the image array."""
         image_array = layer
-        # Extract alpha from color
-        alpha = color[3] if len(color) == 4 else 255
+        need_blending = color[3] < 255
 
-        # Create the full color with alpha
-        full_color = color if len(color) == 4 else (*color, 255)
-
-        # Check if we need to blend colors (alpha < 255)
-        need_blending = alpha < 255
-
-        # Loop through pixels to find min and max coordinates
         for x, y, z in pixels:
             col = x * pixel_size
             row = y * pixel_size
-            # Draw pixels as blocks
             for i in range(z):
-                # Get the region to update
                 region_slice = (
                     slice(row, row + pixel_size),
                     slice(col + i * pixel_size, col + (i + 1) * pixel_size),
                 )
 
                 if need_blending:
-                    # Sample the center of the region for blending
-                    center_y = row + pixel_size // 2
-                    center_x = col + i * pixel_size + pixel_size // 2
-
-                    # Only blend if coordinates are valid
+                    cy = row + pixel_size // 2
+                    cx = col + i * pixel_size + pixel_size // 2
                     if (
-                        0 <= center_y < image_array.shape[0]
-                        and 0 <= center_x < image_array.shape[1]
+                        0 <= cy < image_array.shape[0]
+                        and 0 <= cx < image_array.shape[1]
                     ):
-                        # Get blended color
-                        blended_color = sample_and_blend_color(
-                            image_array, center_x, center_y, full_color
-                        )
-                        # Apply blended color to the region
-                        image_array[region_slice] = blended_color
+                        px = sample_and_blend_color(image_array, cx, cy, color)
+                        image_array[region_slice] = px
                     else:
-                        # Use original color if out of bounds
-                        image_array[region_slice] = full_color
+                        image_array[region_slice] = color
                 else:
-                    # No blending needed, use direct assignment
-                    image_array[region_slice] = full_color
+                    image_array[region_slice] = color
 
         return image_array
 

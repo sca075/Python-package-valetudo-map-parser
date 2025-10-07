@@ -216,10 +216,7 @@ class CameraShared:
             "image": {
                 "binary": self.binary_image,
                 "pil_image": self.new_image,
-                "size": pil_size_rotation(
-                    self.image_rotate,
-                    self.new_image
-                ),
+                "size": pil_size_rotation(self.image_rotate, self.new_image),
             },
             "attributes": self.generate_attributes(),
         }
