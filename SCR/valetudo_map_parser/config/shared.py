@@ -10,6 +10,7 @@ from typing import List
 
 from PIL import Image
 
+from .utils import pil_size_rotation
 from .types import (
     ATTR_CALIBRATION_POINTS,
     ATTR_CAMERA_MODE,
@@ -210,11 +211,15 @@ class CameraShared:
 
     def to_dict(self) -> dict:
         """Return a dictionary with image and attributes data."""
+
         return {
             "image": {
                 "binary": self.binary_image,
                 "pil_image": self.new_image,
-                "size": self.new_image.size if self.new_image else (10, 10),
+                "size": pil_size_rotation(
+                    self.image_rotate,
+                    self.new_image
+                ),
             },
             "attributes": self.generate_attributes(),
         }

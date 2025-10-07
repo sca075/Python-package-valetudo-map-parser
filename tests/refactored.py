@@ -8,13 +8,13 @@ Version: v2024.12.0
 
 from __future__ import annotations
 
+import asyncio
 import math
 
 import numpy as np
-import asyncio
 from PIL import ImageDraw, ImageFont
 
-from .types import Color, NumpyArray, PilPNG, Point, Union, Tuple
+from .types import Color, NumpyArray, PilPNG, Point, Tuple, Union
 
 
 class Drawable:
@@ -321,12 +321,12 @@ class Drawable:
 
     @staticmethod
     def _filled_circle_optimized(
-            image: np.ndarray,
-            center: Tuple[int, int],
-            radius: int,
-            color: Color,
-            outline_color: Color = None,
-            outline_width: int = 0,
+        image: np.ndarray,
+        center: Tuple[int, int],
+        radius: int,
+        color: Color,
+        outline_color: Color = None,
+        outline_width: int = 0,
     ) -> np.ndarray:
         """
         Optimized `_filled_circle` ensuring dtype compatibility with uint8.
@@ -354,13 +354,13 @@ class Drawable:
             outline_color_np = None
 
         # Create coordinate grids
-        y_indices, x_indices = np.meshgrid(np.arange(h), np.arange(w), indexing='ij')
+        y_indices, x_indices = np.meshgrid(np.arange(h), np.arange(w), indexing="ij")
 
         # Compute squared distances from center
         dist_sq = (y_indices - y) ** 2 + (x_indices - x) ** 2
 
         # Mask for filled circle
-        circle_mask = dist_sq <= radius ** 2
+        circle_mask = dist_sq <= radius**2
         image[circle_mask] = color_np  # Directly modify the image
 
         if outline_width > 0 and outline_color_np is not None:
@@ -369,7 +369,6 @@ class Drawable:
             image[outline_mask] = outline_color_np
 
         return image
-
 
     @staticmethod
     def _ellipse(
@@ -573,28 +572,34 @@ class Drawable:
         return image
 
     @staticmethod
-    def draw_filled_circle(image: np.ndarray, centers: Tuple[int, int], radius: int,
-                           color: Tuple[int, int, int, int],
-                           cached_grid: Tuple[np.ndarray, np.ndarray] = None) -> np.ndarray:
+    def draw_filled_circle(
+        image: np.ndarray,
+        centers: Tuple[int, int],
+        radius: int,
+        color: Tuple[int, int, int, int],
+        cached_grid: Tuple[np.ndarray, np.ndarray] = None,
+    ) -> np.ndarray:
         """
-            Draw multiple filled circles at once using a single NumPy mask.
+        Draw multiple filled circles at once using a single NumPy mask.
 
-            Parameters:
-            - image: NumPy array representing the image (H, W, 4) for RGBA.
-            - centers: (N, 2) NumPy array containing the (x, y) coordinates of N circle centers.
-            - radius: Radius of all circles.
-            - color: Color as a tuple (R, G, B, A).
+        Parameters:
+        - image: NumPy array representing the image (H, W, 4) for RGBA.
+        - centers: (N, 2) NumPy array containing the (x, y) coordinates of N circle centers.
+        - radius: Radius of all circles.
+        - color: Color as a tuple (R, G, B, A).
 
-            Returns:
-            - Modified image with filled circles drawn in one operation.
-            """
+        Returns:
+        - Modified image with filled circles drawn in one operation.
+        """
         h, w = image.shape[:2]
         y_indices, x_indices = np.ogrid[:h, :w]  # Precompute coordinate grids
 
         # Compute mask for all circles at once
         mask = np.zeros((h, w), dtype=bool)
         for cx, cy in centers:
-            mask |= (x_indices - cx) ** 2 + (y_indices - cy) ** 2 <= radius ** 2  # Apply all circles in one pass
+            mask |= (x_indices - cx) ** 2 + (
+                y_indices - cy
+            ) ** 2 <= radius**2  # Apply all circles in one pass
 
         # Apply color where mask is True (broadcasting works for multi-channel)
         image[mask] = color
@@ -602,8 +607,9 @@ class Drawable:
         return image
 
     @staticmethod
-    async def async_draw_obstacles(image: np.ndarray, obstacle_info_list,
-                                   color: Tuple[int, int, int, int]) -> np.ndarray:
+    async def async_draw_obstacles(
+        image: np.ndarray, obstacle_info_list, color: Tuple[int, int, int, int]
+    ) -> np.ndarray:
         """
         Optimized async version of `draw_obstacles` using `asyncio.gather()`.
 
@@ -626,11 +632,18 @@ class Drawable:
             Returns:
             - NumPy array of shape (N, 2) where each row is (x, y).
             """
-            return np.array([[obs["points"]["x"], obs["points"]["y"]] for obs in obstacle_info_list], dtype=np.int32)
+            return np.array(
+                [
+                    [obs["points"]["x"], obs["points"]["y"]]
+                    for obs in obstacle_info_list
+                ],
+                dtype=np.int32,
+            )
 
-        centers = await asyncio.get_running_loop().run_in_executor(None, extract_centers, obstacle_info_list)
+        centers = await asyncio.get_running_loop().run_in_executor(
+            None, extract_centers, obstacle_info_list
+        )
         Drawable.draw_filled_circle(image, centers, 6, color)
-
 
         return image
 

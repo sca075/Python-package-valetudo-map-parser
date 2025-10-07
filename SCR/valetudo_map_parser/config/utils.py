@@ -200,7 +200,6 @@ class BaseHandler:
             if self.shared.map_rooms:
                 LOGGER.debug("%s: Rand256 attributes rooms updated", self.file_name)
 
-
         if hasattr(self, "async_get_rooms_attributes") and (
             self.shared.map_rooms is None
         ):
@@ -231,15 +230,11 @@ class BaseHandler:
         self, pil_img: PilPNG, rand: bool = False
     ) -> ResizeParams:
         """Prepare resize parameters for image resizing."""
-        if self.shared.image_rotate in [0, 180]:
-            width, height = pil_img.size
-        else:
-            height, width = pil_img.size
-        LOGGER.debug(
-            "Shared PIL image size: %s x %s",
-            self.shared.image_ref_width,
-            self.shared.image_ref_height,
+        width, height = pil_size_rotation(
+            self.shared.image_rotate,
+            pil_img
         )
+
         return ResizeParams(
             pil_img=pil_img,
             width=width,
@@ -660,9 +655,6 @@ class BaseHandler:
 
 async def async_resize_image(params: ResizeParams):
     """Resize the image to the given dimensions and aspect ratio."""
-    LOGGER.debug("Resizing image to aspect ratio: %s", params.aspect_ratio)
-    LOGGER.debug("Original image size: %s x %s", params.width, params.height)
-    LOGGER.debug("Image crop size: %s", params.crop_size)
     if params.aspect_ratio == "None":
         return params.pil_img
     if params.aspect_ratio != "None":
@@ -698,6 +690,16 @@ async def async_resize_image(params: ResizeParams):
 
     return params.pil_img
 
+def pil_size_rotation(image_rotate, pil_img):
+    """Return the size of the image."""
+    if not pil_img:
+        return 0, 0
+    if image_rotate in [0, 180]:
+        width, height = pil_img.size
+    else:
+        height, width = pil_img.size
+    return width, height
+
 
 def initialize_drawing_config(handler):
     """
@@ -723,94 +725,6 @@ def initialize_drawing_config(handler):
     draw = Drawable()
 
     return drawing_config, draw
-
-
-def blend_colors(base_color, overlay_color):
-    """
-    Blend two RGBA colors using alpha compositing.
-
-    Args:
-        base_color: Base RGBA color tuple (r, g, b, a)
-        overlay_color: Overlay RGBA color tuple (r, g, b, a)
-
-    Returns:
-        Blended RGBA color tuple (r, g, b, a)
-    """
-    r1, g1, b1, a1 = base_color
-    r2, g2, b2, a2 = overlay_color
-
-    # Convert alpha to 0-1 range
-    a1 = a1 / 255.0
-    a2 = a2 / 255.0
-
-    # Calculate resulting alpha
-    a_out = a1 + a2 * (1 - a1)
-
-    # Avoid division by zero
-    if a_out < 0.0001:
-        return [0, 0, 0, 0]
-
-    # Calculate blended RGB components
-    r_out = (r1 * a1 + r2 * a2 * (1 - a1)) / a_out
-    g_out = (g1 * a1 + g2 * a2 * (1 - a1)) / a_out
-    b_out = (b1 * a1 + b2 * a2 * (1 - a1)) / a_out
-
-    # Convert back to 0-255 range and return as tuple
-    return (
-        int(max(0, min(255, r_out))),
-        int(max(0, min(255, g_out))),
-        int(max(0, min(255, b_out))),
-        int(max(0, min(255, a_out * 255))),
-    )
-
-
-def blend_pixel(array, x, y, color, element, element_map=None, drawing_config=None):
-    """
-    Blend a pixel color with the existing color at the specified position.
-    Also updates the element map if the new element has higher z-index.
-
-    Args:
-        array: The image array to modify
-        x: X coordinate
-        y: Y coordinate
-        color: RGBA color tuple to blend
-        element: Element code for the pixel
-        element_map: Optional element map to update
-        drawing_config: Optional drawing configuration for z-index lookup
-
-    Returns:
-        None
-    """
-    # Check bounds
-    if not (0 <= y < array.shape[0] and 0 <= x < array.shape[1]):
-        return
-
-    # Get current element at this position
-    current_element = None
-    if element_map is not None:
-        current_element = element_map[y, x]
-
-    # Get z-index values for comparison
-    current_z = 0
-    new_z = 0
-
-    if drawing_config is not None:
-        current_z = (
-            drawing_config.get_property(current_element, "z_index", 0)
-            if current_element
-            else 0
-        )
-        new_z = drawing_config.get_property(element, "z_index", 0)
-
-    # Update element map if new element has higher z-index
-    if element_map is not None and new_z >= current_z:
-        element_map[y, x] = element
-
-    # Blend colors
-    base_color = array[y, x]
-    blended_color = blend_colors(base_color, color)
-    array[y, x] = blended_color
-
 
 def manage_drawable_elements(
     handler,
@@ -993,12 +907,6 @@ async def async_extract_room_outline(
 
         # If we found too few boundary points, use the rectangular outline
         if len(boundary_points) < 8:  # Need at least 8 points for a meaningful shape
-            LOGGER.debug(
-                "%s: Room %s has too few boundary points (%d), using rectangular outline",
-                file_name,
-                str(room_id_int),
-                len(boundary_points),
-            )
             return rect_outline
 
         # Use a more sophisticated algorithm to create a coherent outline
@@ -1033,13 +941,6 @@ async def async_extract_room_outline(
 
         # Convert NumPy int64 values to regular Python integers
         simplified_outline = [(int(x), int(y)) for x, y in simplified_outline]
-
-        LOGGER.debug(
-            "%s: Room %s outline has %d points",
-            file_name,
-            str(room_id_int),
-            len(simplified_outline),
-        )
 
         return simplified_outline
 

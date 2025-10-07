@@ -19,13 +19,14 @@ from .config.types import (
     COLORS,
     DEFAULT_IMAGE_SIZE,
     DEFAULT_PIXEL_SIZE,
+    LOGGER,
     Colors,
+    Destinations,
     JsonType,
     PilPNG,
     RobotPosition,
     RoomsProperties,
     RoomStore,
-    LOGGER,
 )
 from .config.utils import (
     BaseHandler,
@@ -67,7 +68,9 @@ class ReImageHandler(BaseHandler, AutoCrop):
         )  # Room data handler
 
     async def extract_room_properties(
-        self, json_data: JsonType, destinations: JsonType
+        self,
+        json_data: JsonType,
+        destinations: Destinations | None = None,
     ) -> RoomsProperties:
         """Extract the room properties."""
         # unsorted_id = RandImageData.get_rrm_segments_ids(json_data)
@@ -121,7 +124,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
     async def get_image_from_rrm(
         self,
         m_json: JsonType,  # json data
-        destinations: None = None,  # MQTT destinations for labels
+        destinations: Destinations | None = None,  # MQTT destinations for labels
     ) -> PilPNG | None:
         """Generate Images from the json data.
         @param m_json: The JSON data to use to draw the image.
@@ -214,8 +217,10 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     self.room_propriety = await self.get_rooms_attributes(destinations)
 
                 # Always check robot position for zooming (update if room info is missing)
-                if self.rooms_pos and robot_position and (
-                    self.robot_pos is None or "in_room" not in self.robot_pos
+                if (
+                    self.rooms_pos
+                    and robot_position
+                    and (self.robot_pos is None or "in_room" not in self.robot_pos)
                 ):
                     self.robot_pos = await self.async_get_robot_in_room(
                         (robot_position[0] * 10),

@@ -78,6 +78,7 @@ class RRMapParser:
 
     @staticmethod
     def _parse_carpet_map(data: bytes) -> set[int]:
+        """Parse carpet map using Xiaomi method."""
         carpet_map = set()
 
         for i, v in enumerate(data):
@@ -87,6 +88,7 @@ class RRMapParser:
 
     @staticmethod
     def _parse_area(header: bytes, data: bytes) -> list:
+        """Parse area using Xiaomi method."""
         area_pairs = RRMapParser._get_int16(header, 0x08)
         areas = []
         for area_start in range(0, area_pairs * 16, 16):
@@ -114,6 +116,7 @@ class RRMapParser:
 
     @staticmethod
     def _parse_zones(data: bytes, header: bytes) -> list:
+        """Parse zones using Xiaomi method."""
         zone_pairs = RRMapParser._get_int16(header, 0x08)
         zones = []
         for zone_start in range(0, zone_pairs * 8, 8):
@@ -146,21 +149,9 @@ class RRMapParser:
                 angle = raw_angle
         return {"position": [x, y], "angle": angle}
 
-
     @staticmethod
     def _parse_walls(data: bytes, header: bytes) -> list:
-        wall_pairs = RRMapParser._get_int16(header, 0x08)
-        walls = []
-        for wall_start in range(0, wall_pairs * 8, 8):
-            x0 = RRMapParser._get_int16(data, wall_start + 0)
-            y0 = RRMapParser._get_int16(data, wall_start + 2)
-            x1 = RRMapParser._get_int16(data, wall_start + 4)
-            y1 = RRMapParser._get_int16(data, wall_start + 6)
-            walls.append([x0, RRMapParser.Tools.DIMENSION_MM - y0, x1, RRMapParser.Tools.DIMENSION_MM - y1])
-        return walls
-
-    @staticmethod
-    def _parse_walls(data: bytes, header: bytes) -> list:
+        """Parse walls using Xiaomi method."""
         wall_pairs = RRMapParser._get_int16(header, 0x08)
         walls = []
         for wall_start in range(0, wall_pairs * 8, 8):
@@ -223,6 +214,7 @@ class RRMapParser:
             return {}
 
     def parse_blocks(self, raw: bytes, pixels: bool = True) -> Dict[int, Any]:
+        """Parse all blocks using Xiaomi method."""
         blocks = {}
         map_header_length = self._get_int16(raw, 0x02)
         block_start_position = map_header_length
