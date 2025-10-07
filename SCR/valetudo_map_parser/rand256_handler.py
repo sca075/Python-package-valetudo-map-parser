@@ -85,9 +85,10 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     json_data, size_x, size_y, top, left, True
                 )
 
-            dest_json = destinations
-            zones_data = dict(dest_json).get("zones", [])
-            points_data = dict(dest_json).get("spots", [])
+
+            dest_json = destinations if destinations else {}
+            zones_data = dest_json.get("zones", [])
+            points_data = dest_json.get("spots", [])
 
             # Use the RandRoomsHandler to extract room properties
             room_properties = await self.rooms_handler.async_extract_room_properties(

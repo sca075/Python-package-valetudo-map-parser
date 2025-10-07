@@ -1,4 +1,5 @@
-"""New Rand256 Map Parser - Based on Xiaomi/Roborock implementation with precise binary parsing."""
+"""New Rand256 Map Parser -
+Based on Xiaomi/Roborock implementation with precise binary parsing."""
 
 import math
 import struct
