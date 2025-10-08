@@ -111,6 +111,12 @@ class BaseHandler:
         try:
             # Backup current image to last_image before processing new one
             if hasattr(self.shared, "new_image") and self.shared.new_image is not None:
+                # Close old last_image to free memory before replacing it
+                if hasattr(self.shared, "last_image") and self.shared.last_image is not None:
+                    try:
+                        self.shared.last_image.close()
+                    except Exception:
+                        pass  # Ignore errors if image is already closed
                 self.shared.last_image = self.shared.new_image
 
             # Call the appropriate handler method based on handler type
