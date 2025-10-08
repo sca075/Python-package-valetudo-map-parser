@@ -161,8 +161,17 @@ class RoomsHandler:
             np.uint8
         )
 
+        # Free intermediate arrays to reduce memory usage
+        del local_mask
+        del struct_elem
+        del eroded
+
         # Extract contour from the mask
         outline = self.convex_hull_outline(mask)
+
+        # Free mask after extracting outline
+        del mask
+
         if not outline:
             return None, None
 
