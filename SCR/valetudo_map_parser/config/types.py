@@ -34,12 +34,11 @@ class Room(TypedDict):
     id: int
 
 
-# list[dict[str, str | list[int]]] | list[dict[str, str | list[list[int]]]] | list[dict[str, str | int]] | int]'
 class Destinations(TypedDict, total=False):
     spots: NotRequired[Optional[List[Spot]]]
     zones: NotRequired[Optional[List[Zone]]]
     rooms: NotRequired[Optional[List[Room]]]
-    updated: NotRequired[Optional[float]]
+    updated: NotRequired[Optional[float | int]]
 
 
 class RoomProperty(TypedDict):

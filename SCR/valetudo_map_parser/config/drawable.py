@@ -53,49 +53,30 @@ class Drawable:
     ) -> NumpyArray:
         """Draw the layers (rooms) from the vacuum JSON data onto the image array."""
         image_array = layer
-        # Extract alpha from color
-        alpha = color[3] if len(color) == 4 else 255
+        need_blending = color[3] < 255
 
-        # Create the full color with alpha
-        full_color = color if len(color) == 4 else (*color, 255)
-
-        # Check if we need to blend colors (alpha < 255)
-        need_blending = alpha < 255
-
-        # Loop through pixels to find min and max coordinates
         for x, y, z in pixels:
             col = x * pixel_size
             row = y * pixel_size
-            # Draw pixels as blocks
             for i in range(z):
-                # Get the region to update
                 region_slice = (
                     slice(row, row + pixel_size),
                     slice(col + i * pixel_size, col + (i + 1) * pixel_size),
                 )
 
                 if need_blending:
-                    # Sample the center of the region for blending
-                    center_y = row + pixel_size // 2
-                    center_x = col + i * pixel_size + pixel_size // 2
-
-                    # Only blend if coordinates are valid
+                    cy = row + pixel_size // 2
+                    cx = col + i * pixel_size + pixel_size // 2
                     if (
-                        0 <= center_y < image_array.shape[0]
-                        and 0 <= center_x < image_array.shape[1]
+                        0 <= cy < image_array.shape[0]
+                        and 0 <= cx < image_array.shape[1]
                     ):
-                        # Get blended color
-                        blended_color = sample_and_blend_color(
-                            image_array, center_x, center_y, full_color
-                        )
-                        # Apply blended color to the region
-                        image_array[region_slice] = blended_color
+                        px = sample_and_blend_color(image_array, cx, cy, color)
+                        image_array[region_slice] = px
                     else:
-                        # Use original color if out of bounds
-                        image_array[region_slice] = full_color
+                        image_array[region_slice] = color
                 else:
-                    # No blending needed, use direct assignment
-                    image_array[region_slice] = full_color
+                    image_array[region_slice] = color
 
         return image_array
 
@@ -332,36 +313,6 @@ class Drawable:
         return image
 
     @staticmethod
-    def _filled_circle_optimized(
-        image: np.ndarray,
-        center: Tuple[int, int],
-        radius: int,
-        color: Color,
-        outline_color: Color = None,
-        outline_width: int = 0,
-    ) -> np.ndarray:
-        """
-        Optimized _filled_circle ensuring dtype compatibility with uint8.
-        """
-        x, y = center
-        h, w = image.shape[:2]
-        color_np = np.array(color, dtype=image.dtype)
-        outline_color_np = (
-            np.array(outline_color, dtype=image.dtype)
-            if outline_color is not None
-            else None
-        )
-        y_indices, x_indices = np.meshgrid(np.arange(h), np.arange(w), indexing="ij")
-        dist_sq = (y_indices - y) ** 2 + (x_indices - x) ** 2
-        circle_mask = dist_sq <= radius**2
-        image[circle_mask] = color_np
-        if outline_width > 0 and outline_color_np is not None:
-            outer_mask = dist_sq <= (radius + outline_width) ** 2
-            outline_mask = outer_mask & ~circle_mask
-            image[outline_mask] = outline_color_np
-        return image
-
-    @staticmethod
     def _ellipse(
         image: NumpyArray, center: Point, radius: int, color: Color
     ) -> NumpyArray:
@@ -592,161 +543,6 @@ class Drawable:
             robot_image
         )
         return background_image
-
-    @staticmethod
-    def draw_filled_circle(
-        image: np.ndarray,
-        centers: Tuple[int, int],
-        radius: int,
-        color: Tuple[int, int, int, int],
-    ) -> np.ndarray:
-        """
-        Draw multiple filled circles at once using a single NumPy mask.
-        """
-        h, w = image.shape[:2]
-        y_indices, x_indices = np.ogrid[:h, :w]  # Precompute coordinate grids
-        mask = np.zeros((h, w), dtype=bool)
-        for cx, cy in centers:
-            mask |= (x_indices - cx) ** 2 + (y_indices - cy) ** 2 <= radius**2
-        image[mask] = color
-        return image
-
-    @staticmethod
-    def batch_draw_elements(
-        image: np.ndarray,
-        elements: list,
-        element_type: str,
-        color: Color,
-    ) -> np.ndarray:
-        """
-        Efficiently draw multiple elements of the same type at once.
-
-        Args:
-            image: The image array to draw on
-            elements: List of element data (coordinates, etc.)
-            element_type: Type of element to draw ('circle', 'line', etc.)
-            color: Color to use for drawing
-
-        Returns:
-            Modified image array
-        """
-        if not elements or len(elements) == 0:
-            return image
-
-        # Get image dimensions
-        height, width = image.shape[:2]
-
-        if element_type == "circle":
-            # Extract circle centers and radii
-            centers = []
-            radii = []
-            for elem in elements:
-                if isinstance(elem, dict) and "center" in elem and "radius" in elem:
-                    centers.append(elem["center"])
-                    radii.append(elem["radius"])
-                elif isinstance(elem, (list, tuple)) and len(elem) >= 3:
-                    # Format: (x, y, radius)
-                    centers.append((elem[0], elem[1]))
-                    radii.append(elem[2])
-
-            # Process circles with the same radius together
-            for radius in set(radii):
-                same_radius_centers = [
-                    centers[i] for i in range(len(centers)) if radii[i] == radius
-                ]
-                if same_radius_centers:
-                    # Create a combined mask for all circles with this radius
-                    mask = np.zeros((height, width), dtype=bool)
-                    for cx, cy in same_radius_centers:
-                        if 0 <= cx < width and 0 <= cy < height:
-                            # Calculate circle bounds
-                            min_y = max(0, cy - radius)
-                            max_y = min(height, cy + radius + 1)
-                            min_x = max(0, cx - radius)
-                            max_x = min(width, cx + radius + 1)
-
-                            # Create coordinate arrays for the circle
-                            y_indices, x_indices = np.ogrid[min_y:max_y, min_x:max_x]
-
-                            # Add this circle to the mask
-                            circle_mask = (y_indices - cy) ** 2 + (
-                                x_indices - cx
-                            ) ** 2 <= radius**2
-                            mask[min_y:max_y, min_x:max_x] |= circle_mask
-
-                    # Apply color to all circles at once
-                    image[mask] = color
-
-        elif element_type == "line":
-            # Extract line endpoints
-            lines = []
-            widths = []
-            for elem in elements:
-                if isinstance(elem, dict) and "start" in elem and "end" in elem:
-                    lines.append((elem["start"], elem["end"]))
-                    widths.append(elem.get("width", 1))
-                elif isinstance(elem, (list, tuple)) and len(elem) >= 4:
-                    # Format: (x1, y1, x2, y2, [width])
-                    lines.append(((elem[0], elem[1]), (elem[2], elem[3])))
-                    widths.append(elem[4] if len(elem) > 4 else 1)
-
-            # Process lines with the same width together
-            for width in set(widths):
-                same_width_lines = [
-                    lines[i] for i in range(len(lines)) if widths[i] == width
-                ]
-                if same_width_lines:
-                    # Create a combined mask for all lines with this width
-                    mask = np.zeros((height, width), dtype=bool)
-
-                    # Draw all lines into the mask
-                    for start, end in same_width_lines:
-                        x1, y1 = start
-                        x2, y2 = end
-
-                        # Skip invalid lines
-                        if not (
-                            0 <= x1 < width
-                            and 0 <= y1 < height
-                            and 0 <= x2 < width
-                            and 0 <= y2 < height
-                        ):
-                            continue
-
-                        # Use Bresenham's algorithm to get line points
-                        length = max(abs(x2 - x1), abs(y2 - y1))
-                        if length == 0:
-                            continue
-
-                        t = np.linspace(0, 1, length * 2)
-                        x_coordinates = np.round(x1 * (1 - t) + x2 * t).astype(int)
-                        y_coordinates = np.round(y1 * (1 - t) + y2 * t).astype(int)
-
-                        # Add line points to mask
-                        for x, y in zip(x_coordinates, y_coordinates):
-                            if width == 1:
-                                mask[y, x] = True
-                            else:
-                                # For thicker lines
-                                half_width = width // 2
-                                min_y = max(0, y - half_width)
-                                max_y = min(height, y + half_width + 1)
-                                min_x = max(0, x - half_width)
-                                max_x = min(width, x + half_width + 1)
-
-                                # Create a circular brush
-                                y_indices, x_indices = np.ogrid[
-                                    min_y:max_y, min_x:max_x
-                                ]
-                                brush = (y_indices - y) ** 2 + (
-                                    x_indices - x
-                                ) ** 2 <= half_width**2
-                                mask[min_y:max_y, min_x:max_x] |= brush
-
-                    # Apply color to all lines at once
-                    image[mask] = color
-
-        return image
 
     @staticmethod
     async def async_draw_obstacles(
