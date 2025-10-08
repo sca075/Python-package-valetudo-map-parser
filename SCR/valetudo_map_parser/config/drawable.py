@@ -15,7 +15,7 @@ from pathlib import Path
 
 import numpy as np
 from mvcrender.blend import get_blended_color, sample_and_blend_color
-from mvcrender.draw import circle_u8, line_u8
+from mvcrender.draw import circle_u8, line_u8, polygon_u8
 from PIL import Image, ImageDraw, ImageFont
 
 from .types import Color, NumpyArray, PilPNG, Point, Tuple, Union
@@ -129,7 +129,7 @@ class Drawable:
         """
         Draw a flag centered at specified coordinates on the input layer.
         It uses the rotation angle of the image to orient the flag.
-        Includes color blending for better visual integration.
+        Uses mvcrender's polygon_u8 for efficient triangle drawing.
         """
         # Check if coordinates are within bounds
         height, width = layer.shape[:2]
@@ -194,9 +194,12 @@ class Drawable:
             xp1, yp1 = center[0] - (pole_width // 2), y1
             xp2, yp2 = center[0] - (pole_width // 2), center[1] + flag_size
 
-        # Draw flag outline using _polygon_outline
-        points = [(x1, y1), (x2, y2), (x3, y3)]
-        layer = Drawable._polygon_outline(layer, points, 1, flag_color, flag_color)
+        # Draw flag triangle using mvcrender's polygon_u8 (much faster than _polygon_outline)
+        xs = np.array([x1, x2, x3], dtype=np.int32)
+        ys = np.array([y1, y2, y3], dtype=np.int32)
+        # Draw filled triangle with thin outline
+        polygon_u8(layer, xs, ys, flag_color, 1, flag_color)
+
         # Draw pole using _line
         layer = Drawable._line(layer, xp1, yp1, xp2, yp2, pole_color, pole_width)
         return layer
@@ -378,17 +381,18 @@ class Drawable:
     @staticmethod
     async def zones(layers: NumpyArray, coordinates, color: Color) -> NumpyArray:
         """
-        Draw zones as solid filled polygons with alpha blending using a per-zone mask.
-        Keeps API the same; no dotted rendering.
+        Draw zones as filled polygons with alpha blending using mvcrender.
+        Creates a mask with polygon_u8 and blends it onto the image with proper alpha.
+        This eliminates PIL dependency for zone drawing.
         """
         if not coordinates:
             return layers
 
         height, width = layers.shape[:2]
-        # Precompute color and alpha
         r, g, b, a = color
         alpha = a / 255.0
         inv_alpha = 1.0 - alpha
+        # Pre-allocate color array once (avoid creating it in every iteration)
         color_rgb = np.array([r, g, b], dtype=np.float32)
 
         for zone in coordinates:
@@ -396,6 +400,7 @@ class Drawable:
                 pts = zone["points"]
             except (KeyError, TypeError):
                 continue
+
             if not pts or len(pts) < 6:
                 continue
 
@@ -407,29 +412,48 @@ class Drawable:
             if min_x >= max_x or min_y >= max_y:
                 continue
 
-            # Adjust polygon points to local bbox coordinates
-            poly_xy = [
-                (int(pts[i] - min_x), int(pts[i + 1] - min_y))
-                for i in range(0, len(pts), 2)
-            ]
             box_w = max_x - min_x + 1
             box_h = max_y - min_y + 1
 
-            # Build mask via PIL polygon fill (fast, C-impl)
-            mask_img = Image.new("L", (box_w, box_h), 0)
-            draw = ImageDraw.Draw(mask_img)
-            draw.polygon(poly_xy, fill=255)
-            zone_mask = np.array(mask_img, dtype=bool)
+            # Create mask using mvcrender's polygon_u8
+            mask_rgba = np.zeros((box_h, box_w, 4), dtype=np.uint8)
+
+            # Convert points to xs, ys arrays (adjusted to local bbox coordinates)
+            xs = np.array([int(pts[i] - min_x) for i in range(0, len(pts), 2)], dtype=np.int32)
+            ys = np.array([int(pts[i] - min_y) for i in range(1, len(pts), 2)], dtype=np.int32)
+
+            # Draw filled polygon on mask
+            polygon_u8(mask_rgba, xs, ys, (0, 0, 0, 0), 0, (255, 255, 255, 255))
+
+            # Extract boolean mask from first channel
+            zone_mask = (mask_rgba[:, :, 0] > 0)
+            del mask_rgba
+            del xs
+            del ys
+
             if not np.any(zone_mask):
+                del zone_mask
                 continue
 
-            # Vectorized alpha blend on RGB channels only
+            # Optimized alpha blend - minimize temporary allocations
             region = layers[min_y : max_y + 1, min_x : max_x + 1]
-            rgb = region[..., :3].astype(np.float32)
-            mask3 = zone_mask[:, :, None]
-            blended_rgb = np.where(mask3, rgb * inv_alpha + color_rgb * alpha, rgb)
-            region[..., :3] = blended_rgb.astype(np.uint8)
-            # Leave alpha channel unchanged to avoid stacking transparency
+
+            # Work directly on the region's RGB channels
+            rgb_region = region[..., :3]
+
+            # Apply blending only where mask is True
+            # Use boolean indexing to avoid creating full-size temporary arrays
+            rgb_masked = rgb_region[zone_mask].astype(np.float32)
+
+            # Blend: new_color = old_color * (1 - alpha) + zone_color * alpha
+            rgb_masked *= inv_alpha
+            rgb_masked += color_rgb * alpha
+
+            # Write back (convert to uint8)
+            rgb_region[zone_mask] = rgb_masked.astype(np.uint8)
+
+            del zone_mask
+            del rgb_masked
 
         return layers
 
