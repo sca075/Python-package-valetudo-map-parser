@@ -58,6 +58,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
         self.drawing_config, self.draw = initialize_drawing_config(self)
         self.go_to = None  # Go to position data
         self.img_base_layer = None  # Base image layer
+        self.img_work_layer = None  # Persistent working buffer (reused across frames)
         self.img_rotate = shared_data.image_rotate  # Image rotation
         self.room_propriety = None  # Room propriety data
         self.active_zones = None  # Active zones
@@ -156,9 +157,23 @@ class ReImageHandler(BaseHandler, AutoCrop):
 
                 # Increment frame number
                 self.frame_number += 1
-                img_np_array = await self.async_copy_array(self.img_base_layer)
                 if self.frame_number > 5:
                     self.frame_number = 0
+
+                # Ensure persistent working buffer exists and matches base (allocate only when needed)
+                if (
+                    self.img_work_layer is None
+                    or self.img_work_layer.shape != self.img_base_layer.shape
+                    or self.img_work_layer.dtype != self.img_base_layer.dtype
+                ):
+                    # Delete old buffer before creating new one to free memory
+                    if self.img_work_layer is not None:
+                        del self.img_work_layer
+                    self.img_work_layer = np.empty_like(self.img_base_layer)
+
+                # Copy the base layer into the persistent working buffer (no new allocation per frame)
+                np.copyto(self.img_work_layer, self.img_base_layer)
+                img_np_array = self.img_work_layer
 
                 # Draw map elements
                 img_np_array = await self._draw_map_elements(
@@ -167,7 +182,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
 
                 # Return PIL Image using async utilities
                 pil_img = await AsyncPIL.async_fromarray(img_np_array, mode="RGBA")
-                del img_np_array  # free memory
+                # Note: Don't delete img_np_array here as it's the persistent work buffer
                 return await self._finalize_image(pil_img)
 
         except (RuntimeError, RuntimeWarning) as e:
@@ -228,7 +243,12 @@ class ReImageHandler(BaseHandler, AutoCrop):
                         (robot_position[1] * 10),
                         robot_position_angle,
                     )
+                # Delete old base layer before creating new one to free memory
+                if self.img_base_layer is not None:
+                    del self.img_base_layer
                 self.img_base_layer = await self.async_copy_array(img_np_array)
+                # Delete source array after copying to free memory
+                del img_np_array
             else:
                 # If floor is disabled, create an empty image
                 background_color = self.drawing_config.get_property(
@@ -237,7 +257,12 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 img_np_array = await self.draw.create_empty_image(
                     size_x, size_y, background_color
                 )
+                # Delete old base layer before creating new one to free memory
+                if self.img_base_layer is not None:
+                    del self.img_base_layer
                 self.img_base_layer = await self.async_copy_array(img_np_array)
+                # Delete source array after copying to free memory
+                del img_np_array
 
         # Check active zones BEFORE auto-crop to enable proper zoom functionality
         # This needs to run on every frame, not just frame 0

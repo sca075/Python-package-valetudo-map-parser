@@ -254,7 +254,12 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                         )
                     LOGGER.info("%s: Completed base Layers", self.file_name)
                     # Copy the new array in base layer.
+                    # Delete old base layer before creating new one to free memory
+                    if self.img_base_layer is not None:
+                        del self.img_base_layer
                     self.img_base_layer = await self.async_copy_array(img_np_array)
+                    # Delete source array after copying to free memory
+                    del img_np_array
 
                 self.shared.frame_number = self.frame_number
                 self.frame_number += 1
@@ -268,6 +273,9 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                     or self.img_work_layer.shape != self.img_base_layer.shape
                     or self.img_work_layer.dtype != self.img_base_layer.dtype
                 ):
+                    # Delete old buffer before creating new one to free memory
+                    if self.img_work_layer is not None:
+                        del self.img_work_layer
                     self.img_work_layer = np.empty_like(self.img_base_layer)
 
                 # Copy the base layer into the persistent working buffer (no new allocation per frame)

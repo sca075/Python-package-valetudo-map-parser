@@ -40,6 +40,7 @@ from .types import (
     CONF_VAC_STAT_SIZE,
     CONF_ZOOM_LOCK_RATIO,
     DEFAULT_VALUES,
+    NOT_STREAMING_STATES,
     CameraModes,
     Colors,
     PilPNG,
@@ -119,10 +120,17 @@ class CameraShared:
         self.trims = TrimsData.from_dict(DEFAULT_VALUES["trims_data"])
         self.skip_room_ids: List[str] = []
         self.device_info = None
+        self._battery_state = None
 
     def vacuum_bat_charged(self) -> bool:
         """Check if the vacuum is charging."""
-        return (self.vacuum_state == "docked") and (int(self.vacuum_battery) < 100)
+        if self.vacuum_state != "docked":
+                self._battery_state = "not_charging"
+        elif (self._battery_state == "charging_done") and (int(self.vacuum_battery) == 100):
+            self._battery_state = "charged"
+        else:
+            self._battery_state = "charging" if int(self.vacuum_battery) < 100 else "charging_done"
+        return (self.vacuum_state == "docked") and (self._battery_state == "charging")
 
     @staticmethod
     def _compose_obstacle_links(vacuum_host_ip: str, obstacles: list) -> list | None:
@@ -209,17 +217,25 @@ class CameraShared:
 
         return attrs
 
+    def is_streaming(self) -> bool:
+        """Return true if the device is streaming."""
+        updated_status = self.vacuum_state
+        attr_is_streaming = ((updated_status not in NOT_STREAMING_STATES 
+                              or self.vacuum_bat_charged()) 
+                             or not self.binary_image)
+        return attr_is_streaming
+
     def to_dict(self) -> dict:
         """Return a dictionary with image and attributes data."""
-
-        return {
+        data = {
             "image": {
                 "binary": self.binary_image,
-                "pil_image": self.new_image,
                 "size": pil_size_rotation(self.image_rotate, self.new_image),
+                "streaming": self.is_streaming()
             },
             "attributes": self.generate_attributes(),
         }
+        return data
 
 
 class CameraSharedManager:
