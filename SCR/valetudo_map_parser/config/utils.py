@@ -177,13 +177,11 @@ class BaseHandler:
                 LOGGER.warning(
                     "%s: Failed to generate image from JSON data", self.file_name
                 )
-                if bytes_format and hasattr(self.shared, "last_image"):
-                    return pil_to_png_bytes(self.shared.last_image), {}
                 return (
                     self.shared.last_image
                     if hasattr(self.shared, "last_image")
                     else None
-                ), {}
+                ), self.shared.to_dict()
 
         except Exception as e:
             LOGGER.warning(
