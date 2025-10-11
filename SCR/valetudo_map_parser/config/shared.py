@@ -126,11 +126,11 @@ class CameraShared:
         """Check if the vacuum is charging."""
         if self.vacuum_state != "docked":
                 self._battery_state = "not_charging"
-        elif (self._battery_state == "charging") and (int(self.vacuum_battery) == 100):
+        elif (self._battery_state == "charging_done") and (int(self.vacuum_battery) == 100):
             self._battery_state = "charged"
         else:
-            self._battery_state = "charging" if int(self.vacuum_battery) < 100 else "not_charging"
-        return (self.vacuum_state == "docked") and (self._battery_state == "charged")
+            self._battery_state = "charging" if int(self.vacuum_battery) < 100 else "charging_done"
+        return (self.vacuum_state == "docked") and (self._battery_state == "charging")
 
     @staticmethod
     def _compose_obstacle_links(vacuum_host_ip: str, obstacles: list) -> list | None:
