@@ -123,6 +123,18 @@ class RoomStore:
             return count if count > 0 else DEFAULT_ROOMS
         return DEFAULT_ROOMS
 
+    @property
+    def room_names(self) -> dict:
+        """Return room names in format {'room_0_name': 'SegmentID: RoomName', ...}."""
+        result = {}
+        if isinstance(self.vacuums_data, dict):
+            for idx, (segment_id, room_data) in enumerate(self.vacuums_data.items()):
+                if idx >= 16:  # Max 16 rooms
+                    break
+                room_name = room_data.get("name", f"Room {segment_id}")
+                result[f"room_{idx}_name"] = f"{segment_id}: {room_name}"
+        return result
+
     @classmethod
     def get_all_instances(cls) -> Dict[str, "RoomStore"]:
         return cls._instances
