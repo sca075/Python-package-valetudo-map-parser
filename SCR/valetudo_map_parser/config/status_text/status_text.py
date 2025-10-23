@@ -6,12 +6,13 @@ Class to handle the status text of the vacuum cleaners.
 
 from __future__ import annotations
 from typing import Callable
+
+from ...const import text_size_coverage, charge_level, charging, dot
 from ..types import LOGGER, PilPNG
 from .translations import translations
 
 LOGGER.propagate = True
-charge_level = "\u03de"  # unicode Koppa symbol
-charging = "\u2211"  # unicode Charging symbol
+
 
 class StatusText:
     """
@@ -29,7 +30,7 @@ class StatusText:
             self._docked_ready,
             self._active,
             self._mqtt_disconnected,
-        ]
+        ] # static ordered sequence of compose functions
 
     @staticmethod
     async def _get_vacuum_status_translation(
@@ -64,7 +65,7 @@ class StatusText:
     def _docked_charged(self, current_state: list[str]) -> list[str]:
         """Return the translated docked and charging status."""
         if self._shared.vacuum_state == "docked" and self._shared.vacuum_bat_charged():
-            current_state.append(" \u00b7 ")
+            current_state.append(dot)
             current_state.append(f"{charging}{charge_level} ")
             current_state.append(f"{self._shared.vacuum_battery}%")
         return current_state
@@ -72,7 +73,7 @@ class StatusText:
     def _docked_ready(self, current_state: list[str]) -> list[str]:
         """Return the translated docked and ready status."""
         if self._shared.vacuum_state == "docked" and not self._shared.vacuum_bat_charged():
-            current_state.append(" \u00b7 ")
+            current_state.append(dot)
             current_state.append(f"{charge_level} ")
             ready_txt = (self._lang_map or {}).get(
                 "ready",
@@ -92,7 +93,7 @@ class StatusText:
     def _active(self, current_state: list[str]) -> list[str]:
         """Return the translated active status."""
         if self._shared.vacuum_state != "docked":
-            current_state.append(" \u00b7 ")
+            current_state.append(dot)
             current_state.append(f"{charge_level}")
             current_state.append(f" {self._shared.vacuum_battery}%")
         return current_state
@@ -103,18 +104,15 @@ class StatusText:
         :param text_img: Image to draw the text on.
         :return status_text, text_size: List of the status text and the text size.
         """
-        status_text = ["If you read me, something really went wrong.."]  # default text
-        text_size_coverage = 1.5  # resize factor for the text
         text_size = self._shared.vacuum_status_size  # default text size
         vacuum_state = await self._translate_vacuum_status()
-        if self._shared.show_vacuum_state:
-            status_text = [f"{self.file_name}: {vacuum_state}"]
-            # Compose Status Text with available data.
-            for func in self._compose_functions:
-                status_text = func(status_text)
-            if text_size >= 50 and getattr(text_img, "width", None):
-                text_pixels = max(1, sum(len(text) for text in status_text))
-                text_size = int(
-                    (text_size_coverage * text_img.width) // text_pixels
-                )
+        status_text = [f"{self.file_name}: {vacuum_state}"]
+        # Compose Status Text with available data.
+        for func in self._compose_functions:
+            status_text = func(status_text)
+        if text_size >= 50 and getattr(text_img, "width", None):
+            text_pixels = max(1, sum(len(text) for text in status_text))
+            text_size = int(
+                (text_size_coverage * text_img.width) // text_pixels
+            )
         return status_text, text_size
