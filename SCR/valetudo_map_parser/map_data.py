@@ -676,7 +676,7 @@ class RandImageData:
 
         # Handle missing or invalid segment IDs gracefully
         if not seg_ids:
-            return []
+            return ([], []) if out_lines else []
 
         segments = []
         outlines = []
