@@ -1,3 +1,4 @@
+
 CAMERA_STORAGE = "valetudo_camera"
 ATTR_IMAGE_LAST_UPDATED = "image_last_updated"
 ATTR_ROTATE = "rotate_image"
@@ -216,7 +217,7 @@ COLOR_ZONE_CLEAN = "color_zone_clean"
 COLOR_WALL = "color_wall"
 COLOR_TEXT = "color_text"
 
-"Rooms Colours RGB"
+"""Rooms Colours RGB"""
 COLOR_ROOM_0 = "color_room_0"
 COLOR_ROOM_1 = "color_room_1"
 COLOR_ROOM_2 = "color_room_2"
@@ -278,3 +279,9 @@ ATTR_ZONES = "zones"
 ATTR_POINTS = "points"
 ATTR_OBSTACLES = "obstacles"
 ATTR_CAMERA_MODE = "camera_mode"
+
+# Status text cost
+charge_level = "\u03de"  # unicode Koppa symbol
+charging = "\u2211"  # unicode Charging symbol
+dot = " \u00b7 "  # unicode middle dot
+text_size_coverage = 1.5  # resize factor for the text
