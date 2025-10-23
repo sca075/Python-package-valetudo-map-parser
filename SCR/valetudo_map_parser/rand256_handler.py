@@ -15,10 +15,8 @@ from mvcrender.autocrop import AutoCrop
 
 from .config.async_utils import AsyncPIL
 from .config.drawable_elements import DrawableElement
+from .const import COLORS, DEFAULT_IMAGE_SIZE, DEFAULT_PIXEL_SIZE
 from .config.types import (
-    COLORS,
-    DEFAULT_IMAGE_SIZE,
-    DEFAULT_PIXEL_SIZE,
     LOGGER,
     Colors,
     Destinations,

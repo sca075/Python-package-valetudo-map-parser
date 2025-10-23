@@ -11,7 +11,7 @@ from typing import List
 from PIL import Image
 
 from .utils import pil_size_rotation
-from .types import (
+from ..const import (
     ATTR_CALIBRATION_POINTS,
     ATTR_CAMERA_MODE,
     ATTR_CONTENT_TYPE,
@@ -39,8 +39,10 @@ from .types import (
     CONF_VAC_STAT_POS,
     CONF_VAC_STAT_SIZE,
     CONF_ZOOM_LOCK_RATIO,
-    DEFAULT_VALUES,
     NOT_STREAMING_STATES,
+    DEFAULT_VALUES,
+)
+from .types import (
     CameraModes,
     Colors,
     PilPNG,
