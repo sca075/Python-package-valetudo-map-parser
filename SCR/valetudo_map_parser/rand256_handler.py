@@ -48,6 +48,8 @@ class ReImageHandler(BaseHandler, AutoCrop):
         AutoCrop.__init__(self, self)
         self.auto_crop = None  # Auto crop flag
         self.segment_data = None  # Segment data
+        self.element_map = None  # Element map for tracking drawable elements
+        self.robot_position = None  # Robot position for zoom functionality
         self.outlines = None  # Outlines data
         self.calibration_data = None  # Calibration data
         self.data = RandImageData  # Image Data
@@ -84,7 +86,6 @@ class ReImageHandler(BaseHandler, AutoCrop):
                     json_data, size_x, size_y, top, left, True
                 )
 
-
             dest_json = destinations if destinations else {}
             zones_data = dest_json.get("zones", [])
             points_data = dest_json.get("spots", [])
@@ -96,7 +97,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
 
             # Update self.rooms_pos from room_properties for compatibility with other methods
             self.rooms_pos = []
-            for room_id, room_data in room_properties.items():
+            for _, room_data in room_properties.items():
                 self.rooms_pos.append(
                     {"name": room_data["name"], "outline": room_data["outline"]}
                 )
@@ -195,6 +196,94 @@ class ReImageHandler(BaseHandler, AutoCrop):
         # If we reach here without returning, return None
         return None
 
+    async def _initialize_base_layer(
+        self,
+        m_json,
+        size_x,
+        size_y,
+        colors,
+        destinations,
+        robot_position,
+        robot_position_angle,
+    ):
+        """Initialize the base layer on first frame."""
+        self.element_map = np.zeros((size_y, size_x), dtype=np.int32)
+        self.element_map[:] = DrawableElement.FLOOR
+
+        if self.drawing_config.is_enabled(DrawableElement.FLOOR):
+            room_id, img_np_array = await self.imd.async_draw_base_layer(
+                m_json,
+                size_x,
+                size_y,
+                colors["wall"],
+                colors["zone_clean"],
+                colors["background"],
+                DEFAULT_PIXEL_SIZE,
+            )
+            LOGGER.info("%s: Completed base Layers", self.file_name)
+
+            if room_id > 0 and not self.room_propriety:
+                self.room_propriety = await self.get_rooms_attributes(destinations)
+
+            if not self.rooms_pos and not self.room_propriety:
+                self.room_propriety = await self.get_rooms_attributes(destinations)
+
+            if (
+                self.rooms_pos
+                and robot_position
+                and (self.robot_pos is None or "in_room" not in self.robot_pos)
+            ):
+                self.robot_pos = await self.async_get_robot_in_room(
+                    (robot_position[0] * 10),
+                    (robot_position[1] * 10),
+                    robot_position_angle,
+                )
+        else:
+            background_color = self.drawing_config.get_property(
+                DrawableElement.FLOOR, "color", colors["background"]
+            )
+            img_np_array = await self.draw.create_empty_image(
+                size_x, size_y, background_color
+            )
+
+        if self.img_base_layer is not None:
+            del self.img_base_layer
+        self.img_base_layer = await self.async_copy_array(img_np_array)
+        del img_np_array
+
+    async def _check_zoom_conditions(self, m_json, robot_position, destinations):
+        """Check and set zoom conditions based on active zones."""
+        if not (
+            self.shared.image_auto_zoom
+            and self.shared.vacuum_state == "cleaning"
+            and robot_position
+            and destinations
+        ):
+            return
+
+        try:
+            temp_room_properties = (
+                await self.rooms_handler.async_extract_room_properties(
+                    m_json, destinations
+                )
+            )
+            if temp_room_properties:
+                temp_rooms_pos = []
+                for _, room_data in temp_room_properties.items():
+                    temp_rooms_pos.append(
+                        {"name": room_data["name"], "outline": room_data["outline"]}
+                    )
+                original_rooms_pos = self.rooms_pos
+                self.rooms_pos = temp_rooms_pos
+                self.rooms_pos = original_rooms_pos
+        except (ValueError, KeyError, TypeError):
+            if (
+                self.shared.image_auto_zoom
+                and self.shared.vacuum_state == "cleaning"
+                and robot_position
+            ):
+                self.zooming = True
+
     async def _setup_robot_and_image(
         self, m_json, size_x, size_y, colors, destinations
     ):
@@ -206,100 +295,17 @@ class ReImageHandler(BaseHandler, AutoCrop):
         ) = await self.imd.async_get_robot_position(m_json)
 
         if self.frame_number == 0:
-            # Create element map for tracking what's drawn where
-            self.element_map = np.zeros((size_y, size_x), dtype=np.int32)
-            self.element_map[:] = DrawableElement.FLOOR
+            await self._initialize_base_layer(
+                m_json,
+                size_x,
+                size_y,
+                colors,
+                destinations,
+                robot_position,
+                robot_position_angle,
+            )
 
-            # Draw base layer if floor is enabled
-            if self.drawing_config.is_enabled(DrawableElement.FLOOR):
-                room_id, img_np_array = await self.imd.async_draw_base_layer(
-                    m_json,
-                    size_x,
-                    size_y,
-                    colors["wall"],
-                    colors["zone_clean"],
-                    colors["background"],
-                    DEFAULT_PIXEL_SIZE,
-                )
-                LOGGER.info("%s: Completed base Layers", self.file_name)
-
-                if room_id > 0 and not self.room_propriety:
-                    self.room_propriety = await self.get_rooms_attributes(destinations)
-
-                # Ensure room data is available for robot room detection (even if not extracted above)
-                if not self.rooms_pos and not self.room_propriety:
-                    self.room_propriety = await self.get_rooms_attributes(destinations)
-
-                # Always check robot position for zooming (update if room info is missing)
-                if (
-                    self.rooms_pos
-                    and robot_position
-                    and (self.robot_pos is None or "in_room" not in self.robot_pos)
-                ):
-                    self.robot_pos = await self.async_get_robot_in_room(
-                        (robot_position[0] * 10),
-                        (robot_position[1] * 10),
-                        robot_position_angle,
-                    )
-                # Delete old base layer before creating new one to free memory
-                if self.img_base_layer is not None:
-                    del self.img_base_layer
-                self.img_base_layer = await self.async_copy_array(img_np_array)
-                # Delete source array after copying to free memory
-                del img_np_array
-            else:
-                # If floor is disabled, create an empty image
-                background_color = self.drawing_config.get_property(
-                    DrawableElement.FLOOR, "color", colors["background"]
-                )
-                img_np_array = await self.draw.create_empty_image(
-                    size_x, size_y, background_color
-                )
-                # Delete old base layer before creating new one to free memory
-                if self.img_base_layer is not None:
-                    del self.img_base_layer
-                self.img_base_layer = await self.async_copy_array(img_np_array)
-                # Delete source array after copying to free memory
-                del img_np_array
-
-        # Check active zones BEFORE auto-crop to enable proper zoom functionality
-        # This needs to run on every frame, not just frame 0
-        if (
-            self.shared.image_auto_zoom
-            and self.shared.vacuum_state == "cleaning"
-            and robot_position
-            and destinations  # Check if we have destinations data for room extraction
-        ):
-            # Extract room data early if we have destinations
-            try:
-                temp_room_properties = (
-                    await self.rooms_handler.async_extract_room_properties(
-                        m_json, destinations
-                    )
-                )
-                if temp_room_properties:
-                    # Create temporary rooms_pos for robot room detection
-                    temp_rooms_pos = []
-                    for room_id, room_data in temp_room_properties.items():
-                        temp_rooms_pos.append(
-                            {"name": room_data["name"], "outline": room_data["outline"]}
-                        )
-
-                    # Store original rooms_pos and temporarily use the new one
-                    original_rooms_pos = self.rooms_pos
-                    self.rooms_pos = temp_rooms_pos
-
-                    # Restore original rooms_pos
-                    self.rooms_pos = original_rooms_pos
-
-            except (ValueError, KeyError, TypeError):
-                # Fallback to robot-position-based zoom if room extraction fails
-                if (
-                    self.shared.image_auto_zoom
-                    and self.shared.vacuum_state == "cleaning"
-                    and robot_position
-                ):
-                    self.zooming = True
+        await self._check_zoom_conditions(m_json, robot_position, destinations)
 
         return self.img_base_layer, robot_position, robot_position_angle
 
@@ -401,139 +407,124 @@ class ReImageHandler(BaseHandler, AutoCrop):
             )
         return self.room_propriety
 
+    def _create_robot_position_dict(
+        self, robot_x: int, robot_y: int, angle: float, room_name: str
+    ) -> RobotPosition:
+        """Create a robot position dictionary."""
+        return {
+            "x": robot_x,
+            "y": robot_y,
+            "angle": angle,
+            "in_room": room_name,
+        }
+
+    def _set_zooming_from_active_zones(self) -> None:
+        """Set zooming based on active zones."""
+        self.active_zones = self.shared.rand256_active_zone
+        self.zooming = False
+        if self.active_zones and (
+            self.robot_in_room["id"] in range(len(self.active_zones))
+        ):
+            self.zooming = bool(self.active_zones[self.robot_in_room["id"]])
+
+    def _check_cached_room_outline_rand(
+        self, robot_x: int, robot_y: int, angle: float
+    ) -> RobotPosition | None:
+        """Check if robot is still in cached room using outline."""
+        if "outline" in self.robot_in_room:
+            outline = self.robot_in_room["outline"]
+            if point_in_polygon(int(robot_x), int(robot_y), outline):
+                self._set_zooming_from_active_zones()
+                LOGGER.debug(
+                    "%s: Robot is in %s room (polygon detection). %s",
+                    self.file_name,
+                    self.robot_in_room["room"],
+                    self.active_zones,
+                )
+                return self._create_robot_position_dict(
+                    robot_x, robot_y, angle, self.robot_in_room["room"]
+                )
+        return None
+
+    def _check_cached_room_bbox_rand(
+        self, robot_x: int, robot_y: int, angle: float
+    ) -> RobotPosition | None:
+        """Check if robot is still in cached room using bounding box."""
+        if all(k in self.robot_in_room for k in ["left", "right", "up", "down"]):
+            if (
+                self.robot_in_room["right"]
+                <= int(robot_x)
+                <= self.robot_in_room["left"]
+            ) and (
+                self.robot_in_room["up"] <= int(robot_y) <= self.robot_in_room["down"]
+            ):
+                self._set_zooming_from_active_zones()
+                return self._create_robot_position_dict(
+                    robot_x, robot_y, angle, self.robot_in_room["room"]
+                )
+        return None
+
+    def _check_room_with_outline_rand(
+        self, room: dict, room_count: int, robot_x: int, robot_y: int, angle: float
+    ) -> RobotPosition | None:
+        """Check if robot is in room using outline polygon."""
+        outline = room["outline"]
+        if point_in_polygon(int(robot_x), int(robot_y), outline):
+            self.robot_in_room = {
+                "id": room_count,
+                "room": str(room["name"]),
+                "outline": outline,
+            }
+            self._set_zooming_from_active_zones()
+            return self._create_robot_position_dict(
+                robot_x, robot_y, angle, self.robot_in_room["room"]
+            )
+        return None
+
     async def async_get_robot_in_room(
         self, robot_x: int, robot_y: int, angle: float
     ) -> RobotPosition:
         """Get the robot position and return in what room is."""
-        # First check if we already have a cached room and if the robot is still in it
+        # Check cached room first
         if self.robot_in_room:
-            # If we have outline data, use point_in_polygon for accurate detection
-            if "outline" in self.robot_in_room:
-                outline = self.robot_in_room["outline"]
-                if point_in_polygon(int(robot_x), int(robot_y), outline):
-                    temp = {
-                        "x": robot_x,
-                        "y": robot_y,
-                        "angle": angle,
-                        "in_room": self.robot_in_room["room"],
-                    }
-                    # Handle active zones
-                    self.active_zones = self.shared.rand256_active_zone
-                    LOGGER.debug(
-                        "%s: Robot is in %s room (polygon detection). %s",
-                        self.file_name,
-                        self.robot_in_room["room"],
-                        self.active_zones,
-                    )
-                    self.zooming = False
-                    if self.active_zones and (
-                        self.robot_in_room["id"] in range(len(self.active_zones))
-                    ):
-                        self.zooming = bool(self.active_zones[self.robot_in_room["id"]])
-                    else:
-                        self.zooming = False
-                    return temp
-            # Fallback to bounding box check if no outline data
-            elif all(k in self.robot_in_room for k in ["left", "right", "up", "down"]):
-                if (
-                    self.robot_in_room["right"]
-                    <= int(robot_x)
-                    <= self.robot_in_room["left"]
-                ) and (
-                    self.robot_in_room["up"]
-                    <= int(robot_y)
-                    <= self.robot_in_room["down"]
-                ):
-                    temp = {
-                        "x": robot_x,
-                        "y": robot_y,
-                        "angle": angle,
-                        "in_room": self.robot_in_room["room"],
-                    }
-                    # Handle active zones
-                    self.active_zones = self.shared.rand256_active_zone
-                    self.zooming = False
-                    if self.active_zones and (
-                        self.robot_in_room["id"] in range(len(self.active_zones))
-                    ):
-                        self.zooming = bool(self.active_zones[self.robot_in_room["id"]])
-                    else:
-                        self.zooming = False
-                    return temp
+            result = self._check_cached_room_outline_rand(robot_x, robot_y, angle)
+            if result:
+                return result
+            result = self._check_cached_room_bbox_rand(robot_x, robot_y, angle)
+            if result:
+                return result
 
-        # If we don't have a cached room or the robot is not in it, search all rooms
-        last_room = None
-        room_count = 0
-        if self.robot_in_room:
-            last_room = self.robot_in_room
+        # Prepare for room search
+        last_room = self.robot_in_room
+        map_boundary = 50000
 
-        # Check if the robot is far outside the normal map boundaries
-        # This helps prevent false positives for points very far from any room
-        map_boundary = 50000  # Typical map size is around 25000-30000 units for Rand25
-        if abs(robot_x) > map_boundary or abs(robot_y) > map_boundary:
+        # Check boundary conditions or missing room data
+        if (
+            abs(robot_x) > map_boundary
+            or abs(robot_y) > map_boundary
+            or not self.rooms_pos
+        ):
             self.robot_in_room = last_room
             self.zooming = False
-            temp = {
-                "x": robot_x,
-                "y": robot_y,
-                "angle": angle,
-                "in_room": last_room["room"] if last_room else "unknown",
-            }
-            return temp
+            return self._create_robot_position_dict(
+                robot_x, robot_y, angle, last_room["room"] if last_room else "unknown"
+            )
 
-        # Search through all rooms to find which one contains the robot
-        if not self.rooms_pos:
-            self.robot_in_room = last_room
-            self.zooming = False
-            temp = {
-                "x": robot_x,
-                "y": robot_y,
-                "angle": angle,
-                "in_room": last_room["room"] if last_room else "unknown",
-            }
-            return temp
-
-        for room in self.rooms_pos:
-            # Check if the room has an outline (polygon points)
+        # Search through all rooms
+        for room_count, room in enumerate(self.rooms_pos):
             if "outline" in room:
-                outline = room["outline"]
-                # Use point_in_polygon for accurate detection with complex shapes
-                if point_in_polygon(int(robot_x), int(robot_y), outline):
-                    # Robot is in this room
-                    self.robot_in_room = {
-                        "id": room_count,
-                        "room": str(room["name"]),
-                        "outline": outline,
-                    }
-                    temp = {
-                        "x": robot_x,
-                        "y": robot_y,
-                        "angle": angle,
-                        "in_room": self.robot_in_room["room"],
-                    }
-
-                    # Handle active zones - Set zooming based on active zones
-                    self.active_zones = self.shared.rand256_active_zone
-                    if self.active_zones and (
-                        self.robot_in_room["id"] in range(len(self.active_zones))
-                    ):
-                        self.zooming = bool(self.active_zones[self.robot_in_room["id"]])
-                    else:
-                        self.zooming = False
-
-                    return temp
-            room_count += 1
+                result = self._check_room_with_outline_rand(
+                    room, room_count, robot_x, robot_y, angle
+                )
+                if result:
+                    return result
 
         # Robot not found in any room
         self.robot_in_room = last_room
         self.zooming = False
-        temp = {
-            "x": robot_x,
-            "y": robot_y,
-            "angle": angle,
-            "in_room": last_room["room"] if last_room else "unknown",
-        }
-        return temp
+        return self._create_robot_position_dict(
+            robot_x, robot_y, angle, last_room["room"] if last_room else "unknown"
+        )
 
     def get_calibration_data(self, rotation_angle: int = 0) -> Any:
         """Return the map calibration data."""

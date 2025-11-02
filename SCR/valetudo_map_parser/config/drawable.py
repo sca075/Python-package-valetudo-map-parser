@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Tuple, Union
+from typing import Union
 
 import numpy as np
 from mvcrender.blend import get_blended_color, sample_and_blend_color
@@ -206,24 +206,6 @@ class Drawable:
         return layer
 
     @staticmethod
-    def point_inside(x: int, y: int, points: list[Tuple[int, int]]) -> bool:
-        """Check if a point (x, y) is inside a polygon defined by a list of points."""
-        n = len(points)
-        inside = False
-        inters_x = 0.0
-        p1x, p1y = points[0]
-        for i in range(1, n + 1):
-            p2x, p2y = points[i % n]
-            if y > min(p1y, p2y):
-                if y <= max(p1y, p2y) and x <= max(p1x, p2x):
-                    if p1y != p2y:
-                        inters_x = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
-                    if p1x == p2x or x <= inters_x:
-                        inside = not inside
-            p1x, p1y = p2x, p2y
-        return inside
-
-    @staticmethod
     def _line(
         layer: NumpyArray,
         x1: int,
@@ -330,56 +312,6 @@ class Drawable:
         return image
 
     @staticmethod
-    def _polygon_outline(
-        arr: NumpyArray,
-        points: list[Tuple[int, int]],
-        width: int,
-        outline_color: Color,
-        fill_color: Color = None,
-    ) -> NumpyArray:
-        """
-        Draw the outline of a polygon on the array using _line, and optionally fill it.
-        Uses NumPy vectorized operations for improved performance.
-        """
-        # Draw the outline
-        for i, _ in enumerate(points):
-            current_point = points[i]
-            next_point = points[(i + 1) % len(points)]
-            arr = Drawable._line(
-                arr,
-                current_point[0],
-                current_point[1],
-                next_point[0],
-                next_point[1],
-                outline_color,
-                width,
-            )
-
-        # Fill the polygon if a fill color is provided
-        if fill_color is not None:
-            # Get the bounding box of the polygon
-            min_x = max(0, min(p[0] for p in points))
-            max_x = min(arr.shape[1] - 1, max(p[0] for p in points))
-            min_y = max(0, min(p[1] for p in points))
-            max_y = min(arr.shape[0] - 1, max(p[1] for p in points))
-
-            # Create a mask for the polygon region
-            mask = np.zeros((max_y - min_y + 1, max_x - min_x + 1), dtype=bool)
-
-            # Adjust points to the mask's coordinate system
-            adjusted_points = [(p[0] - min_x, p[1] - min_y) for p in points]
-
-            # Test each point in the grid
-            for i in range(mask.shape[0]):
-                for j in range(mask.shape[1]):
-                    mask[i, j] = Drawable.point_inside(j, i, adjusted_points)
-
-            # Apply the fill color to the masked region
-            arr[min_y : max_y + 1, min_x : max_x + 1][mask] = fill_color
-
-        return arr
-
-    @staticmethod
     async def zones(layers: NumpyArray, coordinates, color: Color) -> NumpyArray:
         """
         Draw zones as filled polygons with alpha blending using mvcrender.
@@ -420,14 +352,18 @@ class Drawable:
             mask_rgba = np.zeros((box_h, box_w, 4), dtype=np.uint8)
 
             # Convert points to xs, ys arrays (adjusted to local bbox coordinates)
-            xs = np.array([int(pts[i] - min_x) for i in range(0, len(pts), 2)], dtype=np.int32)
-            ys = np.array([int(pts[i] - min_y) for i in range(1, len(pts), 2)], dtype=np.int32)
+            xs = np.array(
+                [int(pts[i] - min_x) for i in range(0, len(pts), 2)], dtype=np.int32
+            )
+            ys = np.array(
+                [int(pts[i] - min_y) for i in range(1, len(pts), 2)], dtype=np.int32
+            )
 
             # Draw filled polygon on mask
             polygon_u8(mask_rgba, xs, ys, (0, 0, 0, 0), 0, (255, 255, 255, 255))
 
             # Extract boolean mask from first channel
-            zone_mask = (mask_rgba[:, :, 0] > 0)
+            zone_mask = mask_rgba[:, :, 0] > 0
             del mask_rgba
             del xs
             del ys

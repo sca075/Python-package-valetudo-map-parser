@@ -88,6 +88,189 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
             self.rooms_pos = None
         return room_properties
 
+    def _identify_disabled_rooms(self) -> set:
+        """Identify which rooms are disabled in the drawing configuration."""
+        disabled_rooms = set()
+        room_id = 0
+        for layer_type, _ in self.json_data.layers.items():
+            if layer_type == "segment":
+                current_room_id = room_id + 1
+                if 1 <= current_room_id <= 15:
+                    room_element = getattr(
+                        DrawableElement, f"ROOM_{current_room_id}", None
+                    )
+                    if room_element and not self.drawing_config.is_enabled(
+                        room_element
+                    ):
+                        disabled_rooms.add(room_id)
+                room_id = (room_id + 1) % 16
+        return disabled_rooms
+
+    async def _draw_layer_if_enabled(
+        self,
+        img_np_array,
+        layer_type,
+        compressed_pixels_list,
+        colors,
+        pixel_size,
+        disabled_rooms,
+        room_id,
+    ):
+        """Draw a layer if it's enabled in the drawing configuration."""
+        is_room_layer = layer_type == "segment"
+
+        if is_room_layer:
+            current_room_id = room_id + 1
+            if 1 <= current_room_id <= 15:
+                room_element = getattr(DrawableElement, f"ROOM_{current_room_id}", None)
+                if not self.drawing_config.is_enabled(room_element):
+                    return room_id + 1, img_np_array  # Skip this room
+
+        is_wall_layer = layer_type == "wall"
+        if is_wall_layer and not self.drawing_config.is_enabled(DrawableElement.WALL):
+            return room_id, img_np_array  # Skip walls
+
+        # Draw the layer
+        room_id, img_np_array = await self.imd.async_draw_base_layer(
+            img_np_array,
+            compressed_pixels_list,
+            layer_type,
+            colors["wall"],
+            colors["zone_clean"],
+            pixel_size,
+            disabled_rooms if layer_type == "wall" else None,
+        )
+        return room_id, img_np_array
+
+    async def _draw_base_layers(self, img_np_array, colors, pixel_size):
+        """Draw all base layers (rooms, walls, floors)."""
+        disabled_rooms = self._identify_disabled_rooms()
+        room_id = 0
+
+        for layer_type, compressed_pixels_list in self.json_data.layers.items():
+            room_id, img_np_array = await self._draw_layer_if_enabled(
+                img_np_array,
+                layer_type,
+                compressed_pixels_list,
+                colors,
+                pixel_size,
+                disabled_rooms,
+                room_id,
+            )
+
+        return img_np_array, room_id
+
+    async def _draw_additional_elements(
+        self, img_np_array, m_json, entity_dict, colors
+    ):
+        """Draw additional elements like walls, charger, and obstacles."""
+        if self.drawing_config.is_enabled(DrawableElement.VIRTUAL_WALL):
+            img_np_array = await self.imd.async_draw_virtual_walls(
+                m_json, img_np_array, colors["no_go"]
+            )
+
+        if self.drawing_config.is_enabled(DrawableElement.CHARGER):
+            img_np_array = await self.imd.async_draw_charger(
+                img_np_array, entity_dict, colors["charger"]
+            )
+
+        if self.drawing_config.is_enabled(DrawableElement.OBSTACLE):
+            self.shared.obstacles_pos = self.data.get_obstacles(entity_dict)
+            if self.shared.obstacles_pos:
+                img_np_array = await self.imd.async_draw_obstacle(
+                    img_np_array, self.shared.obstacles_pos, colors["no_go"]
+                )
+
+        return img_np_array
+
+    async def _setup_room_and_robot_data(
+        self, room_id, robot_position, robot_position_angle
+    ):
+        """Setup room properties and robot position data."""
+        if (room_id > 0) and not self.room_propriety:
+            self.room_propriety = await self.async_extract_room_properties(
+                self.json_data.json_data
+            )
+
+        if not self.rooms_pos and not self.room_propriety:
+            self.room_propriety = await self.async_extract_room_properties(
+                self.json_data.json_data
+            )
+
+        if self.rooms_pos and robot_position and robot_position_angle:
+            self.robot_pos = await self.imd.async_get_robot_in_room(
+                robot_x=(robot_position[0]),
+                robot_y=(robot_position[1]),
+                angle=robot_position_angle,
+            )
+
+    async def _prepare_data_tasks(self, m_json, entity_dict):
+        """Prepare and execute data extraction tasks in parallel."""
+        data_tasks = []
+
+        if self.drawing_config.is_enabled(DrawableElement.RESTRICTED_AREA):
+            data_tasks.append(self._prepare_zone_data(m_json))
+
+        if self.drawing_config.is_enabled(DrawableElement.GO_TO_TARGET):
+            data_tasks.append(self._prepare_goto_data(entity_dict))
+
+        path_enabled = self.drawing_config.is_enabled(DrawableElement.PATH)
+        LOGGER.info("%s: PATH element enabled: %s", self.file_name, path_enabled)
+        if path_enabled:
+            LOGGER.info("%s: Drawing path", self.file_name)
+            data_tasks.append(self._prepare_path_data(m_json))
+
+        if data_tasks:
+            await asyncio.gather(*data_tasks)
+
+        return path_enabled
+
+    async def _draw_dynamic_elements(
+        self, img_np_array, m_json, entity_dict, colors, path_enabled
+    ):
+        """Draw dynamic elements like zones, paths, and go-to targets."""
+        if self.drawing_config.is_enabled(DrawableElement.RESTRICTED_AREA):
+            img_np_array = await self.imd.async_draw_zones(
+                m_json, img_np_array, colors["zone_clean"], colors["no_go"]
+            )
+
+        if self.drawing_config.is_enabled(DrawableElement.GO_TO_TARGET):
+            img_np_array = await self.imd.draw_go_to_flag(
+                img_np_array, entity_dict, colors["go_to"]
+            )
+
+        if path_enabled:
+            img_np_array = await self.imd.async_draw_paths(
+                img_np_array, m_json, colors["move"], self.color_grey
+            )
+        else:
+            LOGGER.info("%s: Skipping path drawing", self.file_name)
+
+        return img_np_array
+
+    async def _draw_robot_if_enabled(
+        self, img_np_array, robot_pos, robot_position, robot_position_angle, colors
+    ):
+        """Draw the robot on the map if enabled."""
+        if self.shared.vacuum_state == "docked":
+            robot_position_angle -= 180
+
+        if robot_pos and self.drawing_config.is_enabled(DrawableElement.ROBOT):
+            robot_color = self.drawing_config.get_property(
+                DrawableElement.ROBOT, "color", colors["robot"]
+            )
+            img_np_array = await self.draw.robot(
+                layers=img_np_array,
+                x=robot_position[0],
+                y=robot_position[1],
+                angle=robot_position_angle,
+                fill=robot_color,
+                radius=self.shared.robot_size,
+                robot_state=self.shared.vacuum_state,
+            )
+
+        return img_np_array
+
     # noinspection PyUnresolvedReferences,PyUnboundLocalVariable
     async def async_get_image_from_json(
         self,
@@ -132,126 +315,21 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                     img_np_array = await self.draw.create_empty_image(
                         self.img_size["x"], self.img_size["y"], colors["background"]
                     )
-                    # Draw layers and segments if enabled
                     room_id = 0
-                    # Keep track of disabled rooms to skip their walls later
-                    disabled_rooms = set()
 
                     if self.drawing_config.is_enabled(DrawableElement.FLOOR):
-                        # First pass: identify disabled rooms
-                        for (
-                            layer_type,
-                            compressed_pixels_list,
-                        ) in self.json_data.layers.items():
-                            # Check if this is a room layer
-                            if layer_type == "segment":
-                                # The room_id is the current room being processed (0-based index)
-                                # We need to check if ROOM_{room_id+1} is enabled (1-based in DrawableElement)
-                                current_room_id = room_id + 1
-                                if 1 <= current_room_id <= 15:
-                                    room_element = getattr(
-                                        DrawableElement, f"ROOM_{current_room_id}", None
-                                    )
-                                    if (
-                                        room_element
-                                        and not self.drawing_config.is_enabled(
-                                            room_element
-                                        )
-                                    ):
-                                        # Add this room to the disabled rooms set
-                                        disabled_rooms.add(room_id)
-                                room_id = (
-                                    room_id + 1
-                                ) % 16  # Cycle room_id back to 0 after 15
-
-                        # Reset room_id for the actual drawing pass
-                        room_id = 0
-
-                        # Second pass: draw enabled rooms and walls
-                        for (
-                            layer_type,
-                            compressed_pixels_list,
-                        ) in self.json_data.layers.items():
-                            # Check if this is a room layer
-                            is_room_layer = layer_type == "segment"
-
-                            # If it's a room layer, check if the specific room is enabled
-                            if is_room_layer:
-                                # The room_id is the current room being processed (0-based index)
-                                # We need to check if ROOM_{room_id+1} is enabled (1-based in DrawableElement)
-                                current_room_id = room_id + 1
-                                if 1 <= current_room_id <= 15:
-                                    room_element = getattr(
-                                        DrawableElement, f"ROOM_{current_room_id}", None
-                                    )
-
-                                    # Skip this room if it's disabled
-                                    if not self.drawing_config.is_enabled(room_element):
-                                        room_id = (
-                                            room_id + 1
-                                        ) % 16  # Increment room_id even if we skip
-                                        continue
-
-                            # Draw the layer ONLY if enabled
-                            is_wall_layer = layer_type == "wall"
-                            if is_wall_layer:
-                                # Skip walls entirely if disabled
-                                if not self.drawing_config.is_enabled(
-                                    DrawableElement.WALL
-                                ):
-                                    continue
-                            # Draw the layer
-                            (
-                                room_id,
-                                img_np_array,
-                            ) = await self.imd.async_draw_base_layer(
-                                img_np_array,
-                                compressed_pixels_list,
-                                layer_type,
-                                colors["wall"],
-                                colors["zone_clean"],
-                                pixel_size,
-                                disabled_rooms if layer_type == "wall" else None,
-                            )
-
-                    # Draw the virtual walls if enabled
-                    if self.drawing_config.is_enabled(DrawableElement.VIRTUAL_WALL):
-                        img_np_array = await self.imd.async_draw_virtual_walls(
-                            m_json, img_np_array, colors["no_go"]
+                        img_np_array, room_id = await self._draw_base_layers(
+                            img_np_array, colors, pixel_size
                         )
 
-                    # Draw charger if enabled
-                    if self.drawing_config.is_enabled(DrawableElement.CHARGER):
-                        img_np_array = await self.imd.async_draw_charger(
-                            img_np_array, entity_dict, colors["charger"]
-                        )
+                    img_np_array = await self._draw_additional_elements(
+                        img_np_array, m_json, entity_dict, colors
+                    )
 
-                    # Draw obstacles if enabled
-                    if self.drawing_config.is_enabled(DrawableElement.OBSTACLE):
-                        self.shared.obstacles_pos = self.data.get_obstacles(entity_dict)
-                        if self.shared.obstacles_pos:
-                            img_np_array = await self.imd.async_draw_obstacle(
-                                img_np_array, self.shared.obstacles_pos, colors["no_go"]
-                            )
-                    # Robot and rooms position
-                    if (room_id > 0) and not self.room_propriety:
-                        self.room_propriety = await self.async_extract_room_properties(
-                            self.json_data.json_data
-                        )
+                    await self._setup_room_and_robot_data(
+                        room_id, robot_position, robot_position_angle
+                    )
 
-                    # Ensure room data is available for robot room detection (even if not extracted above)
-                    if not self.rooms_pos and not self.room_propriety:
-                        self.room_propriety = await self.async_extract_room_properties(
-                            self.json_data.json_data
-                        )
-
-                    # Always check robot position for zooming (moved outside the condition)
-                    if self.rooms_pos and robot_position and robot_position_angle:
-                        self.robot_pos = await self.imd.async_get_robot_in_room(
-                            robot_x=(robot_position[0]),
-                            robot_y=(robot_position[1]),
-                            angle=robot_position_angle,
-                        )
                     LOGGER.info("%s: Completed base Layers", self.file_name)
                     # Copy the new array in base layer.
                     # Delete old base layer before creating new one to free memory
@@ -282,73 +360,22 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                 np.copyto(self.img_work_layer, self.img_base_layer)
                 img_np_array = self.img_work_layer
 
-                # Prepare parallel data extraction tasks
-                data_tasks = []
+                # Prepare and execute data extraction tasks
+                path_enabled = await self._prepare_data_tasks(m_json, entity_dict)
 
-                # Prepare zone data extraction
-                if self.drawing_config.is_enabled(DrawableElement.RESTRICTED_AREA):
-                    data_tasks.append(self._prepare_zone_data(m_json))
-
-                # Prepare go_to flag data extraction
-                if self.drawing_config.is_enabled(DrawableElement.GO_TO_TARGET):
-                    data_tasks.append(self._prepare_goto_data(entity_dict))
-
-                # Prepare path data extraction
-                path_enabled = self.drawing_config.is_enabled(DrawableElement.PATH)
-                LOGGER.info(
-                    "%s: PATH element enabled: %s", self.file_name, path_enabled
+                # Draw dynamic elements
+                img_np_array = await self._draw_dynamic_elements(
+                    img_np_array, m_json, entity_dict, colors, path_enabled
                 )
-                if path_enabled:
-                    LOGGER.info("%s: Drawing path", self.file_name)
-                    data_tasks.append(self._prepare_path_data(m_json))
 
-                # Await all data preparation tasks if any were created
-                if data_tasks:
-                    await asyncio.gather(*data_tasks)
-
-                # Process drawing operations sequentially (since they modify the same array)
-                # Draw zones if enabled
-                if self.drawing_config.is_enabled(DrawableElement.RESTRICTED_AREA):
-                    img_np_array = await self.imd.async_draw_zones(
-                        m_json, img_np_array, colors["zone_clean"], colors["no_go"]
-                    )
-
-                # Draw the go_to target flag if enabled
-                if self.drawing_config.is_enabled(DrawableElement.GO_TO_TARGET):
-                    img_np_array = await self.imd.draw_go_to_flag(
-                        img_np_array, entity_dict, colors["go_to"]
-                    )
-
-                # Draw paths if enabled
-                if path_enabled:
-                    img_np_array = await self.imd.async_draw_paths(
-                        img_np_array, m_json, colors["move"], self.color_grey
-                    )
-                else:
-                    LOGGER.info("%s: Skipping path drawing", self.file_name)
-
-                # Check if the robot is docked.
-                if self.shared.vacuum_state == "docked":
-                    # Adjust the robot angle.
-                    robot_position_angle -= 180
-
-                # Draw the robot if enabled
-                if robot_pos and self.drawing_config.is_enabled(DrawableElement.ROBOT):
-                    # Get robot color (allows for customization)
-                    robot_color = self.drawing_config.get_property(
-                        DrawableElement.ROBOT, "color", colors["robot"]
-                    )
-
-                    # Draw the robot
-                    img_np_array = await self.draw.robot(
-                        layers=img_np_array,
-                        x=robot_position[0],
-                        y=robot_position[1],
-                        angle=robot_position_angle,
-                        fill=robot_color,
-                        radius=self.shared.robot_size,
-                        robot_state=self.shared.vacuum_state,
-                    )
+                # Draw robot
+                img_np_array = await self._draw_robot_if_enabled(
+                    img_np_array,
+                    robot_pos,
+                    robot_position,
+                    robot_position_angle,
+                    colors,
+                )
 
                 # Synchronize zooming state from ImageDraw to handler before auto-crop
                 self.zooming = self.imd.img_h.zooming
@@ -376,11 +403,11 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
 
                 # Return PIL Image
                 return resized_image
-            else:
-                # Return PIL Image (convert from NumPy)
-                pil_img = await AsyncPIL.async_fromarray(img_np_array, mode="RGBA")
-                del img_np_array
-                return pil_img
+
+            # Return PIL Image (convert from NumPy)
+            pil_img = await AsyncPIL.async_fromarray(img_np_array, mode="RGBA")
+            del img_np_array
+            return pil_img
         except (RuntimeError, RuntimeWarning) as e:
             LOGGER.warning(
                 "%s: Error %s during image creation.",

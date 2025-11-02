@@ -127,11 +127,15 @@ class CameraShared:
     def vacuum_bat_charged(self) -> bool:
         """Check if the vacuum is charging."""
         if self.vacuum_state != "docked":
-                self._battery_state = "not_charging"
-        elif (self._battery_state == "charging_done") and (int(self.vacuum_battery) == 100):
+            self._battery_state = "not_charging"
+        elif (self._battery_state == "charging_done") and (
+            int(self.vacuum_battery) == 100
+        ):
             self._battery_state = "charged"
         else:
-            self._battery_state = "charging" if int(self.vacuum_battery) < 100 else "charging_done"
+            self._battery_state = (
+                "charging" if int(self.vacuum_battery) < 100 else "charging_done"
+            )
         return (self.vacuum_state == "docked") and (self._battery_state == "charging")
 
     @staticmethod
@@ -222,9 +226,9 @@ class CameraShared:
     def is_streaming(self) -> bool:
         """Return true if the device is streaming."""
         updated_status = self.vacuum_state
-        attr_is_streaming = ((updated_status not in NOT_STREAMING_STATES 
-                              or self.vacuum_bat_charged()) 
-                             or not self.binary_image)
+        attr_is_streaming = (
+            updated_status not in NOT_STREAMING_STATES or self.vacuum_bat_charged()
+        ) or not self.binary_image
         return attr_is_streaming
 
     def to_dict(self) -> dict:
@@ -233,7 +237,7 @@ class CameraShared:
             "image": {
                 "binary": self.binary_image,
                 "size": pil_size_rotation(self.image_rotate, self.new_image),
-                "streaming": self.is_streaming()
+                "streaming": self.is_streaming(),
             },
             "attributes": self.generate_attributes(),
         }
@@ -250,9 +254,6 @@ class CameraSharedManager:
         if device_info:
             self.device_info = device_info
             self.update_shared_data(device_info)
-
-        # Automatically initialize shared data for the instance
-        # self._init_shared_data(device_info)
 
     def update_shared_data(self, device_info):
         """Initialize the shared data with device_info."""

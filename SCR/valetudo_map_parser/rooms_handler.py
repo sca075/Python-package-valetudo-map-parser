@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from scipy.ndimage import binary_dilation, binary_erosion
-from scipy.spatial import ConvexHull
+from scipy.spatial import ConvexHull  # pylint: disable=no-name-in-module
 
 from .config.drawable_elements import DrawableElement, DrawingConfig
 from .config.types import LOGGER, RoomsProperties
@@ -83,7 +83,7 @@ class RoomsHandler:
         """
         meta_data = layer.get("metaData", {})
         segment_id = meta_data.get("segmentId")
-        name = meta_data.get("name", "Room {}".format(segment_id))
+        name = meta_data.get("name", f"Room {segment_id}")
         compressed_pixels = layer.get("compressedPixels", [])
         pixels = self.sublist(compressed_pixels, 3)
 
@@ -296,8 +296,8 @@ class RandRoomsHandler:
 
             return hull_points
 
-        except Exception as e:
-            LOGGER.warning(f"Error calculating convex hull: {e}")
+        except (ValueError, RuntimeError) as e:
+            LOGGER.warning("Error calculating convex hull: %s", e)
 
             # Fallback to bounding box if convex hull fails
             x_min, y_min = np.min(points_array, axis=0)
@@ -342,7 +342,6 @@ class RandRoomsHandler:
             except (ValueError, TypeError):
                 # If segment_id is not a valid integer, we can't map it to a room element
                 # In this case, we'll include the room (fail open)
-                pass
                 LOGGER.debug(
                     "Could not convert segment_id %s to room element", segment_id
                 )

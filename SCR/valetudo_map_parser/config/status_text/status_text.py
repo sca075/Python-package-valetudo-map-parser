@@ -30,7 +30,7 @@ class StatusText:
             self._docked_ready,
             self._active,
             self._mqtt_disconnected,
-        ] # static ordered sequence of compose functions
+        ]  # static ordered sequence of compose functions
 
     @staticmethod
     async def _get_vacuum_status_translation(
@@ -57,7 +57,9 @@ class StatusText:
         if not self._shared.vacuum_connection:
             mqtt_disc = (self._lang_map or {}).get(
                 "mqtt_disconnected",
-                translations.get("en", {}).get("mqtt_disconnected", "Disconnected from MQTT?"),
+                translations.get("en", {}).get(
+                    "mqtt_disconnected", "Disconnected from MQTT?"
+                ),
             )
             return [f"{self.file_name}: {mqtt_disc}"]
         return current_state
@@ -72,7 +74,10 @@ class StatusText:
 
     def _docked_ready(self, current_state: list[str]) -> list[str]:
         """Return the translated docked and ready status."""
-        if self._shared.vacuum_state == "docked" and not self._shared.vacuum_bat_charged():
+        if (
+            self._shared.vacuum_state == "docked"
+            and not self._shared.vacuum_bat_charged()
+        ):
             current_state.append(dot)
             current_state.append(f"{charge_level} ")
             ready_txt = (self._lang_map or {}).get(
@@ -112,7 +117,5 @@ class StatusText:
             status_text = func(status_text)
         if text_size >= 50 and getattr(text_img, "width", None):
             text_pixels = max(1, sum(len(text) for text in status_text))
-            text_size = int(
-                (text_size_coverage * text_img.width) // text_pixels
-            )
+            text_size = int((text_size_coverage * text_img.width) // text_pixels)
         return status_text, text_size

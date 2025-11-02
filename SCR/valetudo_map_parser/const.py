@@ -1,3 +1,4 @@
+"""Constants for the Valetudo Map Parser library."""
 
 CAMERA_STORAGE = "valetudo_camera"
 ATTR_IMAGE_LAST_UPDATED = "image_last_updated"
