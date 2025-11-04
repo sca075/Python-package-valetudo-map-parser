@@ -16,7 +16,6 @@ from PIL import Image
 from .config.async_utils import AsyncPIL
 from .config.drawable_elements import DrawableElement
 from .config.shared import CameraShared
-from .const import COLORS
 from .config.types import (
     LOGGER,
     CalibrationPoints,
@@ -29,6 +28,7 @@ from .config.utils import (
     BaseHandler,
     initialize_drawing_config,
 )
+from .const import COLORS
 from .hypfer_draw import ImageDraw as ImDraw
 from .map_data import ImageData
 from .rooms_handler import RoomsHandler

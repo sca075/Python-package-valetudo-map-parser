@@ -24,6 +24,7 @@ from .types import (
     PilPNG,
     RobotPosition,
     Size,
+    TrimsData,
 )
 
 
@@ -271,6 +272,10 @@ class BaseHandler:
             offset_func=self.async_map_coordinates_offset,
             is_rand=rand,
         )
+
+    def update_trims(self) -> None:
+        """Update the trims."""
+        self.shared.trims = TrimsData.from_list(self.crop_area)
 
     def get_charger_position(self) -> ChargerPosition | None:
         """Return the charger position."""

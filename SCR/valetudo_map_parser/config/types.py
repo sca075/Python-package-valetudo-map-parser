@@ -311,6 +311,19 @@ class TrimsData:
         """Convert TrimData to a dictionary."""
         return asdict(self)
 
+    @classmethod
+    def from_list(cls, crop_area: List[int], floor: Optional[str] = None):
+        """
+        Initialize TrimsData from a list [trim_up, trim_left, trim_down, trim_right]
+        """
+        return cls(
+            trim_up=crop_area[0],
+            trim_left=crop_area[1],
+            trim_down=crop_area[2],
+            trim_right=crop_area[3],
+            floor=floor,
+        )
+
     def clear(self) -> dict:
         """Clear all the trims."""
         self.floor = ""
@@ -319,6 +332,26 @@ class TrimsData:
         self.trim_down = 0
         self.trim_right = 0
         return asdict(self)
+
+
+@dataclass
+class FloorData:
+    """Dataclass to store floor configuration."""
+
+    trims: TrimsData
+    map_name: str = ""
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        """Initialize FloorData from a dictionary."""
+        return cls(
+            trims=TrimsData.from_dict(data.get("trims", {})),
+            map_name=data.get("map_name", ""),
+        )
+
+    def to_dict(self) -> dict:
+        """Convert FloorData to a dictionary."""
+        return {"trims": self.trims.to_dict(), "map_name": self.map_name}
 
 
 Color = Union[Tuple[int, int, int], Tuple[int, int, int, int]]

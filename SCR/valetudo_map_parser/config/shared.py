@@ -10,7 +10,6 @@ from typing import List
 
 from PIL import Image
 
-from .utils import pil_size_rotation
 from ..const import (
     ATTR_CALIBRATION_POINTS,
     ATTR_CAMERA_MODE,
@@ -39,15 +38,17 @@ from ..const import (
     CONF_VAC_STAT_POS,
     CONF_VAC_STAT_SIZE,
     CONF_ZOOM_LOCK_RATIO,
-    NOT_STREAMING_STATES,
     DEFAULT_VALUES,
+    NOT_STREAMING_STATES,
 )
 from .types import (
     CameraModes,
     Colors,
+    FloorData,
     PilPNG,
     TrimsData,
 )
+from .utils import pil_size_rotation
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -120,6 +121,8 @@ class CameraShared:
         self.user_language = None
         self.trim_crop_data = None
         self.trims = TrimsData.from_dict(DEFAULT_VALUES["trims_data"])
+        self.floors_trims: FloorData = {}
+        self.current_floor: str = "floor_0"
         self.skip_room_ids: List[str] = []
         self.device_info = None
         self._battery_state = None

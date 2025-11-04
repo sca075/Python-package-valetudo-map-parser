@@ -5,11 +5,13 @@ Class to handle the status text of the vacuum cleaners.
 """
 
 from __future__ import annotations
+
 from typing import Callable
 
-from ...const import text_size_coverage, charge_level, charging, dot
+from ...const import charge_level, charging, dot, text_size_coverage
 from ..types import LOGGER, PilPNG
 from .translations import translations
+
 
 LOGGER.propagate = True
 
