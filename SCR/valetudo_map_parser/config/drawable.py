@@ -12,13 +12,14 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Tuple, Union
 
 import numpy as np
 from mvcrender.blend import get_blended_color, sample_and_blend_color
 from mvcrender.draw import circle_u8, line_u8, polygon_u8
-from PIL import Image, ImageDraw, ImageFont
+from PIL import ImageDraw, ImageFont
 
-from .types import Color, NumpyArray, PilPNG, Point, Tuple, Union
+from .types import Color, NumpyArray, PilPNG, Point
 
 
 _LOGGER = logging.getLogger(__name__)

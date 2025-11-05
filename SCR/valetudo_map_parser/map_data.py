@@ -673,6 +673,11 @@ class RandImageData:
         img = RandImageData.get_rrm_image(json_data)
         seg_data = img.get("segments", {})
         seg_ids = seg_data.get("id")
+
+        # Handle missing or invalid segment IDs gracefully
+        if not seg_ids:
+            return []
+
         segments = []
         outlines = []
         count_seg = 0
