@@ -30,6 +30,8 @@ T = TypeVar("T")
 
 
 class RangeStats(TypedDict):
+    """Statistics for a range of values (min, max, mid, avg)."""
+
     min: int
     max: int
     mid: int
@@ -37,6 +39,8 @@ class RangeStats(TypedDict):
 
 
 class Dimensions(TypedDict):
+    """Dimensions with x/y range statistics and pixel count."""
+
     x: RangeStats
     y: RangeStats
     pixelCount: int
@@ -46,10 +50,14 @@ class Dimensions(TypedDict):
 
 
 class FloorWallMeta(TypedDict, total=False):
+    """Metadata for floor and wall layers."""
+
     area: int
 
 
 class SegmentMeta(TypedDict, total=False):
+    """Metadata for segment layers including segment ID and active state."""
+
     segmentId: str
     active: bool
     source: str
@@ -57,6 +65,8 @@ class SegmentMeta(TypedDict, total=False):
 
 
 class MapLayerBase(TypedDict):
+    """Base structure for map layers with pixels and dimensions."""
+
     __class__: Literal["MapLayer"]
     type: str
     pixels: list[int]
@@ -65,11 +75,15 @@ class MapLayerBase(TypedDict):
 
 
 class FloorWallLayer(MapLayerBase):
+    """Map layer representing floor or wall areas."""
+
     metaData: FloorWallMeta
     type: Literal["floor", "wall"]
 
 
 class SegmentLayer(MapLayerBase):
+    """Map layer representing a room segment."""
+
     metaData: SegmentMeta
     type: Literal["segment"]
 
@@ -78,12 +92,16 @@ class SegmentLayer(MapLayerBase):
 
 
 class PointMeta(TypedDict, total=False):
+    """Metadata for point entities including angle, label, and ID."""
+
     angle: float
     label: str
     id: str
 
 
 class PointMapEntity(TypedDict):
+    """Point-based map entity (robot, charger, obstacle, etc.)."""
+
     __class__: Literal["PointMapEntity"]
     type: str
     points: list[int]
@@ -91,6 +109,8 @@ class PointMapEntity(TypedDict):
 
 
 class PathMapEntity(TypedDict):
+    """Path-based map entity representing robot movement paths."""
+
     __class__: Literal["PathMapEntity"]
     type: str
     points: list[int]
@@ -103,16 +123,22 @@ Entity = PointMapEntity | PathMapEntity
 
 
 class MapMeta(TypedDict, total=False):
+    """Metadata for the Valetudo map including version and total area."""
+
     version: int
     totalLayerArea: int
 
 
 class Size(TypedDict):
+    """Map size with x and y dimensions."""
+
     x: int
     y: int
 
 
 class ValetudoMap(TypedDict):
+    """Complete Valetudo map structure with layers and entities."""
+
     __class__: Literal["ValetudoMap"]
     metaData: MapMeta
     size: Size

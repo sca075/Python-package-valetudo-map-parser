@@ -49,7 +49,7 @@ class AsyncPIL:
     ) -> Image.Image:
         """Async image resizing."""
         if resample is None:
-            resample = Image.LANCZOS
+            resample = Image.Resampling.LANCZOS
         return await make_async(image.resize, size, resample)
 
     @staticmethod

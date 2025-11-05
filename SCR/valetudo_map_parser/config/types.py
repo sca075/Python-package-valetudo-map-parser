@@ -20,21 +20,29 @@ LOGGER = logging.getLogger(__package__)
 
 
 class Spot(TypedDict):
+    """Type definition for a spot location."""
+
     name: str
     coordinates: List[int]  # [x, y]
 
 
 class Zone(TypedDict):
+    """Type definition for a zone area."""
+
     name: str
     coordinates: List[List[int]]  # [[x1, y1, x2, y2, repeats], ...]
 
 
 class Room(TypedDict):
+    """Type definition for a room."""
+
     name: str
     id: int
 
 
 class Destinations(TypedDict, total=False):
+    """Type definition for destinations including spots, zones, and rooms."""
+
     spots: NotRequired[Optional[List[Spot]]]
     zones: NotRequired[Optional[List[Zone]]]
     rooms: NotRequired[Optional[List[Room]]]
@@ -42,6 +50,8 @@ class Destinations(TypedDict, total=False):
 
 
 class RoomProperty(TypedDict):
+    """Type definition for room properties including outline."""
+
     number: int
     outline: list[tuple[int, int]]
     name: str
@@ -94,30 +104,49 @@ class TrimCropData:
 
 
 class RoomStore:
+    """Singleton storage for room data per vacuum ID.
+
+    Stores room properties in format: {segment_id: RoomProperty}
+    Example: {"16": {"number": 16, "outline": [...], "name": "Living Room", "x": 100, "y": 200}}
+    """
+
     _instances: Dict[str, "RoomStore"] = {}
     _lock = threading.Lock()
 
-    def __new__(cls, vacuum_id: str, rooms_data: Optional[dict] = None) -> "RoomStore":
+    def __new__(
+        cls, vacuum_id: str, rooms_data: Optional[Dict[str, RoomProperty]] = None
+    ) -> "RoomStore":
         with cls._lock:
             if vacuum_id not in cls._instances:
                 instance = super(RoomStore, cls).__new__(cls)
-                instance.vacuum_id = vacuum_id
-                instance.vacuums_data = rooms_data or {}
-                instance.rooms_count = instance.get_rooms_count()
-                instance.floor = None
                 cls._instances[vacuum_id] = instance
-            else:
-                if rooms_data is not None:
-                    cls._instances[vacuum_id].vacuums_data = rooms_data
-        return cls._instances[vacuum_id]
+            return cls._instances[vacuum_id]
 
-    def get_rooms(self) -> dict:
+    def __init__(
+        self, vacuum_id: str, rooms_data: Optional[Dict[str, RoomProperty]] = None
+    ) -> None:
+        # Only initialize if this is a new instance (not yet initialized)
+        if not hasattr(self, "vacuum_id"):
+            self.vacuum_id: str = vacuum_id
+            self.vacuums_data: Dict[str, RoomProperty] = rooms_data or {}
+            self.rooms_count: int = self.get_rooms_count()
+            self.floor: Optional[str] = None
+        elif rooms_data is not None:
+            # Update only if new data is provided
+            self.vacuums_data = rooms_data
+            self.rooms_count = self.get_rooms_count()
+
+    def get_rooms(self) -> Dict[str, RoomProperty]:
+        """Get all rooms data."""
         return self.vacuums_data
 
-    def set_rooms(self, rooms_data: dict) -> None:
+    def set_rooms(self, rooms_data: Dict[str, RoomProperty]) -> None:
+        """Set rooms data and update room count."""
         self.vacuums_data = rooms_data
+        self.rooms_count = self.get_rooms_count()
 
     def get_rooms_count(self) -> int:
+        """Get the number of rooms, defaulting to 1 if no rooms are present."""
         if isinstance(self.vacuums_data, dict):
             count = len(self.vacuums_data)
             return count if count > 0 else DEFAULT_ROOMS
@@ -125,11 +154,14 @@ class RoomStore:
 
     @property
     def room_names(self) -> dict:
-        """Return room names in format {'room_0_name': 'SegmentID: RoomName', ...}."""
+        """Return room names in format {'room_0_name': 'SegmentID: RoomName', ...}.
+
+        Maximum of 16 rooms supported.
+        """
         result = {}
         if isinstance(self.vacuums_data, dict):
             for idx, (segment_id, room_data) in enumerate(self.vacuums_data.items()):
-                if idx >= 16:  # Max 16 rooms
+                if idx >= 16:  # Max 16 rooms supported
                     break
                 room_name = room_data.get("name", f"Room {segment_id}")
                 result[f"room_{idx}_name"] = f"{segment_id}: {room_name}"
@@ -137,6 +169,7 @@ class RoomStore:
 
     @classmethod
     def get_all_instances(cls) -> Dict[str, "RoomStore"]:
+        """Get all RoomStore instances for all vacuum IDs."""
         return cls._instances
 
 
@@ -229,8 +262,9 @@ class SnapshotStore:
         async with self._lock:
             self.vacuum_json_data[vacuum_id] = json_data
 
+
 class CameraModes:
-    """Constants for the camera modes"""
+    """Constants for the camera modes."""
 
     MAP_VIEW = "map_view"
     OBSTACLE_VIEW = "obstacle_view"
@@ -277,6 +311,19 @@ class TrimsData:
         """Convert TrimData to a dictionary."""
         return asdict(self)
 
+    @classmethod
+    def from_list(cls, crop_area: List[int], floor: Optional[str] = None):
+        """
+        Initialize TrimsData from a list [trim_up, trim_left, trim_down, trim_right]
+        """
+        return cls(
+            trim_up=crop_area[0],
+            trim_left=crop_area[1],
+            trim_down=crop_area[2],
+            trim_right=crop_area[3],
+            floor=floor,
+        )
+
     def clear(self) -> dict:
         """Clear all the trims."""
         self.floor = ""
@@ -285,6 +332,27 @@ class TrimsData:
         self.trim_down = 0
         self.trim_right = 0
         return asdict(self)
+
+
+@dataclass
+class FloorData:
+    """Dataclass to store floor configuration."""
+
+    trims: TrimsData
+    map_name: str = ""
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        """Initialize FloorData from a dictionary."""
+        return cls(
+            trims=TrimsData.from_dict(data.get("trims", {})),
+            map_name=data.get("map_name", ""),
+        )
+
+    def to_dict(self) -> dict:
+        """Convert FloorData to a dictionary."""
+        return {"trims": self.trims.to_dict(), "map_name": self.map_name}
+
 
 Color = Union[Tuple[int, int, int], Tuple[int, int, int, int]]
 Colors = Dict[str, Color]

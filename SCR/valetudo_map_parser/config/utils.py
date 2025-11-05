@@ -24,6 +24,7 @@ from .types import (
     PilPNG,
     RobotPosition,
     Size,
+    TrimsData,
 )
 
 
@@ -110,80 +111,17 @@ class BaseHandler:
         """
         try:
             # Backup current image to last_image before processing new one
-            if hasattr(self.shared, "new_image") and self.shared.new_image is not None:
-                # Close old last_image to free memory before replacing it
-                if hasattr(self.shared, "last_image") and self.shared.last_image is not None:
-                    try:
-                        self.shared.last_image.close()
-                    except Exception:
-                        pass  # Ignore errors if image is already closed
-                self.shared.last_image = self.shared.new_image
+            self._backup_last_image()
 
             # Call the appropriate handler method based on handler type
-            if hasattr(self, "get_image_from_rrm"):
-                # This is a Rand256 handler
-                new_image = await self.get_image_from_rrm(
-                    m_json=m_json,
-                    destinations=destinations,
-                )
+            new_image = await self._generate_new_image(m_json, destinations)
+            if new_image is None:
+                return self._handle_failed_image_generation()
 
-            elif hasattr(self, "async_get_image_from_json"):
-                # This is a Hypfer handler
-                self.json_data = await HyperMapData.async_from_valetudo_json(m_json)
-                new_image = await self.async_get_image_from_json(
-                    m_json=m_json,
-                )
-            else:
-                LOGGER.warning(
-                    "%s: Handler type not recognized for async_get_image",
-                    self.file_name,
-                )
-                return (
-                    self.shared.last_image
-                    if hasattr(self.shared, "last_image")
-                    else None
-                )
+            # Process and store the new image
+            return await self._process_new_image(new_image, destinations, bytes_format)
 
-            # Store the new image in shared data
-            if new_image is not None:
-                # Update shared data
-                await self._async_update_shared_data(destinations)
-                self.shared.new_image = new_image
-                # Add text to the image
-                if self.shared.show_vacuum_state:
-                    text_editor = StatusText(self.shared)
-                    img_text = await text_editor.get_status_text(new_image)
-                    Drawable.status_text(
-                        new_image,
-                        img_text[1],
-                        self.shared.user_colors[8],
-                        img_text[0],
-                        self.shared.vacuum_status_font,
-                        self.shared.vacuum_status_position,
-                    )
-                # Convert to binary (PNG bytes) if requested
-                if bytes_format:
-                    self.shared.binary_image = pil_to_png_bytes(new_image)
-                else:
-                    self.shared.binary_image = pil_to_png_bytes(self.shared.last_image)
-                # Update the timestamp with current datetime
-                self.shared.image_last_updated = datetime.datetime.fromtimestamp(time())
-                LOGGER.debug("%s: Frame Completed.", self.file_name)
-                data = {}
-                if bytes_format:
-                    data = self.shared.to_dict()
-                return new_image, data
-            else:
-                LOGGER.warning(
-                    "%s: Failed to generate image from JSON data", self.file_name
-                )
-                return (
-                    self.shared.last_image
-                    if hasattr(self.shared, "last_image")
-                    else None
-                ), self.shared.to_dict()
-
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
             LOGGER.warning(
                 "%s: Error in async_get_image: %s",
                 self.file_name,
@@ -191,8 +129,94 @@ class BaseHandler:
                 exc_info=True,
             )
             return (
-                self.shared.last_image if hasattr(self.shared, "last_image") else None
+                self.shared.last_image if hasattr(self.shared, "last_image") else None,
+                {},
             )
+
+    def _backup_last_image(self):
+        """Backup current image to last_image before processing new one."""
+        if hasattr(self.shared, "new_image") and self.shared.new_image is not None:
+            # Close old last_image to free memory before replacing it
+            if (
+                hasattr(self.shared, "last_image")
+                and self.shared.last_image is not None
+            ):
+                try:
+                    self.shared.last_image.close()
+                except (OSError, AttributeError, RuntimeError):
+                    pass  # Ignore errors if image is already closed
+            self.shared.last_image = self.shared.new_image
+
+    async def _generate_new_image(
+        self, m_json: dict | None, destinations: Destinations | None
+    ) -> PilPNG | None:
+        """Generate new image based on handler type."""
+        if hasattr(self, "get_image_from_rrm"):
+            # This is a Rand256 handler
+            return await self.get_image_from_rrm(
+                m_json=m_json,
+                destinations=destinations,
+            )
+
+        if hasattr(self, "async_get_image_from_json"):
+            # This is a Hypfer handler
+            self.json_data = await HyperMapData.async_from_valetudo_json(m_json)
+            return await self.async_get_image_from_json(m_json=m_json)
+
+        LOGGER.warning(
+            "%s: Handler type not recognized for async_get_image",
+            self.file_name,
+        )
+        return None
+
+    def _handle_failed_image_generation(self) -> Tuple[PilPNG | None, dict]:
+        """Handle case when image generation fails."""
+        LOGGER.warning("%s: Failed to generate image from JSON data", self.file_name)
+        return (
+            self.shared.last_image if hasattr(self.shared, "last_image") else None
+        ), self.shared.to_dict()
+
+    async def _process_new_image(
+        self, new_image: PilPNG, destinations: Destinations | None, bytes_format: bool
+    ) -> Tuple[PilPNG, dict]:
+        """Process and store the new image with text and binary conversion."""
+        # Update shared data
+        await self._async_update_shared_data(destinations)
+        self.shared.new_image = new_image
+
+        # Add text to the image
+        if self.shared.show_vacuum_state:
+            await self._add_status_text(new_image)
+
+        # Convert to binary (PNG bytes) if requested
+        self._convert_to_binary(new_image, bytes_format)
+
+        # Update the timestamp with current datetime
+        self.shared.image_last_updated = datetime.datetime.fromtimestamp(time())
+        LOGGER.debug("%s: Frame Completed.", self.file_name)
+
+        data = self.shared.to_dict() if bytes_format else {}
+        return new_image, data
+
+    async def _add_status_text(self, new_image: PilPNG):
+        """Add status text to the image."""
+        text_editor = StatusText(self.shared)
+        img_text = await text_editor.get_status_text(new_image)
+        Drawable.status_text(
+            new_image,
+            img_text[1],
+            self.shared.user_colors[8],
+            img_text[0],
+            self.shared.vacuum_status_font,
+            self.shared.vacuum_status_position,
+        )
+
+    def _convert_to_binary(self, new_image: PilPNG, bytes_format: bool):
+        """Convert image to binary PNG bytes."""
+        if bytes_format:
+            self.shared.binary_image = pil_to_png_bytes(new_image)
+        else:
+            self.shared.binary_image = pil_to_png_bytes(self.shared.last_image)
 
     async def _async_update_shared_data(self, destinations: Destinations | None = None):
         """Update the shared data with the latest information."""
@@ -200,15 +224,16 @@ class BaseHandler:
         if hasattr(self, "get_rooms_attributes") and (
             self.shared.map_rooms is None and destinations is not None
         ):
+            # pylint: disable=no-member
             self.shared.map_rooms = await self.get_rooms_attributes(destinations)
             if self.shared.map_rooms:
                 LOGGER.debug("%s: Rand256 attributes rooms updated", self.file_name)
-
 
         if hasattr(self, "async_get_rooms_attributes") and (
             self.shared.map_rooms is None
         ):
             if self.shared.map_rooms is None:
+                # pylint: disable=no-member
                 self.shared.map_rooms = await self.async_get_rooms_attributes()
                 if self.shared.map_rooms:
                     LOGGER.debug("%s: Hyper attributes rooms updated", self.file_name)
@@ -217,6 +242,7 @@ class BaseHandler:
             hasattr(self, "get_calibration_data")
             and self.shared.attr_calibration_points is None
         ):
+            # pylint: disable=no-member
             self.shared.attr_calibration_points = self.get_calibration_data(
                 self.shared.image_rotate
             )
@@ -246,6 +272,10 @@ class BaseHandler:
             offset_func=self.async_map_coordinates_offset,
             is_rand=rand,
         )
+
+    def update_trims(self) -> None:
+        """Update the trims."""
+        self.shared.trims = TrimsData.from_list(self.crop_area)
 
     def get_charger_position(self) -> ChargerPosition | None:
         """Return the charger position."""
@@ -472,7 +502,8 @@ class BaseHandler:
             return hashlib.sha256(data_json.encode()).hexdigest()
         return None
 
-    async def async_copy_array(self, original_array: NumpyArray) -> NumpyArray:
+    @staticmethod
+    async def async_copy_array(original_array: NumpyArray) -> NumpyArray:
         """Copy the array using AsyncNumPy to yield control to the event loop."""
         return await AsyncNumPy.async_copy(original_array)
 

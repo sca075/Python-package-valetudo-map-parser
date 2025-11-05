@@ -376,170 +376,141 @@ class ImageDraw:
         else:
             self.img_h.zooming = False
 
+    def _create_robot_position_dict(
+        self, robot_x: int, robot_y: int, angle: float, room_name: str | None
+    ) -> RobotPosition:
+        """Create a robot position dictionary."""
+        return {
+            "x": robot_x,
+            "y": robot_y,
+            "angle": angle,
+            "in_room": room_name,
+        }
+
+    def _check_cached_room_outline(
+        self, robot_x: int, robot_y: int, angle: float
+    ) -> RobotPosition | None:
+        """Check if robot is still in cached room using outline."""
+        if "outline" in self.img_h.robot_in_room:
+            outline = self.img_h.robot_in_room["outline"]
+            if point_in_polygon(int(robot_x), int(robot_y), outline):
+                self._check_active_zone_and_set_zooming()
+                return self._create_robot_position_dict(
+                    robot_x, robot_y, angle, self.img_h.robot_in_room["room"]
+                )
+        return None
+
+    def _check_cached_room_bbox(
+        self, robot_x: int, robot_y: int, angle: float
+    ) -> RobotPosition | None:
+        """Check if robot is still in cached room using bounding box."""
+        if all(k in self.img_h.robot_in_room for k in ["left", "right", "up", "down"]):
+            if (
+                (self.img_h.robot_in_room["right"] >= int(robot_x))
+                and (self.img_h.robot_in_room["left"] <= int(robot_x))
+            ) and (
+                (self.img_h.robot_in_room["down"] >= int(robot_y))
+                and (self.img_h.robot_in_room["up"] <= int(robot_y))
+            ):
+                self._check_active_zone_and_set_zooming()
+                return self._create_robot_position_dict(
+                    robot_x, robot_y, angle, self.img_h.robot_in_room["room"]
+                )
+        return None
+
+    def _check_room_with_outline(
+        self, room: dict, room_count: int, robot_x: int, robot_y: int, angle: float
+    ) -> RobotPosition | None:
+        """Check if robot is in room using outline polygon."""
+        outline = room["outline"]
+        if point_in_polygon(int(robot_x), int(robot_y), outline):
+            self.img_h.robot_in_room = {
+                "id": room.get("id", room_count),
+                "room": str(room["name"]),
+                "outline": outline,
+            }
+            self._check_active_zone_and_set_zooming()
+            return self._create_robot_position_dict(
+                robot_x, robot_y, angle, self.img_h.robot_in_room["room"]
+            )
+        return None
+
+    def _check_room_with_corners(
+        self, room: dict, room_count: int, robot_x: int, robot_y: int, angle: float
+    ) -> RobotPosition | None:
+        """Check if robot is in room using corner bounding box."""
+        corners = room["corners"]
+        self.img_h.robot_in_room = {
+            "id": room.get("id", room_count),
+            "left": int(corners[0][0]),
+            "right": int(corners[2][0]),
+            "up": int(corners[0][1]),
+            "down": int(corners[2][1]),
+            "room": str(room["name"]),
+        }
+        if (
+            (self.img_h.robot_in_room["right"] >= int(robot_x))
+            and (self.img_h.robot_in_room["left"] <= int(robot_x))
+        ) and (
+            (self.img_h.robot_in_room["down"] >= int(robot_y))
+            and (self.img_h.robot_in_room["up"] <= int(robot_y))
+        ):
+            self._check_active_zone_and_set_zooming()
+            return self._create_robot_position_dict(
+                robot_x, robot_y, angle, self.img_h.robot_in_room["room"]
+            )
+        return None
+
     async def async_get_robot_in_room(
         self, robot_y: int = 0, robot_x: int = 0, angle: float = 0.0
     ) -> RobotPosition:
         """Get the robot position and return in what room is."""
-        # First check if we already have a cached room and if the robot is still in it
+        # Check cached room first
         if self.img_h.robot_in_room:
-            # If we have outline data, use point_in_polygon for accurate detection
-            if "outline" in self.img_h.robot_in_room:
-                outline = self.img_h.robot_in_room["outline"]
-                if point_in_polygon(int(robot_x), int(robot_y), outline):
-                    temp = {
-                        "x": robot_x,
-                        "y": robot_y,
-                        "angle": angle,
-                        "in_room": self.img_h.robot_in_room["room"],
-                    }
-                    # Handle active zones
-                    self._check_active_zone_and_set_zooming()
-                    return temp
-            # Fallback to bounding box check if no outline data
-            elif all(
-                k in self.img_h.robot_in_room for k in ["left", "right", "up", "down"]
-            ):
-                if (
-                    (self.img_h.robot_in_room["right"] >= int(robot_x))
-                    and (self.img_h.robot_in_room["left"] <= int(robot_x))
-                ) and (
-                    (self.img_h.robot_in_room["down"] >= int(robot_y))
-                    and (self.img_h.robot_in_room["up"] <= int(robot_y))
-                ):
-                    temp = {
-                        "x": robot_x,
-                        "y": robot_y,
-                        "angle": angle,
-                        "in_room": self.img_h.robot_in_room["room"],
-                    }
-                    # Handle active zones
-                    self._check_active_zone_and_set_zooming()
-                    return temp
+            result = self._check_cached_room_outline(robot_x, robot_y, angle)
+            if result:
+                return result
+            result = self._check_cached_room_bbox(robot_x, robot_y, angle)
+            if result:
+                return result
 
-        # If we don't have a cached room or the robot is not in it, search all rooms
-        last_room = None
-        room_count = 0
-        if self.img_h.robot_in_room:
-            last_room = self.img_h.robot_in_room
+        # Prepare for room search
+        last_room = self.img_h.robot_in_room
+        map_boundary = 20000
 
-        # Check if the robot is far outside the normal map boundaries
-        # This helps prevent false positives for points very far from any room
-        map_boundary = 20000  # Typical map size is around 5000-10000 units
-        if abs(robot_x) > map_boundary or abs(robot_y) > map_boundary:
+        # Check boundary conditions or missing room data
+        if (
+            abs(robot_x) > map_boundary
+            or abs(robot_y) > map_boundary
+            or self.img_h.rooms_pos is None
+        ):
             self.img_h.robot_in_room = last_room
             self.img_h.zooming = False
-            temp = {
-                "x": robot_x,
-                "y": robot_y,
-                "angle": angle,
-                "in_room": last_room["room"] if last_room else None,
-            }
-            return temp
+            return self._create_robot_position_dict(
+                robot_x, robot_y, angle, last_room["room"] if last_room else None
+            )
 
-        # Search through all rooms to find which one contains the robot
-        if self.img_h.rooms_pos is None:
-            self.img_h.robot_in_room = last_room
-            self.img_h.zooming = False
-            temp = {
-                "x": robot_x,
-                "y": robot_y,
-                "angle": angle,
-                "in_room": last_room["room"] if last_room else None,
-            }
-            return temp
-
-        for room in self.img_h.rooms_pos:
-            # Check if the room has an outline (polygon points)
+        # Search through all rooms
+        for room_count, room in enumerate(self.img_h.rooms_pos):
             if "outline" in room:
-                outline = room["outline"]
-                # Use point_in_polygon for accurate detection with complex shapes
-                if point_in_polygon(int(robot_x), int(robot_y), outline):
-                    # Robot is in this room
-                    self.img_h.robot_in_room = {
-                        "id": room.get(
-                            "id", room_count
-                        ),  # Use actual segment ID if available
-                        "room": str(room["name"]),
-                        "outline": outline,
-                    }
-                    temp = {
-                        "x": robot_x,
-                        "y": robot_y,
-                        "angle": angle,
-                        "in_room": self.img_h.robot_in_room["room"],
-                    }
-
-                    # Handle active zones - Map segment ID to active_zones position
-                    if self.img_h.active_zones:
-                        segment_id = str(self.img_h.robot_in_room["id"])
-                        room_store = RoomStore(self.file_name)
-                        room_keys = list(room_store.get_rooms().keys())
-
-                        if segment_id in room_keys:
-                            position = room_keys.index(segment_id)
-                            if position < len(self.img_h.active_zones):
-                                self.img_h.zooming = bool(
-                                    self.img_h.active_zones[position]
-                                )
-                            else:
-                                self.img_h.zooming = False
-                        else:
-                            _LOGGER.warning(
-                                "%s: Segment ID %s not found in room_keys %s",
-                                self.file_name,
-                                segment_id,
-                                room_keys,
-                            )
-                            self.img_h.zooming = False
-                    else:
-                        self.img_h.zooming = False
-
-                    return temp
-            # Fallback to bounding box if no outline is available
+                result = self._check_room_with_outline(
+                    room, room_count, robot_x, robot_y, angle
+                )
+                if result:
+                    return result
             elif "corners" in room:
-                corners = room["corners"]
-                # Create a bounding box from the corners
-                self.img_h.robot_in_room = {
-                    "id": room.get(
-                        "id", room_count
-                    ),  # Use actual segment ID if available
-                    "left": int(corners[0][0]),
-                    "right": int(corners[2][0]),
-                    "up": int(corners[0][1]),
-                    "down": int(corners[2][1]),
-                    "room": str(room["name"]),
-                }
-                # Check if the robot is inside the bounding box
-                if (
-                    (self.img_h.robot_in_room["right"] >= int(robot_x))
-                    and (self.img_h.robot_in_room["left"] <= int(robot_x))
-                ) and (
-                    (self.img_h.robot_in_room["down"] >= int(robot_y))
-                    and (self.img_h.robot_in_room["up"] <= int(robot_y))
-                ):
-                    temp = {
-                        "x": robot_x,
-                        "y": robot_y,
-                        "angle": angle,
-                        "in_room": self.img_h.robot_in_room["room"],
-                    }
-
-                    # Handle active zones
-                    self._check_active_zone_and_set_zooming()
-
-                    return temp
-            room_count += 1
+                result = self._check_room_with_corners(
+                    room, room_count, robot_x, robot_y, angle
+                )
+                if result:
+                    return result
 
         # Robot not found in any room
         self.img_h.robot_in_room = last_room
         self.img_h.zooming = False
-        temp = {
-            "x": robot_x,
-            "y": robot_y,
-            "angle": angle,
-            "in_room": last_room["room"] if last_room else None,
-        }
-        return temp
+        return self._create_robot_position_dict(
+            robot_x, robot_y, angle, last_room["room"] if last_room else None
+        )
 
     async def async_get_robot_position(self, entity_dict: dict) -> tuple | None:
         """Get the robot position from the entity data."""
