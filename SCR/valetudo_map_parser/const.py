@@ -1,4 +1,3 @@
-
 CAMERA_STORAGE = "valetudo_camera"
 ATTR_IMAGE_LAST_UPDATED = "image_last_updated"
 ATTR_ROTATE = "rotate_image"
