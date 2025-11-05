@@ -16,6 +16,7 @@ from PIL import Image
 from .config.async_utils import AsyncPIL
 from .config.drawable_elements import DrawableElement
 from .config.shared import CameraShared
+from .const import COLORS
 from .config.types import (
     LOGGER,
     CalibrationPoints,

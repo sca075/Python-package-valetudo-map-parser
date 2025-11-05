@@ -281,7 +281,7 @@ ATTR_POINTS = "points"
 ATTR_OBSTACLES = "obstacles"
 ATTR_CAMERA_MODE = "camera_mode"
 
-# Status text cost
+# Status text constants
 charge_level = "\u03de"  # unicode Koppa symbol
 charging = "\u2211"  # unicode Charging symbol
 dot = " \u00b7 "  # unicode middle dot
