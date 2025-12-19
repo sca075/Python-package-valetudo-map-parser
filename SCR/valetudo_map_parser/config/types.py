@@ -13,8 +13,8 @@ from typing import Any, Dict, List, NotRequired, Optional, Tuple, TypedDict, Uni
 import numpy as np
 from PIL import Image
 
+from ..const import DEFAULT_ROOMS, DEFAULT_ROOMS_NAMES
 
-DEFAULT_ROOMS = 1
 
 LOGGER = logging.getLogger(__package__)
 
@@ -155,17 +155,26 @@ class RoomStore:
     @property
     def room_names(self) -> dict:
         """Return room names in format {'room_0_name': 'SegmentID: RoomName', ...}.
-
         Maximum of 16 rooms supported.
+        If no valid room data is available, returns DEFAULT_ROOMS_NAMES.
         """
-        result = {}
-        if isinstance(self.vacuums_data, dict):
-            for idx, (segment_id, room_data) in enumerate(self.vacuums_data.items()):
-                if idx >= 16:  # Max 16 rooms supported
+        # If we have valid room data from the vacuum, process it
+        if isinstance(self.vacuums_data, dict) and len(self.vacuums_data) > 0:
+            result = {}
+            room_idx = 0  # Separate counter for valid rooms
+            for segment_id, room_data in self.vacuums_data.items():
+                if room_idx >= 16:  # Max 16 rooms supported
                     break
-                room_name = room_data.get("name", f"Room {segment_id}")
-                result[f"room_{idx}_name"] = f"{segment_id}: {room_name}"
-        return result
+                # Room data should always be a dict (RoomProperty)
+                if isinstance(room_data, dict):
+                    room_name = room_data.get("name", f"Room {segment_id}")
+                    result[f"room_{room_idx}_name"] = f"{segment_id}: {room_name}"
+                    room_idx += 1
+            # If we processed at least one valid room, return the result
+            if result:
+                return result
+        # No valid room data, return default room names
+        return DEFAULT_ROOMS_NAMES.copy()
 
     @classmethod
     def get_all_instances(cls) -> Dict[str, "RoomStore"]:

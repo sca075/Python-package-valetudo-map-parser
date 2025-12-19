@@ -944,9 +944,6 @@ async def async_extract_room_outline(
         if len(boundary_points) < 8:  # Need at least 8 points for a meaningful shape
             return rect_outline
 
-        # Use a more sophisticated algorithm to create a coherent outline
-        # We'll use a convex hull approach to get the main shape
-        # Sort points by angle from centroid
         centroid_x = np.mean([p[0] for p in boundary_points])
         centroid_y = np.mean([p[1] for p in boundary_points])
 
