@@ -2,7 +2,7 @@
 Hypfer Image Handler Class.
 It returns the PIL PNG image frame relative to the Map Data extrapolated from the vacuum json.
 It also returns calibration, rooms data to the card and other images information to the camera.
-Version: 0.1.10
+Version: 0.1.13
 """
 
 from __future__ import annotations
@@ -16,7 +16,6 @@ from PIL import Image
 from .config.async_utils import AsyncPIL
 from .config.drawable_elements import DrawableElement
 from .config.shared import CameraShared
-from .const import COLORS
 from .config.types import (
     LOGGER,
     CalibrationPoints,
