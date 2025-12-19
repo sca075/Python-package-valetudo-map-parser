@@ -1,7 +1,7 @@
 """
 Class Camera Shared.
 Keep the data between the modules.
-Version: v0.1.12
+Version: v0.1.13
 """
 
 import asyncio
@@ -121,7 +121,7 @@ class CameraShared:
         self.user_language = None
         self.trim_crop_data = None
         self.trims = TrimsData.from_dict(DEFAULT_VALUES["trims_data"])
-        self.floors_trims: FloorData = {}
+        self.floors_trims: dict[str, FloorData] = {}
         self.current_floor: str = "floor_0"
         self.skip_room_ids: List[str] = []
         self.device_info = None
