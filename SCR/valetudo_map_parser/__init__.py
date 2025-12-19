@@ -1,5 +1,5 @@
 """Valetudo map parser.
-Version: 0.1.12"""
+Version: 0.1.13"""
 
 from pathlib import Path
 
@@ -137,6 +137,8 @@ __all__ = [
     "DECODED_TOPICS",
     "DEFAULT_IMAGE_SIZE",
     "DEFAULT_PIXEL_SIZE",
+    "DEFAULT_ROOMS",
+    "DEFAULT_ROOMS_NAMES",
     "DEFAULT_VALUES",
     "FONTS_AVAILABLE",
     "ICON",
