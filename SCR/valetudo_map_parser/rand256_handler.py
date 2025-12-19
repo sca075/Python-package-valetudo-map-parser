@@ -1,8 +1,8 @@
 """
 Image Handler Module for Valetudo Re Vacuums.
-It returns the PIL PNG image frame relative to the Map Data extrapolated from the vacuum json.
+It returns the PIL PNG image frame relative to the Map Data extrapolated from the vacuum JSON.
 It also returns calibration, rooms data to the card and other images information to the camera.
-Version: 0.1.10
+Version: 0.1.13
 """
 
 from __future__ import annotations
@@ -31,7 +31,6 @@ from .config.utils import (
     initialize_drawing_config,
     point_in_polygon,
 )
-from .const import COLORS, DEFAULT_IMAGE_SIZE, DEFAULT_PIXEL_SIZE
 from .map_data import RandImageData
 from .reimg_draw import ImageDraw
 from .rooms_handler import RandRoomsHandler
@@ -128,7 +127,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
         m_json: JsonType,  # json data
         destinations: Destinations | None = None,  # MQTT destinations for labels
     ) -> PilPNG | None:
-        """Generate Images from the json data.
+        """Generate Images from the JSON data.
         @param m_json: The JSON data to use to draw the image.
         @param destinations: MQTT destinations for labels (unused).
         @return Image.Image: PIL Image.
@@ -403,8 +402,9 @@ class ReImageHandler(BaseHandler, AutoCrop):
             )
         return self.room_propriety
 
+    @staticmethod
     def _create_robot_position_dict(
-        self, robot_x: int, robot_y: int, angle: float, room_name: str
+        robot_x: int, robot_y: int, angle: float, room_name: str
     ) -> RobotPosition:
         """Create a robot position dictionary."""
         return {
