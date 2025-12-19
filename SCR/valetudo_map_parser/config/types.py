@@ -155,7 +155,6 @@ class RoomStore:
     @property
     def room_names(self) -> dict:
         """Return room names in format {'room_0_name': 'SegmentID: RoomName', ...}.
-
         Maximum of 16 rooms supported.
         If no valid room data is available, returns DEFAULT_ROOMS_NAMES.
         """

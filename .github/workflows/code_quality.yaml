@@ -20,7 +20,7 @@ jobs:
           #   name: Check code with pylint
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Python 3
         uses: actions/setup-python@v6
