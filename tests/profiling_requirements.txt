@@ -1,0 +1,13 @@
+# Profiling dependencies for test files
+# Install with: pip install -r tests/profiling_requirements.txt
+
+# Memory profiling
+psutil>=5.8.0
+memory-profiler>=0.60.0
+
+# Line-by-line profiling (optional, requires compilation)
+# line-profiler>=4.0.0
+
+# Additional profiling tools (optional)
+# pympler>=0.9  # Advanced memory analysis
+# objgraph>=3.5.0  # Object reference tracking
