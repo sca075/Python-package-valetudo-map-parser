@@ -311,10 +311,6 @@ class CameraSharedManager:
             instance.vacuum_status_position = device_info.get(
                 CONF_VAC_STAT_POS, DEFAULT_VALUES["vac_status_position"]
             )
-            # If enable_snapshots, check for png in www.
-            instance.enable_snapshots = device_info.get(
-                CONF_SNAPSHOTS_ENABLE, DEFAULT_VALUES["enable_www_snapshots"]
-            )
             # Ensure trims are updated correctly
             trim_data = device_info.get("trims_data", DEFAULT_VALUES["trims_data"])
             instance.trims = TrimsData.from_dict(trim_data)
