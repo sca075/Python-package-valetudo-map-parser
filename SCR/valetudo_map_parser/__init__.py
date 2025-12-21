@@ -150,7 +150,6 @@ __all__ = [
     "SENSOR_NO_DATA",
     # Classes and Handlers
     "CameraShared",
-    "FloorData",
     "CameraSharedManager",
     "ColorsManagement",
     "Drawable",
@@ -165,6 +164,7 @@ __all__ = [
     "StatusText",
     # Types
     "CameraModes",
+    "FloorData",
     "ImageSize",
     "JsonType",
     "NumpyArray",
