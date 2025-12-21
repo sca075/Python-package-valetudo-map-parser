@@ -150,6 +150,7 @@ __all__ = [
     "SENSOR_NO_DATA",
     # Classes and Handlers
     "CameraShared",
+    "FloorData",
     "CameraSharedManager",
     "ColorsManagement",
     "Drawable",
@@ -172,6 +173,7 @@ __all__ = [
     "RoomStore",
     "SnapshotStore",
     "TrimCropData",
+    "TrimsData",
     "UserLanguageStore",
     # Utilities
     "ResizeParams",
