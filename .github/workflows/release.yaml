@@ -12,7 +12,7 @@ jobs:
       id-token: write
       contents: read
     environment:
-      name: valetudo_map_parser_pypi
+      name: valetudo_map_parser
 
     steps:
       # Step 1: Checkout the repository
