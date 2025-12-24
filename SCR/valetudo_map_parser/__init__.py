@@ -1,5 +1,5 @@
 """Valetudo map parser.
-Version: 0.1.13"""
+Version: 0.1.14"""
 
 from pathlib import Path
 
@@ -12,6 +12,7 @@ from .config.status_text.status_text import StatusText
 from .config.status_text.translations import translations as STATUS_TEXT_TRANSLATIONS
 from .config.types import (
     CameraModes,
+    FloorData,
     ImageSize,
     JsonType,
     NumpyArray,
@@ -20,6 +21,7 @@ from .config.types import (
     RoomStore,
     SnapshotStore,
     TrimCropData,
+    TrimsData,
     UserLanguageStore,
 )
 from .config.utils import ResizeParams, async_resize_image
@@ -162,6 +164,7 @@ __all__ = [
     "StatusText",
     # Types
     "CameraModes",
+    "FloorData",
     "ImageSize",
     "JsonType",
     "NumpyArray",
@@ -170,6 +173,7 @@ __all__ = [
     "RoomStore",
     "SnapshotStore",
     "TrimCropData",
+    "TrimsData",
     "UserLanguageStore",
     # Utilities
     "ResizeParams",

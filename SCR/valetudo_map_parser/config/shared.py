@@ -311,13 +311,20 @@ class CameraSharedManager:
             instance.vacuum_status_position = device_info.get(
                 CONF_VAC_STAT_POS, DEFAULT_VALUES["vac_status_position"]
             )
-            # If enable_snapshots, check for png in www.
-            instance.enable_snapshots = device_info.get(
-                CONF_SNAPSHOTS_ENABLE, DEFAULT_VALUES["enable_www_snapshots"]
-            )
-            # Ensure trims are updated correctly
-            trim_data = device_info.get("trims_data", DEFAULT_VALUES["trims_data"])
-            instance.trims = TrimsData.from_dict(trim_data)
+            # Check for new floors_data first
+            floors_data = device_info.get("floors_data", None)
+            current_floor = device_info.get("current_floor", "floor_0")  # Default fallback
+
+            if floors_data:
+                # NEW: Use floors_data
+                floor_trims = floors_data.get(current_floor, DEFAULT_VALUES["trims_data"])
+                instance.trims = TrimsData.from_dict(floor_trims)
+                instance.current_floor = current_floor
+            else:
+                # OLD: Backward compatibility
+                trim_data = device_info.get("trims_data", DEFAULT_VALUES["trims_data"])
+                instance.trims = TrimsData.from_dict(trim_data)
+                instance.current_floor = "floor_0"  # Default
             # Robot size
             robot_size = device_info.get("robot_size", 25)
             try:
