@@ -63,7 +63,8 @@ class RoomProperty(TypedDict):
 @dataclass
 class TrimCropData:
     """Dataclass for trim and crop data."""
-
+    
+    floor: str
     trim_left: int
     trim_up: int
     trim_right: int
@@ -72,6 +73,7 @@ class TrimCropData:
     def to_dict(self) -> dict:
         """Convert dataclass to dictionary."""
         return {
+            "floor": self.floor,
             "trim_left": self.trim_left,
             "trim_up": self.trim_up,
             "trim_right": self.trim_right,
@@ -82,6 +84,7 @@ class TrimCropData:
     def from_dict(data: dict):
         """Create dataclass from dictionary."""
         return TrimCropData(
+            floor=data["floor"],
             trim_left=data["trim_left"],
             trim_up=data["trim_up"],
             trim_right=data["trim_right"],
@@ -93,9 +96,10 @@ class TrimCropData:
         return [self.trim_left, self.trim_up, self.trim_right, self.trim_down]
 
     @staticmethod
-    def from_list(data: list):
-        """Create dataclass from list."""
+    def from_list(data: list, floor: Optional[str] = "floor_0"):
+        """Create dataclass from list [trim_left, trim_up, trim_right, trim_down]."""
         return TrimCropData(
+            floor=floor,
             trim_left=data[0],
             trim_up=data[1],
             trim_right=data[2],
