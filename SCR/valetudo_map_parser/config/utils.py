@@ -275,7 +275,9 @@ class BaseHandler:
 
     def update_trims(self) -> None:
         """Update the trims."""
-        self.shared.trims = TrimsData.from_list(self.crop_area)
+        self.shared.trims = TrimsData.from_list(
+            self.crop_area, floor=self.shared.current_floor
+        )
 
     def get_charger_position(self) -> ChargerPosition | None:
         """Return the charger position."""

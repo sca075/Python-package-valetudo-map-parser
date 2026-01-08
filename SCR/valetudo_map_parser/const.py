@@ -83,7 +83,7 @@ DEFAULT_VALUES = {
     "vac_status_position": True,
     "get_svg_file": False,
     "save_trims": True,
-    "trims_data": {"trim_left": 0, "trim_up": 0, "trim_right": 0, "trim_down": 0},
+    "trims_data": {"floor": "floor_0", "trim_left": 0, "trim_up": 0, "trim_right": 0, "trim_down": 0},
     "enable_www_snapshots": False,
     "color_charger": [255, 128, 0],
     "color_move": [238, 247, 255],
