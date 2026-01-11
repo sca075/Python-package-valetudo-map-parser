@@ -216,6 +216,7 @@ class DrawingConfig:
             DrawableElement.GO_TO_TARGET: SupportedColor.GO_TO,
             DrawableElement.NO_MOP_AREA: SupportedColor.NO_GO,
             DrawableElement.OBSTACLE: SupportedColor.NO_GO,
+            DrawableElement.CARPET: SupportedColor.CARPET,
         }
 
         # Update room colors from device info
