@@ -312,57 +312,6 @@ class ImageDraw:
 
         return np_array
 
-    async def _draw_carpets(
-        self, np_array: NumpyArray, carpet_zones: list
-    ) -> NumpyArray:
-        """Draw carpet zones with 50% of room color and alpha 255."""
-        from .config.room_store import RoomStore
-
-        # Get room store to map segment IDs to room indices
-        room_store = RoomStore(self.file_name)
-        room_keys = list(room_store.get_rooms().keys())
-
-        for carpet in carpet_zones:
-            try:
-                # Get the segment ID from carpet metadata
-                segment_id = carpet.get("metaData", {}).get("id")
-                if not segment_id:
-                    continue
-
-                # Find the room index for this segment ID
-                if segment_id in room_keys:
-                    room_index = room_keys.index(segment_id)
-                else:
-                    # Default to room 0 if segment ID not found
-                    room_index = 0
-
-                # Get the room color
-                if room_index < len(self.img_h.shared.rooms_colors):
-                    room_color = self.img_h.shared.rooms_colors[room_index]
-                else:
-                    room_color = self.img_h.shared.rooms_colors[0]
-
-                # Calculate carpet color: 50% of room color with alpha 255
-                carpet_color = (
-                    room_color[0] // 2,
-                    room_color[1] // 2,
-                    room_color[2] // 2,
-                    255,  # Full opacity
-                )
-
-                # Draw the carpet zone
-                np_array = await self.img_h.draw.zones(
-                    np_array, [carpet], carpet_color
-                )
-
-            except (KeyError, TypeError, IndexError) as e:
-                _LOGGER.warning(
-                    "%s: Error drawing carpet: %s", self.file_name, str(e)
-                )
-                continue
-
-        return np_array
-
     async def async_draw_virtual_walls(
         self, m_json: JsonType, np_array: NumpyArray, color_no_go: Color
     ) -> NumpyArray:
