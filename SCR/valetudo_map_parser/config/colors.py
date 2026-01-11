@@ -10,6 +10,7 @@ import numpy as np
 from ..const import (
     ALPHA_BACKGROUND,
     ALPHA_CHARGER,
+    ALPHA_CARPET,
     ALPHA_GO_TO,
     ALPHA_MOVE,
     ALPHA_NO_GO,
@@ -35,6 +36,7 @@ from ..const import (
     ALPHA_ZONE_CLEAN,
     COLOR_BACKGROUND,
     COLOR_CHARGER,
+    COLOR_CARPET,
     COLOR_GO_TO,
     COLOR_MOVE,
     COLOR_NO_GO,
@@ -64,6 +66,7 @@ from .types import LOGGER, Color
 
 color_transparent = (0, 0, 0, 0)
 color_charger = (0, 128, 0, 255)
+color_carpet = (67, 103, 125, 255)
 color_move = (238, 247, 255, 255)
 color_robot = (255, 255, 204, 255)
 color_no_go = (255, 0, 0, 255)
@@ -149,6 +152,7 @@ class SupportedColor(StrEnum):
     GO_TO = "color_go_to"
     NO_GO = "color_no_go"
     ZONE_CLEAN = "color_zone_clean"
+    CARPET = "color_carpet"
     MAP_BACKGROUND = "color_background"
     TEXT = "color_text"
     TRANSPARENT = "color_transparent"
@@ -171,6 +175,7 @@ class DefaultColors:
         SupportedColor.GO_TO: (0, 255, 0),
         SupportedColor.NO_GO: (255, 0, 0),
         SupportedColor.ZONE_CLEAN: (255, 255, 255),
+        SupportedColor.CARPET: (67, 103, 125),  # 50% of room_0 default color (135, 206, 250)
         SupportedColor.MAP_BACKGROUND: (0, 125, 255),
         SupportedColor.TEXT: (0, 0, 0),
         SupportedColor.TRANSPARENT: (0, 0, 0),
@@ -301,6 +306,7 @@ class ColorsManagement:
                 (COLOR_BACKGROUND, color_background, ALPHA_BACKGROUND),
                 (COLOR_MOVE, color_move, ALPHA_MOVE),
                 (COLOR_CHARGER, color_charger, ALPHA_CHARGER),
+                (COLOR_CARPET, color_carpet, ALPHA_CARPET),
                 (COLOR_NO_GO, color_no_go, ALPHA_NO_GO),
                 (COLOR_GO_TO, color_go_to, ALPHA_GO_TO),
                 (COLOR_TEXT, color_text, ALPHA_TEXT),

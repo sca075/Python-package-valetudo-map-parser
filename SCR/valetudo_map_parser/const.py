@@ -40,8 +40,10 @@ COLORS = [
     "background",
     "move",
     "charger",
+    "carpet",
     "no_go",
     "go_to",
+    "text",
 ]
 
 SENSOR_NO_DATA = {
@@ -92,6 +94,7 @@ DEFAULT_VALUES = {
     "color_go_to": [0, 255, 0],
     "color_no_go": [255, 0, 0],
     "color_zone_clean": [255, 255, 255],
+    "color_carpet": [67, 103, 125],
     "color_background": [0, 125, 255],
     "color_text": [255, 255, 255],
     "alpha_charger": 255.0,
@@ -101,6 +104,7 @@ DEFAULT_VALUES = {
     "alpha_go_to": 255.0,
     "alpha_no_go": 125.0,
     "alpha_zone_clean": 125.0,
+    "alpha_carpet": 255.0,
     "alpha_background": 255.0,
     "alpha_text": 255.0,
     "color_room_0": [135, 206, 250],
@@ -229,6 +233,7 @@ IS_OFFSET = "add_offset"
 
 """Base Colours RGB"""
 COLOR_CHARGER = "color_charger"
+COLOR_CARPET = "color_carpet"
 COLOR_MOVE = "color_move"
 COLOR_ROBOT = "color_robot"
 COLOR_NO_GO = "color_no_go"
@@ -258,6 +263,7 @@ COLOR_ROOM_15 = "color_room_15"
 
 """Alpha for RGBA Colours"""
 ALPHA_CHARGER = "alpha_charger"
+ALPHA_CARPET = "alpha_carpet"
 ALPHA_MOVE = "alpha_move"
 ALPHA_ROBOT = "alpha_robot"
 ALPHA_NO_GO = "alpha_no_go"

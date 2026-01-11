@@ -33,6 +33,7 @@ class DrawableElement(IntEnum):
     PATH = 9
     PREDICTED_PATH = 10
     GO_TO_TARGET = 11
+    CARPET = 12
 
     # Rooms (101-115 for up to 15 rooms)
     ROOM_1 = 101
@@ -94,6 +95,7 @@ class DrawingConfig:
             DrawableElement.GO_TO_TARGET: SupportedColor.GO_TO,
             DrawableElement.NO_MOP_AREA: SupportedColor.NO_GO,  # Using NO_GO for no-mop areas
             DrawableElement.OBSTACLE: SupportedColor.NO_GO,  # Using NO_GO for obstacles
+            DrawableElement.CARPET: SupportedColor.CARPET,
         }
 
         # Set z-index for each element type
@@ -105,6 +107,7 @@ class DrawingConfig:
             DrawableElement.VIRTUAL_WALL: 30,
             DrawableElement.RESTRICTED_AREA: 25,
             DrawableElement.NO_MOP_AREA: 25,
+            DrawableElement.CARPET: 15,  # Draw carpets above floor but below walls
             DrawableElement.OBSTACLE: 15,
             DrawableElement.PATH: 35,
             DrawableElement.PREDICTED_PATH: 34,
@@ -265,6 +268,7 @@ class DrawingConfig:
             "disable_virtual_walls": DrawableElement.VIRTUAL_WALL,
             "disable_restricted_areas": DrawableElement.RESTRICTED_AREA,
             "disable_no_mop_areas": DrawableElement.NO_MOP_AREA,
+            "disable_carpets": DrawableElement.CARPET,
             "disable_obstacles": DrawableElement.OBSTACLE,
             "disable_path": DrawableElement.PATH,
             "disable_predicted_path": DrawableElement.PREDICTED_PATH,
