@@ -84,7 +84,7 @@ class TrimCropData:
     def from_dict(data: dict):
         """Create dataclass from dictionary."""
         return TrimCropData(
-            floor=data["floor"],
+            floor=data.get("floor", "floor_0"),
             trim_left=data["trim_left"],
             trim_up=data["trim_up"],
             trim_right=data["trim_right"],
