@@ -130,7 +130,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         if is_wall_layer and not self.drawing_config.is_enabled(DrawableElement.WALL):
             return room_id, img_np_array  # Skip walls
 
-        # Draw the layer
+        # Draw the layer (floor layers are always drawn when present)
         room_id, img_np_array = await self.imd.async_draw_base_layer(
             img_np_array,
             compressed_pixels_list,
@@ -231,7 +231,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         """Draw dynamic elements like zones, paths, and go-to targets."""
         if self.drawing_config.is_enabled(DrawableElement.RESTRICTED_AREA):
             img_np_array = await self.imd.async_draw_zones(
-                m_json, img_np_array, colors["zone_clean"], colors["no_go"]
+                m_json, img_np_array, colors["zone_clean"], colors["no_go"], colors.get("carpet")
             )
 
         if self.drawing_config.is_enabled(DrawableElement.GO_TO_TARGET):

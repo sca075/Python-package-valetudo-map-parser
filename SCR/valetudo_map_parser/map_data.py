@@ -117,7 +117,22 @@ class PathMapEntity(TypedDict):
     metaData: dict[str, object]  # flexible for now
 
 
-Entity = PointMapEntity | PathMapEntity
+class PolygonMeta(TypedDict, total=False):
+    """Metadata for polygon entities including ID."""
+
+    id: str
+
+
+class PolygonMapEntity(TypedDict):
+    """Polygon-based map entity (zones, carpets, etc.)."""
+
+    __class__: Literal["PolygonMapEntity"]
+    type: str
+    points: list[int]
+    metaData: NotRequired[PolygonMeta]
+
+
+Entity = PointMapEntity | PathMapEntity | PolygonMapEntity
 
 # --- Top-level Map ---
 
@@ -259,9 +274,24 @@ class ImageData:
                 layer_type = json_obj.get("type")
                 meta_data = json_obj.get("metaData") or {}
                 if layer_type:
-                    layer_dict.setdefault(layer_type, []).append(
-                        json_obj.get("compressedPixels", [])
-                    )
+                    # Get compressedPixels, or fall back to pixels if not present
+                    compressed_pixels = json_obj.get("compressedPixels")
+                    if compressed_pixels is None:
+                        # If compressedPixels is missing, convert pixels array to compressed format
+                        # pixels format: [x, y, x, y, ...] (pairs)
+                        # compressedPixels format: [x, y, count, x, y, count, ...] (triplets)
+                        pixels = json_obj.get("pixels", [])
+                        if pixels:
+                            # Convert pairs to triplets by adding count=1 for each pixel
+                            compressed_pixels = []
+                            for i in range(0, len(pixels), 2):
+                                if i + 1 < len(pixels):
+                                    compressed_pixels.extend([pixels[i], pixels[i + 1], 1])
+                        else:
+                            compressed_pixels = []
+
+                    layer_dict.setdefault(layer_type, []).append(compressed_pixels)
+
                     # Safely extract "active" flag if present and convertible to int
                     if layer_type == "segment":
                         try:

@@ -94,8 +94,6 @@ class ImageDraw:
             # The room_id is 0-based, but DrawableElement.ROOM_x is 1-based
             current_room_id = room_id + 1
             if 1 <= current_room_id <= 15:
-                # Use the DrawableElement imported at the top of the file
-
                 room_element = getattr(DrawableElement, f"ROOM_{current_room_id}", None)
                 if room_element and hasattr(self.img_h.drawing_config, "is_enabled"):
                     draw_room = self.img_h.drawing_config.is_enabled(room_element)
@@ -104,7 +102,11 @@ class ImageDraw:
         room_color = self.img_h.shared.rooms_colors[room_id]
 
         try:
-            if layer_type == "segment":
+            if layer_type == "floor":
+                # Floor layers always use color_room_0 (rooms_colors[0])
+                # This ensures consistency across different vacuum models
+                room_color = self.img_h.shared.rooms_colors[0]
+            elif layer_type == "segment":
                 room_color = self._get_active_room_color(
                     room_id, room_color, color_zone_clean
                 )
@@ -115,8 +117,9 @@ class ImageDraw:
                     img_np_array, pixels, pixel_size, room_color
                 )
 
-            # Always increment the room_id, even if the room is not drawn
-            room_id = (room_id + 1) % 16  # Cycle room_id back to 0 after 15
+            # Increment room_id only for segment layers, not for floor layers
+            if layer_type == "segment":
+                room_id = (room_id + 1) % 16  # Cycle room_id back to 0 after 15
 
         except IndexError as e:
             _LOGGER.warning("%s: Image Draw Error: %s", self.file_name, str(e))
@@ -262,6 +265,7 @@ class ImageDraw:
         np_array: NumpyArray,
         color_zone_clean: Color,
         color_no_go: Color,
+        color_carpet: Color = None,
     ) -> NumpyArray:
         """Get the zone clean from the JSON data with parallel processing."""
 
@@ -293,6 +297,17 @@ class ImageDraw:
             if no_mop_zones:
                 np_array = await self.img_h.draw.zones(
                     np_array, no_mop_zones, color_no_go
+                )
+
+            # Carpet zones
+            carpet_zones = zone_clean.get("carpet")
+            if (
+                carpet_zones
+                and color_carpet
+                and self.img_h.drawing_config.is_enabled(DrawableElement.CARPET)
+            ):
+                np_array = await self.img_h.draw.zones(
+                    np_array, carpet_zones, color_carpet
                 )
 
         return np_array
