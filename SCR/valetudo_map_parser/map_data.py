@@ -62,6 +62,7 @@ class SegmentMeta(TypedDict, total=False):
     active: bool
     source: str
     area: int
+    material: str
 
 
 class MapLayerBase(TypedDict):
@@ -251,7 +252,8 @@ class ImageData:
         json_obj: JsonType,
         layer_dict: dict[str, list[Any]] | None,
         active_list: list[int] | None,
-    ) -> tuple[dict[str, list[Any]], list[int]]:
+        materials_dict: dict[str, str] | None = None,
+    ) -> tuple[dict[str, list[Any]], list[int], dict[str, str]]:
         """
         Recursively traverse a JSON-like structure to find MapLayer entries.
 
@@ -259,15 +261,21 @@ class ImageData:
             json_obj: The JSON-like object (dicts/lists) to search.
             layer_dict: Optional mapping of layer_type to a list of compressed pixel data.
             active_list: Optional list of active segment flags.
+            materials_dict: Optional mapping of segment_id to material type.
 
         Returns:
             A tuple:
                 - dict mapping layer types to their compressed pixel arrays.
                 - list of integers marking active segment layers.
+                - dict mapping segment IDs to material types.
         """
         if layer_dict is None:
             layer_dict = {}
             active_list = []
+            materials_dict = {}
+
+        if materials_dict is None:
+            materials_dict = {}
 
         if isinstance(json_obj, dict):
             if json_obj.get("__class") == "MapLayer":
@@ -292,22 +300,28 @@ class ImageData:
 
                     layer_dict.setdefault(layer_type, []).append(compressed_pixels)
 
-                    # Safely extract "active" flag if present and convertible to int
+                    # Safely extract "active" flag and material if present
                     if layer_type == "segment":
                         try:
                             active_list.append(int(meta_data.get("active", 0)))
                         except (ValueError, TypeError):
                             pass  # skip invalid/missing 'active' values
 
+                        # Extract material if present
+                        segment_id = meta_data.get("segmentId")
+                        material = meta_data.get("material")
+                        if segment_id and material:
+                            materials_dict[segment_id] = material
+
             # json_obj.items() yields (key, value), so we only want the values
             for _, value in json_obj.items():
-                ImageData.find_layers(value, layer_dict, active_list)
+                ImageData.find_layers(value, layer_dict, active_list, materials_dict)
 
         elif isinstance(json_obj, list):
             for item in json_obj:
-                ImageData.find_layers(item, layer_dict, active_list)
+                ImageData.find_layers(item, layer_dict, active_list, materials_dict)
 
-        return layer_dict, active_list
+        return layer_dict, active_list, materials_dict
 
     @staticmethod
     def find_points_entities(
@@ -786,6 +800,7 @@ class HyperMapData:
     layers: dict[str, list[Any]] = field(default_factory=dict)
     active_zones: list[int] = field(default_factory=list)
     virtual_walls: list[list[tuple[float, float]]] = field(default_factory=list)
+    materials: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     async def async_from_valetudo_json(cls, json_data: Any) -> "HyperMapData":
@@ -801,14 +816,15 @@ class HyperMapData:
         areas = ImageData.find_zone_entities(json_data)
         layers = {}
         active_zones = []
+        materials = {}
         # Hypothetical obstacles finder, if you have one
         obstacles = getattr(ImageData, "find_obstacles_entities", lambda *_: {})(
             json_data
         )
         virtual_walls = ImageData.find_virtual_walls(json_data)
         pixel_size = int(json_data["pixelSize"])
-        layers, active_zones = ImageData.find_layers(
-            json_data["layers"], layers, active_zones
+        layers, active_zones, materials = ImageData.find_layers(
+            json_data["layers"], layers, active_zones, materials
         )
         entity_dict = ImageData.find_points_entities(json_data)
 
@@ -824,6 +840,7 @@ class HyperMapData:
             pixel_size=pixel_size,
             layers=layers,
             active_zones=active_zones,
+            materials=materials,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -847,6 +864,7 @@ class HyperMapData:
             layers=data.get("layers", {}),
             active_zones=data.get("active_zones", []),
             virtual_walls=data.get("virtual_walls", []),
+            materials=data.get("materials", {}),
         )
 
     def update_from_dict(self, updates: dict[str, Any]) -> None:
