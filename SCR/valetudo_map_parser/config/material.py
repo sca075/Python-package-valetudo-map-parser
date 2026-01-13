@@ -6,6 +6,7 @@ from typing import Final, Optional
 
 import numpy as np
 
+from mvcrender.draw import line_u8
 from .types import Color, NumpyArray
 
 
@@ -67,29 +68,7 @@ class MaterialTileRenderer:
         return 1 if pixel_size <= 7 else 2
 
     @staticmethod
-    def _paint_hline(tile: NumpyArray, y: int, thickness: int, rgba: Color) -> None:
-        h = tile.shape[0]
-        if y >= h:
-            return
-        y2 = min(h, y + thickness)
-        tile[y:y2, :, 0] = rgba[0]
-        tile[y:y2, :, 1] = rgba[1]
-        tile[y:y2, :, 2] = rgba[2]
-        tile[y:y2, :, 3] = rgba[3]
-
-    @staticmethod
-    def _paint_vline(tile: NumpyArray, x: int, thickness: int, rgba: Color) -> None:
-        w = tile.shape[1]
-        if x >= w:
-            return
-        x2 = min(w, x + thickness)
-        tile[:, x:x2, 0] = rgba[0]
-        tile[:, x:x2, 1] = rgba[1]
-        tile[:, x:x2, 2] = rgba[2]
-        tile[:, x:x2, 3] = rgba[3]
-
-    @staticmethod
-    def _paint_rect_outline(
+    def _draw_rect_outline(
         tile: NumpyArray,
         x0: int,
         y0: int,
@@ -98,12 +77,19 @@ class MaterialTileRenderer:
         thickness: int,
         rgba: Color,
     ) -> None:
+        """Draw rectangle outline using mvcrender.line_u8."""
         if x1 <= x0 or y1 <= y0:
             return
-        MaterialTileRenderer._paint_hline(tile, y0, thickness, rgba)
-        MaterialTileRenderer._paint_hline(tile, max(y0, y1 - thickness), thickness, rgba)
-        MaterialTileRenderer._paint_vline(tile, x0, thickness, rgba)
-        MaterialTileRenderer._paint_vline(tile, max(x0, x1 - thickness), thickness, rgba)
+
+        # Draw four lines to form rectangle outline
+        # Top line
+        line_u8(tile, x0, y0, x1 - 1, y0, rgba, thickness)
+        # Bottom line
+        line_u8(tile, x0, y1 - 1, x1 - 1, y1 - 1, rgba, thickness)
+        # Left line
+        line_u8(tile, x0, y0, x0, y1 - 1, rgba, thickness)
+        # Right line
+        line_u8(tile, x1 - 1, y0, x1 - 1, y1 - 1, rgba, thickness)
 
     @staticmethod
     def _wood_planks_horizontal(tile_px: int, pixel_size: int) -> NumpyArray:
@@ -138,7 +124,7 @@ class MaterialTileRenderer:
                 cx1 = min(tile_px, x1)
                 cy1 = min(tile_px, y1)
 
-                MaterialTileRenderer._paint_rect_outline(
+                MaterialTileRenderer._draw_rect_outline(
                     t, cx0, cy0, cx1, cy1, seam, MaterialTileRenderer.WOOD_RGBA
                 )
 
@@ -173,7 +159,7 @@ class MaterialTileRenderer:
                 cx1 = min(tile_px, x1)
                 cy1 = min(tile_px, y1)
 
-                MaterialTileRenderer._paint_rect_outline(
+                MaterialTileRenderer._draw_rect_outline(
                     t, cx0, cy0, cx1, cy1, seam, MaterialTileRenderer.WOOD_RGBA
                 )
 
@@ -181,12 +167,17 @@ class MaterialTileRenderer:
 
     @staticmethod
     def _tile_pixels(cells: int, pixel_size: int) -> NumpyArray:
+        """Draw tile grid using mvcrender.line_u8."""
         size = cells * pixel_size
         t = MaterialTileRenderer._empty_rgba(size, size)
         th = MaterialTileRenderer._thin_px(pixel_size)
         rgba = MaterialTileRenderer.TILE_RGBA
-        MaterialTileRenderer._paint_hline(t, 0, th, rgba)
-        MaterialTileRenderer._paint_vline(t, 0, th, rgba)
+
+        # Draw horizontal line at top
+        line_u8(t, 0, 0, size - 1, 0, rgba, th)
+        # Draw vertical line at left
+        line_u8(t, 0, 0, 0, size - 1, rgba, th)
+
         return t
 
     @staticmethod
