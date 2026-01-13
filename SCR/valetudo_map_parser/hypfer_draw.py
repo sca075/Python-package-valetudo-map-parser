@@ -128,8 +128,6 @@ class ImageDraw:
                     materials = getattr(self.img_h.json_data, "materials", {})
                     material = materials.get(segment_id)
                     if material and material != "generic":
-                        # Update MaterialTileRenderer colors from config
-                        self._update_material_colors()
                         img_np_array = self._apply_material_overlay(
                             img_np_array, pixels, pixel_size, material
                         )
@@ -142,27 +140,6 @@ class ImageDraw:
             _LOGGER.warning("%s: Image Draw Error: %s", self.file_name, str(e))
 
         return img_np_array, room_id
-
-    def _update_material_colors(self):
-        """Update MaterialTileRenderer colors from DrawingConfig."""
-        wood_color = self.img_h.drawing_config.get_property(
-            DrawableElement.MATERIAL_OVERLAY, "wood_color", (40, 40, 40)
-        )
-        wood_alpha = self.img_h.drawing_config.get_property(
-            DrawableElement.MATERIAL_OVERLAY, "wood_alpha", 38
-        )
-        tile_color = self.img_h.drawing_config.get_property(
-            DrawableElement.MATERIAL_OVERLAY, "tile_color", (40, 40, 40)
-        )
-        tile_alpha = self.img_h.drawing_config.get_property(
-            DrawableElement.MATERIAL_OVERLAY, "tile_alpha", 45
-        )
-
-        # Update MaterialTileRenderer with configured colors
-        MaterialTileRenderer.set_colors(
-            wood_rgba=(*wood_color, wood_alpha),
-            tile_rgba=(*tile_color, tile_alpha),
-        )
 
     def _apply_material_overlay(self, img_np_array, pixels, pixel_size, material):
         """Apply material texture overlay to a room segment."""
