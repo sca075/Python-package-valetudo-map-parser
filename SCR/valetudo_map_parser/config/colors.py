@@ -9,7 +9,6 @@ import numpy as np
 
 from ..const import (
     ALPHA_BACKGROUND,
-    ALPHA_CARPET,
     ALPHA_CHARGER,
     ALPHA_CARPET,
     ALPHA_GO_TO,
@@ -38,7 +37,6 @@ from ..const import (
     ALPHA_WALL,
     ALPHA_ZONE_CLEAN,
     COLOR_BACKGROUND,
-    COLOR_CARPET,
     COLOR_CHARGER,
     COLOR_CARPET,
     COLOR_GO_TO,
@@ -122,26 +120,24 @@ rooms_color = [
 ]
 
 base_colors_array = [
-    color_wall,
-    color_zone_clean,
-    color_carpet,
-    color_material_wood,
-    color_material_tile,
-    color_robot,
-    color_background,
-    color_move,
-    color_charger,
-    color_no_go,
-    color_go_to,
-    color_text,
+    color_wall,          # [0]
+    color_zone_clean,    # [1]
+    color_robot,         # [2]
+    color_background,    # [3]
+    color_move,          # [4]
+    color_charger,       # [5]
+    color_no_go,         # [6]
+    color_go_to,         # [7]
+    color_text,          # [8]
+    color_carpet,        # [9]
+    color_material_wood, # [10]
+    color_material_tile, # [11]
 ]
 
 color_array = [
     base_colors_array[0],  # color_wall
     base_colors_array[6],  # color_no_go
     base_colors_array[7],  # color_go_to
-    base_colors_array[8],  # color_predicted_path
-    base_colors_array[9],  # color_obstacle
     color_black,
     base_colors_array[2],  # color_robot
     base_colors_array[5],  # color_charger
