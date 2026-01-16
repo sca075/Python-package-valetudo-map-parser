@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 
 from .config.drawable_elements import DrawableElement
-from .config.material import MaterialTileRenderer
+from .config.material import MaterialColors, MaterialTileRenderer
 from .config.types import Color, JsonType, NumpyArray, RobotPosition, RoomStore
 from .config.utils import point_in_polygon
 
@@ -132,15 +132,16 @@ class ImageDraw:
                     if material and material != "generic":
                         # Get material colors from shared.user_colors
                         # Index 10 = wood, Index 11 = tile
-                        wood_rgba = self.img_h.shared.user_colors[10]
-                        tile_rgba = self.img_h.shared.user_colors[11]
+                        material_colors = MaterialColors(
+                            wood_rgba=self.img_h.shared.user_colors[10],
+                            tile_rgba=self.img_h.shared.user_colors[11]
+                        )
                         img_np_array = self._apply_material_overlay(
                             img_np_array,
                             pixels,
                             pixel_size,
                             material,
-                            wood_rgba,
-                            tile_rgba,
+                            material_colors,
                         )
 
             # Increment room_id only for segment layers, not for floor layers
@@ -153,12 +154,12 @@ class ImageDraw:
         return img_np_array, room_id
 
     def _apply_material_overlay(
-        self, img_np_array, pixels, pixel_size, material, wood_rgba, tile_rgba
+        self, img_np_array, pixels, pixel_size, material, material_colors
     ):
         """Apply material texture overlay to a room segment."""
         try:
             tile = MaterialTileRenderer.get_tile(
-                material, pixel_size, wood_rgba, tile_rgba
+                material, pixel_size, material_colors
             )
             if tile is None:
                 return img_np_array

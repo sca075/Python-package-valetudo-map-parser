@@ -172,15 +172,18 @@ class MaterialTileRenderer:
     @staticmethod
     @lru_cache(maxsize=64)
     def get_tile(
-        material: str, pixel_size: int, wood_rgba: Color = None, tile_rgba: Color = None
+        material: str, pixel_size: int, colors: MaterialColors = None
     ) -> Optional[NumpyArray]:
         spec = MaterialTileRenderer._SPECS.get(material)
         if spec is None or pixel_size <= 0:
             return None
 
         # Use provided colors or fall back to defaults
-        wood_color = wood_rgba if wood_rgba else color_material_wood
-        tile_color = tile_rgba if tile_rgba else color_material_tile
+        if colors is None:
+            colors = _material_colors
+
+        wood_color = colors.wood_rgba
+        tile_color = colors.tile_rgba
 
         if spec.kind == "tile":
             return MaterialTileRenderer._tile_pixels(spec.cells, pixel_size, tile_color)
