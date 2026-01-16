@@ -85,7 +85,13 @@ DEFAULT_VALUES = {
     "vac_status_position": True,
     "get_svg_file": False,
     "save_trims": True,
-    "trims_data": {"floor": "floor_0", "trim_left": 0, "trim_up": 0, "trim_right": 0, "trim_down": 0},
+    "trims_data": {
+        "floor": "floor_0",
+        "trim_left": 0,
+        "trim_up": 0,
+        "trim_right": 0,
+        "trim_down": 0,
+    },
     "enable_www_snapshots": False,
     "color_charger": [255, 128, 0],
     "color_move": [238, 247, 255],
@@ -97,6 +103,8 @@ DEFAULT_VALUES = {
     "color_carpet": [67, 103, 125],
     "color_background": [0, 125, 255],
     "color_text": [255, 255, 255],
+    "color_material_wood": [40, 40, 40],
+    "color_material_tile": [40, 40, 40],
     "alpha_charger": 255.0,
     "alpha_move": 255.0,
     "alpha_wall": 255.0,
@@ -107,6 +115,8 @@ DEFAULT_VALUES = {
     "alpha_carpet": 255.0,
     "alpha_background": 255.0,
     "alpha_text": 255.0,
+    "alpha_material_wood": 38.0,
+    "alpha_material_tile": 45.0,
     "color_room_0": [135, 206, 250],
     "color_room_1": [176, 226, 255],
     "color_room_2": [165, 105, 18],
@@ -235,6 +245,8 @@ IS_OFFSET = "add_offset"
 COLOR_CHARGER = "color_charger"
 COLOR_CARPET = "color_carpet"
 COLOR_MOVE = "color_move"
+COLOR_MATERIAL_WOOD = "color_material_wood"
+COLOR_MATERIAL_TILE = "color_material_tile"
 COLOR_ROBOT = "color_robot"
 COLOR_NO_GO = "color_no_go"
 COLOR_GO_TO = "color_go_to"
@@ -269,6 +281,8 @@ ALPHA_ROBOT = "alpha_robot"
 ALPHA_NO_GO = "alpha_no_go"
 ALPHA_GO_TO = "alpha_go_to"
 ALPHA_BACKGROUND = "alpha_background"
+ALPHA_MATERIAL_WOOD = "alpha_material_wood"
+ALPHA_MATERIAL_TILE = "alpha_material_tile"
 ALPHA_ZONE_CLEAN = "alpha_zone_clean"
 ALPHA_WALL = "alpha_wall"
 ALPHA_TEXT = "alpha_text"

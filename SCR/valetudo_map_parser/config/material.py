@@ -5,8 +5,9 @@ from functools import lru_cache
 from typing import Final, Optional
 
 import numpy as np
-
 from mvcrender.draw import line_u8
+
+from .colors import color_material_tile, color_material_wood
 from .types import Color, NumpyArray
 
 
@@ -14,6 +15,18 @@ from .types import Color, NumpyArray
 class _MaterialSpec:
     cells: int
     kind: str  # "wood_h", "wood_v", "tile"
+
+
+@dataclass(frozen=True, slots=True)
+class MaterialColors:
+    """Material colors for rendering."""
+
+    wood_rgba: Color = color_material_wood
+    tile_rgba: Color = color_material_tile
+
+
+# Create a singleton instance for easy access
+_material_colors = MaterialColors()
 
 
 class MaterialTileRenderer:
@@ -24,39 +37,11 @@ class MaterialTileRenderer:
     (no extra inner grain line).
     """
 
-    # Default neutral contour colors (RGBA) – keep subtle
-    _DEFAULT_WOOD_RGBA: Final[Color] = (40, 40, 40, 38)
-    _DEFAULT_TILE_RGBA: Final[Color] = (40, 40, 40, 45)
-
-    # Current colors (can be updated via set_colors)
-    WOOD_RGBA: Color = _DEFAULT_WOOD_RGBA
-    TILE_RGBA: Color = _DEFAULT_TILE_RGBA
-
     _SPECS: Final[dict[str, _MaterialSpec]] = {
         "wood_horizontal": _MaterialSpec(cells=36, kind="wood_h"),
         "wood_vertical": _MaterialSpec(cells=36, kind="wood_v"),
         "tile": _MaterialSpec(cells=4, kind="tile"),
     }
-
-    @classmethod
-    def set_colors(cls, wood_rgba: Optional[Color] = None, tile_rgba: Optional[Color] = None) -> None:
-        """
-        Update the material colors used for rendering.
-
-        Args:
-            wood_rgba: RGBA color for wood lines (default: use current)
-            tile_rgba: RGBA color for tile lines (default: use current)
-        """
-        if wood_rgba is not None:
-            cls.WOOD_RGBA = wood_rgba
-        if tile_rgba is not None:
-            cls.TILE_RGBA = tile_rgba
-
-    @classmethod
-    def reset_colors(cls) -> None:
-        """Reset material colors to defaults."""
-        cls.WOOD_RGBA = cls._DEFAULT_WOOD_RGBA
-        cls.TILE_RGBA = cls._DEFAULT_TILE_RGBA
 
     @staticmethod
     def _empty_rgba(h: int, w: int) -> NumpyArray:
@@ -92,7 +77,9 @@ class MaterialTileRenderer:
         line_u8(tile, x1 - 1, y0, x1 - 1, y1 - 1, rgba, thickness)
 
     @staticmethod
-    def _wood_planks_horizontal(tile_px: int, pixel_size: int) -> NumpyArray:
+    def _wood_planks_horizontal(
+        tile_px: int, pixel_size: int, color: Color
+    ) -> NumpyArray:
         """
         Horizontal wood planks as staggered rectangles.
         ONLY thin seams (no inner lines).
@@ -125,13 +112,15 @@ class MaterialTileRenderer:
                 cy1 = min(tile_px, y1)
 
                 MaterialTileRenderer._draw_rect_outline(
-                    t, cx0, cy0, cx1, cy1, seam, MaterialTileRenderer.WOOD_RGBA
+                    t, cx0, cy0, cx1, cy1, seam, color
                 )
 
         return t
 
     @staticmethod
-    def _wood_planks_vertical(tile_px: int, pixel_size: int) -> NumpyArray:
+    def _wood_planks_vertical(
+        tile_px: int, pixel_size: int, color: Color
+    ) -> NumpyArray:
         """Vertical wood planks as staggered rectangles, ONLY thin seams."""
         t = MaterialTileRenderer._empty_rgba(tile_px, tile_px)
         seam = MaterialTileRenderer._thin_px(pixel_size)
@@ -160,18 +149,18 @@ class MaterialTileRenderer:
                 cy1 = min(tile_px, y1)
 
                 MaterialTileRenderer._draw_rect_outline(
-                    t, cx0, cy0, cx1, cy1, seam, MaterialTileRenderer.WOOD_RGBA
+                    t, cx0, cy0, cx1, cy1, seam, color
                 )
 
         return t
 
     @staticmethod
-    def _tile_pixels(cells: int, pixel_size: int) -> NumpyArray:
+    def _tile_pixels(cells: int, pixel_size: int, tile_rgba: Color) -> NumpyArray:
         """Draw tile grid using mvcrender.line_u8."""
         size = cells * pixel_size
         t = MaterialTileRenderer._empty_rgba(size, size)
         th = MaterialTileRenderer._thin_px(pixel_size)
-        rgba = MaterialTileRenderer.TILE_RGBA
+        rgba = tile_rgba
 
         # Draw horizontal line at top
         line_u8(t, 0, 0, size - 1, 0, rgba, th)
@@ -182,19 +171,29 @@ class MaterialTileRenderer:
 
     @staticmethod
     @lru_cache(maxsize=64)
-    def get_tile(material: str, pixel_size: int) -> Optional[NumpyArray]:
+    def get_tile(
+        material: str, pixel_size: int, wood_rgba: Color = None, tile_rgba: Color = None
+    ) -> Optional[NumpyArray]:
         spec = MaterialTileRenderer._SPECS.get(material)
         if spec is None or pixel_size <= 0:
             return None
 
+        # Use provided colors or fall back to defaults
+        wood_color = wood_rgba if wood_rgba else color_material_wood
+        tile_color = tile_rgba if tile_rgba else color_material_tile
+
         if spec.kind == "tile":
-            return MaterialTileRenderer._tile_pixels(spec.cells, pixel_size)
+            return MaterialTileRenderer._tile_pixels(spec.cells, pixel_size, tile_color)
 
         tile_px = spec.cells * pixel_size
         if spec.kind == "wood_h":
-            return MaterialTileRenderer._wood_planks_horizontal(tile_px, pixel_size)
+            return MaterialTileRenderer._wood_planks_horizontal(
+                tile_px, pixel_size, wood_color
+            )
         if spec.kind == "wood_v":
-            return MaterialTileRenderer._wood_planks_vertical(tile_px, pixel_size)
+            return MaterialTileRenderer._wood_planks_vertical(
+                tile_px, pixel_size, wood_color
+            )
 
         return None
 

@@ -240,19 +240,19 @@ class DrawingConfig:
             self.set_property(
                 DrawableElement.MATERIAL_OVERLAY,
                 "wood_alpha",
-                device_info["material_wood_alpha"],
+                device_info["alpha_material_wood"],
             )
         if "material_tile_color" in device_info:
             self.set_property(
                 DrawableElement.MATERIAL_OVERLAY,
                 "tile_color",
-                device_info["material_tile_color"],
+                device_info["color_material_tile"],
             )
         if "material_tile_alpha" in device_info:
             self.set_property(
                 DrawableElement.MATERIAL_OVERLAY,
                 "tile_alpha",
-                device_info["material_tile_alpha"],
+                device_info["alpha_material_tile"],
             )
 
         # Update room colors from device info

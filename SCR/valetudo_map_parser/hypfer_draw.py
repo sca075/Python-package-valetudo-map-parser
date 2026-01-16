@@ -122,14 +122,25 @@ class ImageDraw:
                 if (
                     layer_type == "segment"
                     and hasattr(self.img_h, "json_data")
-                    and self.img_h.drawing_config.is_enabled(DrawableElement.MATERIAL_OVERLAY)
+                    and self.img_h.drawing_config.is_enabled(
+                        DrawableElement.MATERIAL_OVERLAY
+                    )
                 ):
                     segment_id = str(room_id + 1)
                     materials = getattr(self.img_h.json_data, "materials", {})
                     material = materials.get(segment_id)
                     if material and material != "generic":
+                        # Get material colors from shared.user_colors
+                        # Index 10 = wood, Index 11 = tile
+                        wood_rgba = self.img_h.shared.user_colors[10]
+                        tile_rgba = self.img_h.shared.user_colors[11]
                         img_np_array = self._apply_material_overlay(
-                            img_np_array, pixels, pixel_size, material
+                            img_np_array,
+                            pixels,
+                            pixel_size,
+                            material,
+                            wood_rgba,
+                            tile_rgba,
                         )
 
             # Increment room_id only for segment layers, not for floor layers
@@ -141,10 +152,14 @@ class ImageDraw:
 
         return img_np_array, room_id
 
-    def _apply_material_overlay(self, img_np_array, pixels, pixel_size, material):
+    def _apply_material_overlay(
+        self, img_np_array, pixels, pixel_size, material, wood_rgba, tile_rgba
+    ):
         """Apply material texture overlay to a room segment."""
         try:
-            tile = MaterialTileRenderer.get_tile(material, pixel_size)
+            tile = MaterialTileRenderer.get_tile(
+                material, pixel_size, wood_rgba, tile_rgba
+            )
             if tile is None:
                 return img_np_array
 
@@ -158,8 +173,10 @@ class ImageDraw:
                 for i in range(count):
                     c_start = col + i * pixel_size
                     c_end = c_start + pixel_size
-                    overlay = MaterialTileRenderer.tile_block(tile, row, row + pixel_size, c_start, c_end)
-                    region = img_np_array[row:row + pixel_size, c_start:c_end]
+                    overlay = MaterialTileRenderer.tile_block(
+                        tile, row, row + pixel_size, c_start, c_end
+                    )
+                    region = img_np_array[row : row + pixel_size, c_start:c_end]
                     alpha = overlay[..., 3:4] / 255.0
                     region[:] = (1 - alpha) * region + alpha * overlay
 

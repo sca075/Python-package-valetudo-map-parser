@@ -294,7 +294,9 @@ class ImageData:
                             compressed_pixels = []
                             for i in range(0, len(pixels), 2):
                                 if i + 1 < len(pixels):
-                                    compressed_pixels.extend([pixels[i], pixels[i + 1], 1])
+                                    compressed_pixels.extend(
+                                        [pixels[i], pixels[i + 1], 1]
+                                    )
                         else:
                             compressed_pixels = []
 

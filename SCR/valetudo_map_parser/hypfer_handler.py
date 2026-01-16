@@ -231,7 +231,11 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         """Draw dynamic elements like zones, paths, and go-to targets."""
         if self.drawing_config.is_enabled(DrawableElement.RESTRICTED_AREA):
             img_np_array = await self.imd.async_draw_zones(
-                m_json, img_np_array, colors["zone_clean"], colors["no_go"], colors.get("carpet")
+                m_json,
+                img_np_array,
+                colors["zone_clean"],
+                colors["no_go"],
+                colors.get("carpet"),
             )
 
         if self.drawing_config.is_enabled(DrawableElement.GO_TO_TARGET):

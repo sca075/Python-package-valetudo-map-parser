@@ -15,7 +15,6 @@ from mvcrender.autocrop import AutoCrop
 
 from .config.async_utils import AsyncPIL
 from .config.drawable_elements import DrawableElement
-from .const import COLORS, DEFAULT_IMAGE_SIZE, DEFAULT_PIXEL_SIZE
 from .config.types import (
     LOGGER,
     Colors,
@@ -31,6 +30,7 @@ from .config.utils import (
     initialize_drawing_config,
     point_in_polygon,
 )
+from .const import COLORS, DEFAULT_IMAGE_SIZE, DEFAULT_PIXEL_SIZE
 from .map_data import RandImageData
 from .reimg_draw import ImageDraw
 from .rooms_handler import RandRoomsHandler

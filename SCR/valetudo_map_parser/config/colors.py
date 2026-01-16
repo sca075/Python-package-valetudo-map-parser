@@ -9,9 +9,11 @@ import numpy as np
 
 from ..const import (
     ALPHA_BACKGROUND,
-    ALPHA_CHARGER,
     ALPHA_CARPET,
+    ALPHA_CHARGER,
     ALPHA_GO_TO,
+    ALPHA_MATERIAL_TILE,
+    ALPHA_MATERIAL_WOOD,
     ALPHA_MOVE,
     ALPHA_NO_GO,
     ALPHA_ROBOT,
@@ -35,9 +37,11 @@ from ..const import (
     ALPHA_WALL,
     ALPHA_ZONE_CLEAN,
     COLOR_BACKGROUND,
-    COLOR_CHARGER,
     COLOR_CARPET,
+    COLOR_CHARGER,
     COLOR_GO_TO,
+    COLOR_MATERIAL_TILE,
+    COLOR_MATERIAL_WOOD,
     COLOR_MOVE,
     COLOR_NO_GO,
     COLOR_ROBOT,
@@ -77,6 +81,8 @@ color_wall = (255, 255, 0, 255)
 color_text = (255, 255, 255, 255)
 color_grey = (125, 125, 125, 255)
 color_black = (0, 0, 0, 255)
+color_material_wood = (40, 40, 40, 38)
+color_material_tile = (40, 40, 40, 45)
 color_room_0 = (135, 206, 250, 255)
 color_room_1 = (176, 226, 255, 255)
 color_room_2 = (164, 211, 238, 255)
@@ -116,6 +122,9 @@ rooms_color = [
 base_colors_array = [
     color_wall,
     color_zone_clean,
+    color_carpet,
+    color_material_wood,
+    color_material_tile,
     color_robot,
     color_background,
     color_move,
@@ -129,6 +138,8 @@ color_array = [
     base_colors_array[0],  # color_wall
     base_colors_array[6],  # color_no_go
     base_colors_array[7],  # color_go_to
+    base_colors_array[8],  # color_predicted_path
+    base_colors_array[9],  # color_obstacle
     color_black,
     base_colors_array[2],  # color_robot
     base_colors_array[5],  # color_charger
@@ -153,6 +164,9 @@ class SupportedColor(StrEnum):
     NO_GO = "color_no_go"
     ZONE_CLEAN = "color_zone_clean"
     CARPET = "color_carpet"
+    OBSTACLE = "color_obstacle"
+    TILE = "color_material_tile"
+    WOOD = "color_material_wood"
     MAP_BACKGROUND = "color_background"
     TEXT = "color_text"
     TRANSPARENT = "color_transparent"
@@ -175,7 +189,10 @@ class DefaultColors:
         SupportedColor.GO_TO: (0, 255, 0),
         SupportedColor.NO_GO: (255, 0, 0),
         SupportedColor.ZONE_CLEAN: (255, 255, 255),
-        SupportedColor.CARPET: (67, 103, 125),  # 50% of room_0 default color (135, 206, 250)
+        SupportedColor.CARPET: (67, 103, 125),
+        SupportedColor.OBSTACLE: (255, 0, 0),
+        SupportedColor.TILE: (40, 40, 40),
+        SupportedColor.WOOD: (40, 40, 40),
         SupportedColor.MAP_BACKGROUND: (0, 125, 255),
         SupportedColor.TEXT: (0, 0, 0),
         SupportedColor.TRANSPARENT: (0, 0, 0),
@@ -310,6 +327,8 @@ class ColorsManagement:
                 (COLOR_NO_GO, color_no_go, ALPHA_NO_GO),
                 (COLOR_GO_TO, color_go_to, ALPHA_GO_TO),
                 (COLOR_TEXT, color_text, ALPHA_TEXT),
+                (COLOR_MATERIAL_WOOD, color_material_wood, ALPHA_MATERIAL_WOOD),
+                (COLOR_MATERIAL_TILE, color_material_tile, ALPHA_MATERIAL_TILE),
             ]
 
             room_color_keys = [

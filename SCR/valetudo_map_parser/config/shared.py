@@ -312,11 +312,15 @@ class CameraSharedManager:
             )
             # Check for new floors_data first
             floors_data = device_info.get("floors_data", None)
-            current_floor = device_info.get("current_floor", "floor_0")  # Default fallback
+            current_floor = device_info.get(
+                "current_floor", "floor_0"
+            )  # Default fallback
 
             if floors_data:
                 # NEW: Use floors_data
-                floor_trims = floors_data.get(current_floor, DEFAULT_VALUES["trims_data"])
+                floor_trims = floors_data.get(
+                    current_floor, DEFAULT_VALUES["trims_data"]
+                )
                 instance.trims = TrimsData.from_dict(floor_trims)
                 instance.current_floor = current_floor
             else:
