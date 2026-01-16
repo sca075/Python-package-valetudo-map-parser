@@ -230,25 +230,25 @@ class DrawingConfig:
         }
 
         # Update material overlay properties if present
-        if "material_wood_color" in device_info:
+        if "color_material_wood" in device_info:
             self.set_property(
                 DrawableElement.MATERIAL_OVERLAY,
                 "wood_color",
-                device_info["material_wood_color"],
+                device_info["color_material_wood"],
             )
-        if "material_wood_alpha" in device_info:
+        if "alpha_material_wood" in device_info:
             self.set_property(
                 DrawableElement.MATERIAL_OVERLAY,
                 "wood_alpha",
                 device_info["alpha_material_wood"],
             )
-        if "material_tile_color" in device_info:
+        if "color_material_tile" in device_info:
             self.set_property(
                 DrawableElement.MATERIAL_OVERLAY,
                 "tile_color",
                 device_info["color_material_tile"],
             )
-        if "material_tile_alpha" in device_info:
+        if "alpha_material_tile" in device_info:
             self.set_property(
                 DrawableElement.MATERIAL_OVERLAY,
                 "tile_alpha",
