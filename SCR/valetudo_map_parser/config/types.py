@@ -63,7 +63,7 @@ class RoomProperty(TypedDict):
 @dataclass
 class TrimCropData:
     """Dataclass for trim and crop data."""
-    
+
     floor: str
     trim_left: int
     trim_up: int

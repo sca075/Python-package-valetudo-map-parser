@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 
 from .config.drawable_elements import DrawableElement
+from .config.material import MaterialColors, MaterialTileRenderer
 from .config.types import Color, JsonType, NumpyArray, RobotPosition, RoomStore
 from .config.utils import point_in_polygon
 
@@ -117,6 +118,32 @@ class ImageDraw:
                     img_np_array, pixels, pixel_size, room_color
                 )
 
+                # Apply material overlay if present for this segment and enabled
+                if (
+                    layer_type == "segment"
+                    and hasattr(self.img_h, "json_data")
+                    and self.img_h.drawing_config.is_enabled(
+                        DrawableElement.MATERIAL_OVERLAY
+                    )
+                ):
+                    segment_id = str(room_id + 1)
+                    materials = getattr(self.img_h.json_data, "materials", {})
+                    material = materials.get(segment_id)
+                    if material and material != "generic":
+                        # Get material colors from shared.user_colors
+                        # Index 10 = wood, Index 11 = tile
+                        material_colors = MaterialColors(
+                            wood_rgba=self.img_h.shared.user_colors[10],
+                            tile_rgba=self.img_h.shared.user_colors[11]
+                        )
+                        img_np_array = self._apply_material_overlay(
+                            img_np_array,
+                            pixels,
+                            pixel_size,
+                            material,
+                            material_colors,
+                        )
+
             # Increment room_id only for segment layers, not for floor layers
             if layer_type == "segment":
                 room_id = (room_id + 1) % 16  # Cycle room_id back to 0 after 15
@@ -125,6 +152,39 @@ class ImageDraw:
             _LOGGER.warning("%s: Image Draw Error: %s", self.file_name, str(e))
 
         return img_np_array, room_id
+
+    def _apply_material_overlay(
+        self, img_np_array, pixels, pixel_size, material, material_colors
+    ):
+        """Apply material texture overlay to a room segment."""
+        try:
+            tile = MaterialTileRenderer.get_tile(
+                material, pixel_size, material_colors
+            )
+            if tile is None:
+                return img_np_array
+
+            if not pixels:
+                return img_np_array
+
+            # Apply overlay directly to each pixel block
+            for x, y, count in pixels:
+                row = y * pixel_size
+                col = x * pixel_size
+                for i in range(count):
+                    c_start = col + i * pixel_size
+                    c_end = c_start + pixel_size
+                    overlay = MaterialTileRenderer.tile_block(
+                        tile, row, row + pixel_size, c_start, c_end
+                    )
+                    region = img_np_array[row : row + pixel_size, c_start:c_end]
+                    alpha = overlay[..., 3:4] / 255.0
+                    region[:] = (1 - alpha) * region + alpha * overlay
+
+        except Exception as e:
+            _LOGGER.warning("%s: Material overlay error: %s", self.file_name, str(e))
+
+        return img_np_array
 
     def _get_active_room_color(self, room_id, room_color, color_zone_clean):
         """Adjust the room color if the room is active."""
