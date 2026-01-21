@@ -269,7 +269,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                 y=robot_position[1],
                 angle=robot_position_angle,
                 fill=robot_color,
-                radius=self.shared.robot_size,
+                radius=self.imd.robot_size,
                 robot_state=self.shared.vacuum_state,
             )
 
@@ -384,7 +384,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                 # Synchronize zooming state from ImageDraw to handler before auto-crop
                 self.zooming = self.imd.img_h.zooming
 
-                # Resize the image
+                # Resize the image - auto_trim_and_zoom_image creates a new array
                 img_np_array = self.auto_trim_and_zoom_image(
                     img_np_array,
                     colors["background"],

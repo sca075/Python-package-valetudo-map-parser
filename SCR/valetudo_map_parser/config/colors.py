@@ -134,6 +134,7 @@ base_colors_array = [
     color_material_tile, # [11]
 ]
 
+# Might be not used in the future we may remove it.
 color_array = [
     base_colors_array[0],  # color_wall
     base_colors_array[6],  # color_no_go

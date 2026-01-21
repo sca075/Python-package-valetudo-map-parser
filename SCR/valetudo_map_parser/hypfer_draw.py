@@ -24,6 +24,7 @@ class ImageDraw:
     def __init__(self, image_handler):
         self.img_h = image_handler
         self.file_name = self.img_h.shared.file_name
+        self.robot_size = self.img_h.shared.robot_size
 
     async def draw_go_to_flag(
         self, np_array: NumpyArray, entity_dict: dict, color_go_to: Color
@@ -415,6 +416,12 @@ class ImageDraw:
                 np_array, predicted_pat2, 2, color_gray
             )
         if path_pixels:
+            # Calculate path width based on mop mode
+            if self.img_h.shared.mop_mode:
+                path_width = max(1, self.robot_size - 2)
+            else:
+                path_width = 5  # Default width
+
             for path in path_pixels:
                 # Get the points from the current path and extend multiple paths.
                 points = path.get("points", [])
@@ -423,7 +430,7 @@ class ImageDraw:
                     sublist, 2
                 )
                 np_array = await self.img_h.draw.lines(
-                    np_array, self.img_h.shared.map_new_path, 5, color_move
+                    np_array, self.img_h.shared.map_new_path, path_width, color_move
                 )
         return np_array
 
