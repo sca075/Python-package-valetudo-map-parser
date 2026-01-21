@@ -139,12 +139,12 @@ class ReImageHandler(BaseHandler, AutoCrop):
 
         try:
             if (m_json is not None) and (not isinstance(m_json, tuple)):
-                LOGGER.info("%s: Composing the image for the camera.", self.file_name)
+                LOGGER.debug("%s: Composing the image for the camera.", self.file_name)
                 self.json_data = m_json
                 size_x, size_y = self.data.get_rrm_image_size(m_json)
                 self.img_size = DEFAULT_IMAGE_SIZE
                 self.json_id = str(uuid.uuid4())  # image id
-                LOGGER.info("Vacuum Data ID: %s", self.json_id)
+                LOGGER.debug("Vacuum Data ID: %s", self.json_id)
 
                 (
                     img_np_array,
@@ -220,7 +220,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 colors["background"],
                 DEFAULT_PIXEL_SIZE,
             )
-            LOGGER.info("%s: Completed base Layers", self.file_name)
+            LOGGER.debug("%s: Completed base Layers", self.file_name)
 
             if room_id > 0 and not self.room_propriety:
                 self.room_propriety = await self.get_rooms_attributes(destinations)
@@ -526,7 +526,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
         """Return the map calibration data."""
         if not self.calibration_data and self.crop_img_size:
             self.calibration_data = []
-            LOGGER.info(
+            LOGGER.debug(
                 "%s: Getting Calibrations points %s",
                 self.file_name,
                 str(self.crop_area),

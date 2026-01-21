@@ -381,9 +381,9 @@ class ImageDraw:
             virtual_walls = self.img_h.data.find_virtual_walls(m_json)
         except (ValueError, KeyError):
             virtual_walls = None
-        else:
-            _LOGGER.info("%s: Got virtual walls.", self.file_name)
+
         if virtual_walls:
+            _LOGGER.debug("%s: Got virtual walls.", self.file_name)
             np_array = await self.img_h.draw.draw_virtual_walls(
                 np_array, virtual_walls, color_no_go
             )

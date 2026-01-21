@@ -148,26 +148,16 @@ class DrawingConfig:
         """Enable drawing of a specific element."""
         if element_code in self._enabled_elements:
             self._enabled_elements[element_code] = True
-            LOGGER.info(
+            LOGGER.debug(
                 "Enabled element %s (%s)", element_code.name, element_code.value
-            )
-            LOGGER.info(
-                "Element %s is now enabled: %s",
-                element_code.name,
-                self._enabled_elements[element_code],
             )
 
     def disable_element(self, element_code: DrawableElement) -> None:
         """Disable drawing of a specific element."""
         if element_code in self._enabled_elements:
             self._enabled_elements[element_code] = False
-            LOGGER.info(
+            LOGGER.debug(
                 "Disabled element %s (%s)", element_code.name, element_code.value
-            )
-            LOGGER.info(
-                "Element %s is now enabled: %s",
-                element_code.name,
-                self._enabled_elements[element_code],
             )
 
     def set_elements(self, element_codes: List[DrawableElement]) -> None:
@@ -317,9 +307,6 @@ class DrawingConfig:
         for disable_key, element in element_disable_mapping.items():
             if device_info.get(disable_key, False):
                 self.disable_element(element)
-                LOGGER.info(
-                    "Disabled %s element from device_info setting", element.name
-                )
 
         # Process room disable flags (1-15)
         for room_id in range(1, 16):
@@ -327,6 +314,3 @@ class DrawingConfig:
             if device_info.get(disable_key, False):
                 room_element = getattr(DrawableElement, f"ROOM_{room_id}")
                 self.disable_element(room_element)
-                LOGGER.info(
-                    "Disabled ROOM_%d element from device_info setting", room_id
-                )

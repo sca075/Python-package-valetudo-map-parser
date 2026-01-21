@@ -65,7 +65,7 @@ class ImageDraw:
                 )
         except ValueError as e:
             self.img_h.segment_data = None
-            LOGGER.info("%s: No segments data found: %s", self.file_name, e)
+            LOGGER.debug("%s: No segments data found: %s", self.file_name, e)
 
     async def async_draw_base_layer(
         self,
@@ -82,13 +82,13 @@ class ImageDraw:
         walls_data = self.data.get_rrm_walls(m_json)
         floor_data = self.data.get_rrm_floor(m_json)
 
-        LOGGER.info("%s: Empty image with background color", self.file_name)
+        LOGGER.debug("%s: Empty image with background color", self.file_name)
         img_np_array = await self.draw.create_empty_image(
             self.img_h.img_size["x"], self.img_h.img_size["y"], color_background
         )
         room_id = 0
         if self.img_h.frame_number == 0:
-            LOGGER.info("%s: Overlapping Layers", self.file_name)
+            LOGGER.debug("%s: Overlapping Layers", self.file_name)
 
             # checking if there are segments too (sorted pixels in the raw data).
             await self.async_segment_data(m_json, size_x, size_y, pos_top, pos_left)
@@ -143,10 +143,10 @@ class ImageDraw:
         room_id = 0
         rooms_list = [color_wall]
         if not segment_data:
-            LOGGER.info("%s: No segments data found.", self.file_name)
+            LOGGER.debug("%s: No segments data found.", self.file_name)
             return room_id, img_np_array
 
-        LOGGER.info("%s: Drawing segments.", self.file_name)
+        LOGGER.debug("%s: Drawing segments.", self.file_name)
         for pixels in segment_data:
             room_color = self.img_h.shared.rooms_colors[room_id]
             rooms_list.append(room_color)
@@ -233,7 +233,7 @@ class ImageDraw:
             zone_clean = None
 
         if zone_clean:
-            LOGGER.info("%s: Got zones.", self.file_name)
+            LOGGER.debug("%s: Got zones.", self.file_name)
             return await self.draw.zones(np_array, zone_clean, color_zone_clean)
         return np_array
 
@@ -247,7 +247,7 @@ class ImageDraw:
             virtual_walls = None
 
         if virtual_walls:
-            LOGGER.info("%s: Got virtual walls.", self.file_name)
+            LOGGER.debug("%s: Got virtual walls.", self.file_name)
             np_array = await self.draw.draw_virtual_walls(
                 np_array, virtual_walls, color_no_go
             )
@@ -291,8 +291,9 @@ class ImageDraw:
             entity_dict = self.data_sup.find_points_entities(m_json)
         except (ValueError, KeyError):
             entity_dict = None
-        else:
-            LOGGER.info("%s: Got the points in the json.", self.file_name)
+
+        if entity_dict:
+            LOGGER.debug("%s: Got the points in the json.", self.file_name)
         return entity_dict
 
     async def async_get_robot_position(self, m_json: JsonType) -> tuple | None:

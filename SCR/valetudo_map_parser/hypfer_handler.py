@@ -215,9 +215,9 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
             data_tasks.append(self._prepare_goto_data(entity_dict))
 
         path_enabled = self.drawing_config.is_enabled(DrawableElement.PATH)
-        LOGGER.info("%s: PATH element enabled: %s", self.file_name, path_enabled)
+        LOGGER.debug("%s: PATH element enabled: %s", self.file_name, path_enabled)
         if path_enabled:
-            LOGGER.info("%s: Drawing path", self.file_name)
+            LOGGER.debug("%s: Drawing path", self.file_name)
             data_tasks.append(self._prepare_path_data(m_json))
 
         if data_tasks:
@@ -248,7 +248,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                 img_np_array, m_json, colors["move"], self.color_grey
             )
         else:
-            LOGGER.info("%s: Skipping path drawing", self.file_name)
+            LOGGER.debug("%s: Skipping path drawing", self.file_name)
 
         return img_np_array
 
@@ -334,7 +334,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                         room_id, robot_position, robot_position_angle
                     )
 
-                    LOGGER.info("%s: Completed base Layers", self.file_name)
+                    LOGGER.debug("%s: Completed base Layers", self.file_name)
                     # Copy the new array in base layer.
                     # Delete old base layer before creating new one to free memory
                     if self.img_base_layer is not None:
@@ -436,7 +436,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         """Get the calibration data from the JSON data.
         this will create the attribute calibration points."""
         calibration_data = []
-        LOGGER.info("Getting %s Calibrations points.", self.file_name)
+        LOGGER.debug("Getting %s Calibrations points.", self.file_name)
 
         # Define the map points (fixed)
         map_points = self.get_map_points()
