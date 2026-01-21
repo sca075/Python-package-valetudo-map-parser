@@ -44,6 +44,8 @@ COLORS = [
     "no_go",
     "go_to",
     "text",
+    "material_wood",
+    "material_tile",
 ]
 
 SENSOR_NO_DATA = {

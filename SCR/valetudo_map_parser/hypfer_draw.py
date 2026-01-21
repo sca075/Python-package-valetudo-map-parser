@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 
+from .config.colors import ColorIndex
 from .config.drawable_elements import DrawableElement
 from .config.material import MaterialColors, MaterialTileRenderer
 from .config.types import Color, JsonType, NumpyArray, RobotPosition, RoomStore
@@ -131,11 +132,10 @@ class ImageDraw:
                     materials = getattr(self.img_h.json_data, "materials", {})
                     material = materials.get(segment_id)
                     if material and material != "generic":
-                        # Get material colors from shared.user_colors
-                        # Index 10 = wood, Index 11 = tile
+                        # Get material colors from shared.user_colors using named indices
                         material_colors = MaterialColors(
-                            wood_rgba=self.img_h.shared.user_colors[10],
-                            tile_rgba=self.img_h.shared.user_colors[11]
+                            wood_rgba=self.img_h.shared.user_colors[ColorIndex.MATERIAL_WOOD],
+                            tile_rgba=self.img_h.shared.user_colors[ColorIndex.MATERIAL_TILE]
                         )
                         img_np_array = self._apply_material_overlay(
                             img_np_array,

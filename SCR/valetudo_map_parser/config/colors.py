@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import IntEnum, StrEnum
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -149,6 +149,26 @@ color_array = [
     color_transparent,
     rooms_color,
 ]
+
+
+class ColorIndex(IntEnum):
+    """
+    Named indices for user_colors array.
+    This prevents hardcoded indices and makes the code maintainable.
+    The order must match the order in set_initial_colours() base_color_keys.
+    """
+    WALL = 0
+    ZONE_CLEAN = 1
+    ROBOT = 2
+    BACKGROUND = 3
+    MOVE = 4
+    CHARGER = 5
+    CARPET = 6
+    NO_GO = 7
+    GO_TO = 8
+    TEXT = 9
+    MATERIAL_WOOD = 10
+    MATERIAL_TILE = 11
 
 
 class SupportedColor(StrEnum):
