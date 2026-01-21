@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 
+from .config.colors import ColorIndex
 from .config.drawable_elements import DrawableElement
 from .config.material import MaterialColors, MaterialTileRenderer
 from .config.types import Color, JsonType, NumpyArray, RobotPosition, RoomStore
@@ -24,6 +25,7 @@ class ImageDraw:
     def __init__(self, image_handler):
         self.img_h = image_handler
         self.file_name = self.img_h.shared.file_name
+        self.robot_size = self.img_h.shared.robot_size
 
     async def draw_go_to_flag(
         self, np_array: NumpyArray, entity_dict: dict, color_go_to: Color
@@ -130,11 +132,10 @@ class ImageDraw:
                     materials = getattr(self.img_h.json_data, "materials", {})
                     material = materials.get(segment_id)
                     if material and material != "generic":
-                        # Get material colors from shared.user_colors
-                        # Index 10 = wood, Index 11 = tile
+                        # Get material colors from shared.user_colors using named indices
                         material_colors = MaterialColors(
-                            wood_rgba=self.img_h.shared.user_colors[10],
-                            tile_rgba=self.img_h.shared.user_colors[11]
+                            wood_rgba=self.img_h.shared.user_colors[ColorIndex.MATERIAL_WOOD],
+                            tile_rgba=self.img_h.shared.user_colors[ColorIndex.MATERIAL_TILE]
                         )
                         img_np_array = self._apply_material_overlay(
                             img_np_array,
@@ -380,9 +381,9 @@ class ImageDraw:
             virtual_walls = self.img_h.data.find_virtual_walls(m_json)
         except (ValueError, KeyError):
             virtual_walls = None
-        else:
-            _LOGGER.info("%s: Got virtual walls.", self.file_name)
+
         if virtual_walls:
+            _LOGGER.debug("%s: Got virtual walls.", self.file_name)
             np_array = await self.img_h.draw.draw_virtual_walls(
                 np_array, virtual_walls, color_no_go
             )
@@ -415,6 +416,12 @@ class ImageDraw:
                 np_array, predicted_pat2, 2, color_gray
             )
         if path_pixels:
+            # Calculate path width based on mop mode
+            if self.img_h.shared.mop_mode:
+                path_width = max(1, self.robot_size - 2)
+            else:
+                path_width = 5  # Default width
+
             for path in path_pixels:
                 # Get the points from the current path and extend multiple paths.
                 points = path.get("points", [])
@@ -423,7 +430,7 @@ class ImageDraw:
                     sublist, 2
                 )
                 np_array = await self.img_h.draw.lines(
-                    np_array, self.img_h.shared.map_new_path, 5, color_move
+                    np_array, self.img_h.shared.map_new_path, path_width, color_move
                 )
         return np_array
 

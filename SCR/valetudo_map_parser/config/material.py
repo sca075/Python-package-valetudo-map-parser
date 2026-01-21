@@ -206,18 +206,3 @@ class MaterialTileRenderer:
         rows = (np.arange(r0, r1) % th).astype(np.intp, copy=False)
         cols = (np.arange(c0, c1) % tw).astype(np.intp, copy=False)
         return tile[rows[:, None], cols[None, :], :]
-
-    @staticmethod
-    def apply_overlay_on_region(
-        image: NumpyArray,
-        tile: NumpyArray,
-        r0: int,
-        r1: int,
-        c0: int,
-        c1: int,
-    ) -> None:
-        region = image[r0:r1, c0:c1]
-        overlay = MaterialTileRenderer.tile_block(tile, r0, r1, c0, c1)
-        mask = overlay[..., 3] > 0
-        if np.any(mask):
-            region[mask] = overlay[mask]

@@ -13,6 +13,7 @@ from PIL import Image, ImageOps
 
 from ..map_data import HyperMapData
 from .async_utils import AsyncNumPy
+from .colors import ColorIndex
 from .drawable import Drawable
 from .drawable_elements import DrawingConfig
 from .status_text.status_text import StatusText
@@ -205,7 +206,7 @@ class BaseHandler:
         Drawable.status_text(
             new_image,
             img_text[1],
-            self.shared.user_colors[8],
+            self.shared.user_colors[ColorIndex.TEXT],
             img_text[0],
             self.shared.vacuum_status_font,
             self.shared.vacuum_status_position,

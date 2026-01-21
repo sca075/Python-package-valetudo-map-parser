@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import IntEnum, StrEnum
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -134,6 +134,7 @@ base_colors_array = [
     color_material_tile, # [11]
 ]
 
+# Might be not used in the future we may remove it.
 color_array = [
     base_colors_array[0],  # color_wall
     base_colors_array[6],  # color_no_go
@@ -148,6 +149,26 @@ color_array = [
     color_transparent,
     rooms_color,
 ]
+
+
+class ColorIndex(IntEnum):
+    """
+    Named indices for user_colors array.
+    This prevents hardcoded indices and makes the code maintainable.
+    The order must match the order in set_initial_colours() base_color_keys.
+    """
+    WALL = 0
+    ZONE_CLEAN = 1
+    ROBOT = 2
+    BACKGROUND = 3
+    MOVE = 4
+    CHARGER = 5
+    CARPET = 6
+    NO_GO = 7
+    GO_TO = 8
+    TEXT = 9
+    MATERIAL_WOOD = 10
+    MATERIAL_TILE = 11
 
 
 class SupportedColor(StrEnum):
@@ -383,17 +404,30 @@ class ColorsManagement:
     def initialize_user_colors(self, device_info: dict) -> List[Color]:
         """
         Initialize user-defined colors with defaults as fallback.
+        The order MUST match ColorIndex enum and set_initial_colours() base_color_keys.
         :param device_info: Dictionary containing user-defined colors.
         :return: List of RGBA colors for map elements.
         """
+        # Define the canonical order matching ColorIndex enum
+        base_color_keys = [
+            (COLOR_WALL, color_wall, ALPHA_WALL),
+            (COLOR_ZONE_CLEAN, color_zone_clean, ALPHA_ZONE_CLEAN),
+            (COLOR_ROBOT, color_robot, ALPHA_ROBOT),
+            (COLOR_BACKGROUND, color_background, ALPHA_BACKGROUND),
+            (COLOR_MOVE, color_move, ALPHA_MOVE),
+            (COLOR_CHARGER, color_charger, ALPHA_CHARGER),
+            (COLOR_CARPET, color_carpet, ALPHA_CARPET),
+            (COLOR_NO_GO, color_no_go, ALPHA_NO_GO),
+            (COLOR_GO_TO, color_go_to, ALPHA_GO_TO),
+            (COLOR_TEXT, color_text, ALPHA_TEXT),
+            (COLOR_MATERIAL_WOOD, color_material_wood, ALPHA_MATERIAL_WOOD),
+            (COLOR_MATERIAL_TILE, color_material_tile, ALPHA_MATERIAL_TILE),
+        ]
+
         colors = []
-        for key in SupportedColor:
-            if key.startswith(SupportedColor.COLOR_ROOM_PREFIX):
-                continue  # Skip room colors for user_colors
-            rgb = device_info.get(key, DefaultColors.COLORS_RGB.get(key))
-            alpha = device_info.get(
-                f"alpha_{key}", DefaultColors.DEFAULT_ALPHA.get(f"alpha_{key}")
-            )
+        for color_key, default_color, alpha_key in base_color_keys:
+            rgb = device_info.get(color_key, default_color[:3] if default_color else (0, 0, 0))
+            alpha = device_info.get(alpha_key, 255.0)
             colors.append(self.add_alpha_to_color(rgb, alpha))
         return colors
 

@@ -124,6 +124,7 @@ class CameraShared:
         self.current_floor: str = "floor_0"
         self.skip_room_ids: List[str] = []
         self.device_info = None
+        self.mop_mode: bool = False
         self._battery_state = None
 
     def vacuum_bat_charged(self) -> bool:
