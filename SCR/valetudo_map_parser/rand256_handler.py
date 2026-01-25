@@ -380,6 +380,8 @@ class ReImageHandler(BaseHandler, AutoCrop):
             zoom=self.zooming,
             rand256=True,
         )
+        # Update shared trims with calculated crop values
+        self.update_trims()
         return img_np_array
 
     async def _finalize_image(self, pil_img):

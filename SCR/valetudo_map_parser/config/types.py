@@ -327,7 +327,10 @@ class TrimsData:
     @classmethod
     def from_list(cls, crop_area: List[int], floor: Optional[str] = None):
         """
-        Initialize TrimsData from a list [trim_up, trim_left, trim_down, trim_right]
+        Initialize TrimsData from a list [left, up, right, down] (mvcrender crop_area format).
+        NOTE: This matches the current implementation but needs investigation - mvcrender
+        documentation states crop_area is [left, up, right, down] but the mapping here
+        assigns crop_area[0] to trim_up and crop_area[1] to trim_left which seems reversed.
         """
         return cls(
             trim_up=crop_area[0],
@@ -339,7 +342,7 @@ class TrimsData:
 
     def clear(self) -> dict:
         """Clear all the trims."""
-        self.floor = ""
+        self.floor = "floor_0"
         self.trim_up = 0
         self.trim_left = 0
         self.trim_down = 0
