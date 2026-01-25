@@ -392,6 +392,8 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                     int(self.shared.image_rotate),
                     self.zooming,
                 )
+                # Update shared trims with calculated crop values
+                self.update_trims()
             # If the image is None return None and log the error.
             if img_np_array is None:
                 LOGGER.warning("%s: Image array is None.", self.file_name)
