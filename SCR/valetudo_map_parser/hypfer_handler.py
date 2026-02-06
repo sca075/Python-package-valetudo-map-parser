@@ -245,7 +245,11 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
 
         if path_enabled:
             img_np_array = await self.imd.async_draw_paths(
-                img_np_array, m_json, colors["move"], self.color_grey, colors["mop_move"]
+                img_np_array,
+                m_json,
+                colors["move"],
+                self.color_grey,
+                colors["mop_move"],
             )
         else:
             LOGGER.debug("%s: Skipping path drawing", self.file_name)

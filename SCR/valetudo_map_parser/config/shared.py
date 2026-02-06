@@ -366,7 +366,7 @@ class CameraSharedManager:
                 instance.trims = TrimsData.from_dict(floor_trims)
                 instance.current_floor = current_floor
                 # Store map_name if available (for rand256 operations)
-                if hasattr(instance, 'map_name'):
+                if hasattr(instance, "map_name"):
                     instance.map_name = map_name
             else:
                 # OLD: Backward compatibility

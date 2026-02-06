@@ -9,14 +9,13 @@ import numpy as np
 
 from ..const import (
     ALPHA_BACKGROUND,
-    ALPHA_CHARGER,
     ALPHA_CARPET,
+    ALPHA_CHARGER,
     ALPHA_GO_TO,
     ALPHA_MATERIAL_TILE,
     ALPHA_MATERIAL_WOOD,
     ALPHA_MOP_MOVE,
     ALPHA_MOVE,
-    ALPHA_MOP_MOVE,
     ALPHA_NO_GO,
     ALPHA_ROBOT,
     ALPHA_ROOM_0,
@@ -39,14 +38,13 @@ from ..const import (
     ALPHA_WALL,
     ALPHA_ZONE_CLEAN,
     COLOR_BACKGROUND,
-    COLOR_CHARGER,
     COLOR_CARPET,
+    COLOR_CHARGER,
     COLOR_GO_TO,
     COLOR_MATERIAL_TILE,
     COLOR_MATERIAL_WOOD,
     COLOR_MOP_MOVE,
     COLOR_MOVE,
-    COLOR_MOP_MOVE,
     COLOR_NO_GO,
     COLOR_ROBOT,
     COLOR_ROOM_0,
@@ -125,19 +123,19 @@ rooms_color = [
 ]
 
 base_colors_array = [
-    color_wall,          # [0]
-    color_zone_clean,    # [1]
-    color_robot,         # [2]
-    color_background,    # [3]
-    color_move,          # [4]
-    color_charger,       # [5]
-    color_no_go,         # [6]
-    color_go_to,         # [7]
-    color_text,          # [8]
-    color_carpet,        # [9]
-    color_material_wood, # [10]
-    color_material_tile, # [11]
-    color_mop_move,      # [12]
+    color_wall,  # [0]
+    color_zone_clean,  # [1]
+    color_robot,  # [2]
+    color_background,  # [3]
+    color_move,  # [4]
+    color_charger,  # [5]
+    color_no_go,  # [6]
+    color_go_to,  # [7]
+    color_text,  # [8]
+    color_carpet,  # [9]
+    color_material_wood,  # [10]
+    color_material_tile,  # [11]
+    color_mop_move,  # [12]
 ]
 
 # Might be not used in the future we may remove it.
@@ -163,6 +161,7 @@ class ColorIndex(IntEnum):
     This prevents hardcoded indices and makes the code maintainable.
     The order must match the order in set_initial_colours() base_color_keys.
     """
+
     WALL = 0
     ZONE_CLEAN = 1
     ROBOT = 2
@@ -437,7 +436,9 @@ class ColorsManagement:
 
         colors = []
         for color_key, default_color, alpha_key in base_color_keys:
-            rgb = device_info.get(color_key, default_color[:3] if default_color else (0, 0, 0))
+            rgb = device_info.get(
+                color_key, default_color[:3] if default_color else (0, 0, 0)
+            )
             alpha = device_info.get(alpha_key, 255.0)
             colors.append(self.add_alpha_to_color(rgb, alpha))
         return colors

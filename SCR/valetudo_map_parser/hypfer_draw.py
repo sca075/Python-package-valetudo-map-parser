@@ -137,8 +137,12 @@ class ImageDraw:
                     if material and material != "generic":
                         # Get material colors from shared.user_colors using named indices
                         material_colors = MaterialColors(
-                            wood_rgba=self.img_h.shared.user_colors[ColorIndex.MATERIAL_WOOD],
-                            tile_rgba=self.img_h.shared.user_colors[ColorIndex.MATERIAL_TILE]
+                            wood_rgba=self.img_h.shared.user_colors[
+                                ColorIndex.MATERIAL_WOOD
+                            ],
+                            tile_rgba=self.img_h.shared.user_colors[
+                                ColorIndex.MATERIAL_TILE
+                            ],
                         )
                         img_np_array = self._apply_material_overlay(
                             img_np_array,
@@ -162,9 +166,7 @@ class ImageDraw:
     ):
         """Apply material texture overlay to a room segment."""
         try:
-            tile = MaterialTileRenderer.get_tile(
-                material, pixel_size, material_colors
-            )
+            tile = MaterialTileRenderer.get_tile(material, pixel_size, material_colors)
             if tile is None:
                 return img_np_array
 
