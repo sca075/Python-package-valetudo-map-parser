@@ -14,7 +14,9 @@ from ..const import (
     ALPHA_GO_TO,
     ALPHA_MATERIAL_TILE,
     ALPHA_MATERIAL_WOOD,
+    ALPHA_MOP_MOVE,
     ALPHA_MOVE,
+    ALPHA_MOP_MOVE,
     ALPHA_NO_GO,
     ALPHA_ROBOT,
     ALPHA_ROOM_0,
@@ -42,7 +44,9 @@ from ..const import (
     COLOR_GO_TO,
     COLOR_MATERIAL_TILE,
     COLOR_MATERIAL_WOOD,
+    COLOR_MOP_MOVE,
     COLOR_MOVE,
+    COLOR_MOP_MOVE,
     COLOR_NO_GO,
     COLOR_ROBOT,
     COLOR_ROOM_0,
@@ -72,6 +76,7 @@ color_transparent = (0, 0, 0, 0)
 color_charger = (0, 128, 0, 255)
 color_carpet = (67, 103, 125, 255)
 color_move = (238, 247, 255, 255)
+color_mop_move = (238, 225, 255, 255)
 color_robot = (255, 255, 204, 255)
 color_no_go = (255, 0, 0, 255)
 color_go_to = (0, 255, 0, 255)
@@ -132,6 +137,7 @@ base_colors_array = [
     color_carpet,        # [9]
     color_material_wood, # [10]
     color_material_tile, # [11]
+    color_mop_move,      # [12]
 ]
 
 # Might be not used in the future we may remove it.
@@ -169,6 +175,7 @@ class ColorIndex(IntEnum):
     TEXT = 9
     MATERIAL_WOOD = 10
     MATERIAL_TILE = 11
+    MOP_MOVE = 12
 
 
 class SupportedColor(StrEnum):
@@ -176,6 +183,7 @@ class SupportedColor(StrEnum):
 
     CHARGER = "color_charger"
     PATH = "color_move"
+    MOP_PATH = "color_mop_move"
     PREDICTED_PATH = "color_predicted_move"
     WALLS = "color_wall"
     ROBOT = "color_robot"
@@ -202,6 +210,7 @@ class DefaultColors:
     COLORS_RGB: Dict[str, Tuple[int, int, int]] = {
         SupportedColor.CHARGER: (255, 128, 0),
         SupportedColor.PATH: (50, 150, 255),  # More vibrant blue for better visibility
+        SupportedColor.MOP_PATH: (238, 225, 255),
         SupportedColor.PREDICTED_PATH: (93, 109, 126),
         SupportedColor.WALLS: (255, 255, 0),
         SupportedColor.ROBOT: (255, 255, 204),
@@ -348,6 +357,7 @@ class ColorsManagement:
                 (COLOR_TEXT, color_text, ALPHA_TEXT),
                 (COLOR_MATERIAL_WOOD, color_material_wood, ALPHA_MATERIAL_WOOD),
                 (COLOR_MATERIAL_TILE, color_material_tile, ALPHA_MATERIAL_TILE),
+                (COLOR_MOP_MOVE, color_mop_move, ALPHA_MOP_MOVE),
             ]
 
             room_color_keys = [
@@ -422,6 +432,7 @@ class ColorsManagement:
             (COLOR_TEXT, color_text, ALPHA_TEXT),
             (COLOR_MATERIAL_WOOD, color_material_wood, ALPHA_MATERIAL_WOOD),
             (COLOR_MATERIAL_TILE, color_material_tile, ALPHA_MATERIAL_TILE),
+            (COLOR_MOP_MOVE, color_mop_move, ALPHA_MOP_MOVE),
         ]
 
         colors = []

@@ -356,6 +356,7 @@ class FloorData:
 
     trims: TrimsData
     map_name: str = ""
+    map_data: dict = None
 
     @classmethod
     def from_dict(cls, data: dict):
@@ -363,11 +364,25 @@ class FloorData:
         return cls(
             trims=TrimsData.from_dict(data.get("trims", {})),
             map_name=data.get("map_name", ""),
+            map_data=data.get("map_data", None),
         )
 
     def to_dict(self) -> dict:
         """Convert FloorData to a dictionary."""
-        return {"trims": self.trims.to_dict(), "map_name": self.map_name}
+        result = {"trims": self.trims.to_dict(), "map_name": self.map_name}
+        if self.map_data is not None:
+            result["map_data"] = self.map_data
+        return result
+
+    def update_trims(self, new_trims: TrimsData):
+        """Update the trims for this floor."""
+        self.trims = new_trims
+
+    def clear(self):
+        """Clear this floor's data."""
+        self.trims = TrimsData()
+        self.map_name = ""
+        self.map_data = None
 
 
 Color = Union[Tuple[int, int, int], Tuple[int, int, int, int]]

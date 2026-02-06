@@ -73,7 +73,8 @@ class CameraShared:
         self.image_last_updated: float = 0.0
         self.image_format = "image/pil"
         self.image_size = None
-        self.robot_size = None
+        self.robot_size = 25
+        self.mop_path_width = None
         self.image_auto_zoom: bool = False
         self.image_zoom_lock_ratio: bool = True
         self.image_ref_height: int = 0
@@ -186,6 +187,20 @@ class CameraShared:
         """Reset the trims."""
         self.trims = TrimsData.from_dict(DEFAULT_VALUES["trims_data"])
         return self.trims
+
+    def add_floor(self, floor_id: str, floor_data: FloorData):
+        """Add or update a floor in floors_trims."""
+        self.floors_trims[floor_id] = floor_data
+
+    def update_floor(self, floor_id: str, new_trims: TrimsData):
+        """Update trims for a specific floor."""
+        if floor_id in self.floors_trims:
+            self.floors_trims[floor_id].update_trims(new_trims)
+
+    def remove_floor(self, floor_id: str):
+        """Remove a floor from floors_trims."""
+        if floor_id in self.floors_trims:
+            del self.floors_trims[floor_id]
 
     async def batch_update(self, **kwargs):
         """Update the data of Shared in Batch"""
@@ -311,24 +326,6 @@ class CameraSharedManager:
             instance.vacuum_status_position = device_info.get(
                 CONF_VAC_STAT_POS, DEFAULT_VALUES["vac_status_position"]
             )
-            # Check for new floors_data first
-            floors_data = device_info.get("floors_data", None)
-            current_floor = device_info.get(
-                "current_floor", "floor_0"
-            )  # Default fallback
-
-            if floors_data:
-                # NEW: Use floors_data
-                floor_trims = floors_data.get(
-                    current_floor, DEFAULT_VALUES["trims_data"]
-                )
-                instance.trims = TrimsData.from_dict(floor_trims)
-                instance.current_floor = current_floor
-            else:
-                # OLD: Backward compatibility
-                trim_data = device_info.get("trims_data", DEFAULT_VALUES["trims_data"])
-                instance.trims = TrimsData.from_dict(trim_data)
-                instance.current_floor = "floor_0"  # Default
             # Robot size
             robot_size = device_info.get("robot_size", 25)
             try:
@@ -341,6 +338,41 @@ class CameraSharedManager:
             elif robot_size > 25:
                 robot_size = 25
             instance.robot_size = robot_size
+            instance.mop_path_width = device_info.get("mop_path_width", robot_size - 2)
+
+            # Check for new floors_data first
+            floors_data = device_info.get("floors_data", {})
+            current_floor = device_info.get(
+                "current_floor", "floor_0"
+            )  # Default fallback
+
+            if floors_data:
+                # NEW: Use floors_data
+                floor_data = floors_data.get(
+                    current_floor, DEFAULT_VALUES["trims_data"]
+                )
+
+                # Handle FloorData.to_dict() format: {"trims": {...}, "map_name": "..."}
+                # vs legacy format: just trims dict
+                if isinstance(floor_data, dict) and "trims" in floor_data:
+                    # FloorData.to_dict() format - extract trims sub-dict
+                    floor_trims = floor_data["trims"]
+                    map_name = floor_data.get("map_name", "")
+                else:
+                    # Legacy format - floor_data is already the trims dict
+                    floor_trims = floor_data
+                    map_name = ""
+
+                instance.trims = TrimsData.from_dict(floor_trims)
+                instance.current_floor = current_floor
+                # Store map_name if available (for rand256 operations)
+                if hasattr(instance, 'map_name'):
+                    instance.map_name = map_name
+            else:
+                # OLD: Backward compatibility
+                trim_data = device_info.get("trims_data", DEFAULT_VALUES["trims_data"])
+                instance.trims = TrimsData.from_dict(trim_data)
+                instance.current_floor = "floor_0"  # Default
 
         except TypeError as ex:
             _LOGGER.warning(

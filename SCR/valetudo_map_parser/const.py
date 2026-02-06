@@ -46,6 +46,7 @@ COLORS = [
     "text",
     "material_wood",
     "material_tile",
+    "mop_move",
 ]
 
 SENSOR_NO_DATA = {
@@ -107,6 +108,7 @@ DEFAULT_VALUES = {
     "color_text": [255, 255, 255],
     "color_material_wood": [40, 40, 40],
     "color_material_tile": [40, 40, 40],
+    "color_mop_move": [238, 247, 255],
     "alpha_charger": 255.0,
     "alpha_move": 255.0,
     "alpha_wall": 255.0,
@@ -119,6 +121,7 @@ DEFAULT_VALUES = {
     "alpha_text": 255.0,
     "alpha_material_wood": 38.0,
     "alpha_material_tile": 45.0,
+    "alpha_mop_move": 100.0,
     "color_room_0": [135, 206, 250],
     "color_room_1": [176, 226, 255],
     "color_room_2": [165, 105, 18],
@@ -247,6 +250,7 @@ IS_OFFSET = "add_offset"
 COLOR_CHARGER = "color_charger"
 COLOR_CARPET = "color_carpet"
 COLOR_MOVE = "color_move"
+COLOR_MOP_MOVE = "color_mop_move"
 COLOR_MATERIAL_WOOD = "color_material_wood"
 COLOR_MATERIAL_TILE = "color_material_tile"
 COLOR_ROBOT = "color_robot"
@@ -279,6 +283,7 @@ COLOR_ROOM_15 = "color_room_15"
 ALPHA_CHARGER = "alpha_charger"
 ALPHA_CARPET = "alpha_carpet"
 ALPHA_MOVE = "alpha_move"
+ALPHA_MOP_MOVE = "alpha_mop_move"
 ALPHA_ROBOT = "alpha_robot"
 ALPHA_NO_GO = "alpha_no_go"
 ALPHA_GO_TO = "alpha_go_to"
