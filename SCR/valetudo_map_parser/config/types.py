@@ -85,10 +85,10 @@ class TrimCropData:
         """Create dataclass from dictionary."""
         return TrimCropData(
             floor=data.get("floor", "floor_0"),
-            trim_left=data["trim_left"],
-            trim_up=data["trim_up"],
-            trim_right=data["trim_right"],
-            trim_down=data["trim_down"],
+            trim_left=int(data["trim_left"]),
+            trim_up=int(data["trim_up"]),
+            trim_right=int(data["trim_right"]),
+            trim_down=int(data["trim_down"]),
         )
 
     def to_list(self) -> list:
@@ -100,10 +100,10 @@ class TrimCropData:
         """Create dataclass from list [trim_left, trim_up, trim_right, trim_down]."""
         return TrimCropData(
             floor=floor,
-            trim_left=data[0],
-            trim_up=data[1],
-            trim_right=data[2],
-            trim_down=data[3],
+            trim_left=int(data[0]),
+            trim_up=int(data[1]),
+            trim_right=int(data[2]),
+            trim_down=int(data[3]),
         )
 
 
@@ -305,10 +305,10 @@ class TrimsData:
         data = json.loads(json_data)
         return cls(
             floor=data.get("floor", ""),
-            trim_up=data.get("trim_up", 0),
-            trim_left=data.get("trim_left", 0),
-            trim_down=data.get("trim_down", 0),
-            trim_right=data.get("trim_right", 0),
+            trim_up=int(data.get("trim_up", 0)),
+            trim_left=int(data.get("trim_left", 0)),
+            trim_down=int(data.get("trim_down", 0)),
+            trim_right=int(data.get("trim_right", 0)),
         )
 
     def to_json(self) -> str:
@@ -318,7 +318,13 @@ class TrimsData:
     @classmethod
     def from_dict(cls, data: dict):
         """Initialize TrimData from a dictionary."""
-        return cls(**data)
+        return cls(
+            floor=data.get("floor", ""),
+            trim_up=int(data.get("trim_up", 0)),
+            trim_left=int(data.get("trim_left", 0)),
+            trim_down=int(data.get("trim_down", 0)),
+            trim_right=int(data.get("trim_right", 0)),
+        )
 
     def to_dict(self) -> dict:
         """Convert TrimData to a dictionary."""
@@ -333,10 +339,10 @@ class TrimsData:
         assigns crop_area[0] to trim_up and crop_area[1] to trim_left which seems reversed.
         """
         return cls(
-            trim_up=crop_area[0],
-            trim_left=crop_area[1],
-            trim_down=crop_area[2],
-            trim_right=crop_area[3],
+            trim_up=int(crop_area[0]),
+            trim_left=int(crop_area[1]),
+            trim_down=int(crop_area[2]),
+            trim_right=int(crop_area[3]),
             floor=floor,
         )
 
