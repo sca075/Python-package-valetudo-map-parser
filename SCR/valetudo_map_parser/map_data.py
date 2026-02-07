@@ -263,10 +263,11 @@ class ImageData:
         meta_data: dict, active_list: list[int], materials_dict: dict[str, str]
     ) -> None:
         """Extract active flag and material from segment metadata."""
+        safe_val = meta_data.get("active", 0)
         try:
-            active_list.append(int(meta_data.get("active", 0)))
+            active_list.append(int(safe_val))
         except (ValueError, TypeError):
-            pass
+            active_list.append(0)  # Ensure alignment with segment list
 
         segment_id = meta_data.get("segmentId")
         material = meta_data.get("material")
