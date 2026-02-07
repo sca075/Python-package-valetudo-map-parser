@@ -248,6 +248,56 @@ class ImageData:
         return obstacle_positions
 
     @staticmethod
+    def _convert_pixels_to_compressed(pixels: list) -> list:
+        """Convert pixels array from pairs to compressed triplets format."""
+        if not pixels:
+            return []
+        compressed_pixels = []
+        for i in range(0, len(pixels), 2):
+            if i + 1 < len(pixels):
+                compressed_pixels.extend([pixels[i], pixels[i + 1], 1])
+        return compressed_pixels
+
+    @staticmethod
+    def _extract_segment_metadata(
+        meta_data: dict, active_list: list[int], materials_dict: dict[str, str]
+    ) -> None:
+        """Extract active flag and material from segment metadata."""
+        safe_val = meta_data.get("active", 0)
+        try:
+            active_list.append(int(safe_val))
+        except (ValueError, TypeError):
+            active_list.append(0)  # Ensure alignment with segment list
+
+        segment_id = meta_data.get("segmentId")
+        material = meta_data.get("material")
+        if segment_id and material:
+            materials_dict[segment_id] = material
+
+    @staticmethod
+    def _process_map_layer(
+        json_obj: dict,
+        layer_dict: dict[str, list[Any]],
+        active_list: list[int],
+        materials_dict: dict[str, str],
+    ) -> None:
+        """Process a single MapLayer object."""
+        layer_type = json_obj.get("type")
+        if not layer_type:
+            return
+
+        compressed_pixels = json_obj.get("compressedPixels")
+        if compressed_pixels is None:
+            pixels = json_obj.get("pixels", [])
+            compressed_pixels = ImageData._convert_pixels_to_compressed(pixels)
+
+        layer_dict.setdefault(layer_type, []).append(compressed_pixels)
+
+        if layer_type == "segment":
+            meta_data = json_obj.get("metaData") or {}
+            ImageData._extract_segment_metadata(meta_data, active_list, materials_dict)
+
+    @staticmethod
     def find_layers(
         json_obj: JsonType,
         layer_dict: dict[str, list[Any]] | None,
@@ -279,43 +329,10 @@ class ImageData:
 
         if isinstance(json_obj, dict):
             if json_obj.get("__class") == "MapLayer":
-                layer_type = json_obj.get("type")
-                meta_data = json_obj.get("metaData") or {}
-                if layer_type:
-                    # Get compressedPixels, or fall back to pixels if not present
-                    compressed_pixels = json_obj.get("compressedPixels")
-                    if compressed_pixels is None:
-                        # If compressedPixels is missing, convert pixels array to compressed format
-                        # pixels format: [x, y, x, y, ...] (pairs)
-                        # compressedPixels format: [x, y, count, x, y, count, ...] (triplets)
-                        pixels = json_obj.get("pixels", [])
-                        if pixels:
-                            # Convert pairs to triplets by adding count=1 for each pixel
-                            compressed_pixels = []
-                            for i in range(0, len(pixels), 2):
-                                if i + 1 < len(pixels):
-                                    compressed_pixels.extend(
-                                        [pixels[i], pixels[i + 1], 1]
-                                    )
-                        else:
-                            compressed_pixels = []
+                ImageData._process_map_layer(
+                    json_obj, layer_dict, active_list, materials_dict
+                )
 
-                    layer_dict.setdefault(layer_type, []).append(compressed_pixels)
-
-                    # Safely extract "active" flag and material if present
-                    if layer_type == "segment":
-                        try:
-                            active_list.append(int(meta_data.get("active", 0)))
-                        except (ValueError, TypeError):
-                            pass  # skip invalid/missing 'active' values
-
-                        # Extract material if present
-                        segment_id = meta_data.get("segmentId")
-                        material = meta_data.get("material")
-                        if segment_id and material:
-                            materials_dict[segment_id] = material
-
-            # json_obj.items() yields (key, value), so we only want the values
             for _, value in json_obj.items():
                 ImageData.find_layers(value, layer_dict, active_list, materials_dict)
 

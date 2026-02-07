@@ -1,5 +1,5 @@
 """Valetudo map parser.
-Version: 0.2.4b1"""
+Version: 0.2.4b2"""
 
 from pathlib import Path
 
@@ -29,6 +29,7 @@ from .const import (
     ATTR_CALIBRATION_POINTS,
     ATTR_CAMERA_MODE,
     ATTR_CONTENT_TYPE,
+    ATTR_DOCK_STATE,
     ATTR_FRIENDLY_NAME,
     ATTR_IMAGE_LAST_UPDATED,
     ATTR_JSON_DATA,
@@ -98,6 +99,7 @@ __all__ = [
     "ATTR_CALIBRATION_POINTS",
     "ATTR_CAMERA_MODE",
     "ATTR_CONTENT_TYPE",
+    "ATTR_DOCK_STATE",
     "ATTR_FRIENDLY_NAME",
     "ATTR_IMAGE_LAST_UPDATED",
     "ATTR_JSON_DATA",

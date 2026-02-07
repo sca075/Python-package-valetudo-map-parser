@@ -28,6 +28,7 @@ class StatusText:
         self._lang_map = translations.get(self._language) or translations.get("en", {})
         self._compose_functions: list[Callable[[list[str]], list[str]]] = [
             self._current_room,
+            self._dock_state,
             self._docked_charged,
             self._docked_ready,
             self._active,
@@ -64,6 +65,16 @@ class StatusText:
                 ),
             )
             return [f"{self.file_name}: {mqtt_disc}"]
+        return current_state
+
+    def _dock_state(self, current_state: list[str]) -> list[str]:
+        """Return the dock state if active and not idle."""
+        if (
+            self._shared.dock_state is not None
+            and self._shared.dock_state != "idle"
+            and self._shared.vacuum_state == "docked"
+        ):
+            current_state.append(f" {self._shared.dock_state}")
         return current_state
 
     def _docked_charged(self, current_state: list[str]) -> list[str]:

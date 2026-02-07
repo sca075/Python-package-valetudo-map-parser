@@ -14,6 +14,7 @@ from ..const import (
     ATTR_CALIBRATION_POINTS,
     ATTR_CAMERA_MODE,
     ATTR_CONTENT_TYPE,
+    ATTR_DOCK_STATE,
     ATTR_IMAGE_LAST_UPDATED,
     ATTR_MARGINS,
     ATTR_OBSTACLES,
@@ -89,6 +90,7 @@ class CameraShared:
         self.vacuum_battery = 0
         self.vacuum_connection = False
         self.vacuum_state = None
+        self.dock_state = None
         self.charger_position = None
         self.show_vacuum_state = None
         self.vacuum_status_font: str = (
@@ -224,6 +226,8 @@ class CameraShared:
             ATTR_VACUUM_POSITION: self.current_room,
             ATTR_CALIBRATION_POINTS: self.attr_calibration_points,
         }
+        if self.dock_state is not None:
+            attrs[ATTR_DOCK_STATE] = self.dock_state
         if self.obstacles_pos and self.vacuum_ips:
             self.obstacles_data = self._compose_obstacle_links(
                 self.vacuum_ips, self.obstacles_pos

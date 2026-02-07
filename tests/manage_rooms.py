@@ -1,23 +1,31 @@
 import asyncio
-import logging
 import json
+import logging
 import threading
-from typing import Dict, Optional, TypedDict, Any, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple, TypedDict
+
 
 # Define JsonType since we removed the import
 JsonType = Dict[str, Any]
-import numpy as np
 from math import sqrt
+
+import numpy as np
+
+from valetudo_map_parser.config.drawable_elements import DrawableElement, DrawingConfig
+
 # Import removed to fix ModuleNotFoundError
-from valetudo_map_parser.config.types import JsonType, LOGGER
-from valetudo_map_parser.config.drawable_elements import DrawingConfig, DrawableElement
+from valetudo_map_parser.config.types import LOGGER, JsonType
+
 
 # Set up logging
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(funcName)s (line %(lineno)d) - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(funcName)s (line %(lineno)d) - %(message)s",
+)
 _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_ROOMS = 1
+
 
 class RoomProperty(TypedDict):
     number: int
@@ -26,8 +34,10 @@ class RoomProperty(TypedDict):
     x: int
     y: int
 
+
 RoomsProperties = dict[str, RoomProperty]
 RobotPosition = dict[str, int | float]
+
 
 class RoomStore:
     _instances: Dict[str, "RoomStore"] = {}
@@ -61,13 +71,17 @@ class RoomStore:
     def get_all_instances(cls) -> Dict[str, "RoomStore"]:
         return cls._instances
 
+
 def load_test_data():
     # The test.json file is in the same folder as this script
     import os
+
     script_dir = os.path.dirname(os.path.abspath(__file__))
     test_data_path = os.path.join(script_dir, "test.json")
     if not os.path.exists(test_data_path):
-        _LOGGER.warning(f"Test data file not found: {test_data_path}. Creating a sample one.")
+        _LOGGER.warning(
+            f"Test data file not found: {test_data_path}. Creating a sample one."
+        )
         sample_data = {
             "pixelSize": 5,
             "size": {"x": 1000, "y": 1000},
@@ -77,29 +91,55 @@ def load_test_data():
                     "type": "segment",
                     "metaData": {"segmentId": 1, "name": "Living Room"},
                     "compressedPixels": [
-                        100, 100, 200,  # x, y, length
-                        100, 150, 200,
-                        100, 200, 200,
-                        100, 250, 200,
-                        300, 100, 100,  # Create an L-shape
-                        300, 150, 100,
-                        300, 200, 100
-                    ]
+                        100,
+                        100,
+                        200,  # x, y, length
+                        100,
+                        150,
+                        200,
+                        100,
+                        200,
+                        200,
+                        100,
+                        250,
+                        200,
+                        300,
+                        100,
+                        100,  # Create an L-shape
+                        300,
+                        150,
+                        100,
+                        300,
+                        200,
+                        100,
+                    ],
                 },
                 {
                     "__class": "MapLayer",
                     "type": "segment",
                     "metaData": {"segmentId": 2, "name": "Kitchen"},
                     "compressedPixels": [
-                        400, 100, 150,  # x, y, length
-                        400, 150, 150,
-                        400, 200, 150,
-                        400, 250, 150,
-                        550, 100, 50,   # Create a T-shape
-                        550, 150, 50
-                    ]
-                }
-            ]
+                        400,
+                        100,
+                        150,  # x, y, length
+                        400,
+                        150,
+                        150,
+                        400,
+                        200,
+                        150,
+                        400,
+                        250,
+                        150,
+                        550,
+                        100,
+                        50,  # Create a T-shape
+                        550,
+                        150,
+                        50,
+                    ],
+                },
+            ],
         }
         os.makedirs(os.path.dirname(test_data_path), exist_ok=True)
         with open(test_data_path, "w", encoding="utf-8") as file:
@@ -112,14 +152,13 @@ def load_test_data():
     _LOGGER.info(f"Loaded test data from {test_data_path}")
     return test_data
 
+
 """
 Hipfer Rooms Handler Module.
 Handles room data extraction and processing for Valetudo Hipfer vacuum maps.
 Provides async methods for room outline extraction and properties management.
 Version: 0.1.9
 """
-
-
 
 
 class HypferRoomsHandler:
@@ -144,7 +183,9 @@ class HypferRoomsHandler:
         """
         self.vacuum_id = vacuum_id
         self.drawing_config = drawing_config
-        self.current_json_data = None  # Will store the current JSON data being processed
+        self.current_json_data = (
+            None  # Will store the current JSON data being processed
+        )
 
     @staticmethod
     def sublist(data: list, chunk_size: int) -> list:
@@ -282,6 +323,7 @@ class HypferRoomsHandler:
         """
         # Find connected components in the mask
         from scipy import ndimage
+
         labeled_array, num_features = ndimage.label(mask)
 
         if num_features == 0:
@@ -302,10 +344,13 @@ class HypferRoomsHandler:
         # Compute the convex hull
         try:
             from scipy.spatial import ConvexHull
+
             hull = ConvexHull(points)
 
             # Extract the vertices of the convex hull
-            hull_vertices = [(int(points[v, 0]), int(points[v, 1])) for v in hull.vertices]
+            hull_vertices = [
+                (int(points[v, 0]), int(points[v, 1])) for v in hull.vertices
+            ]
 
             # Ensure the hull is closed
             if hull_vertices[0] != hull_vertices[-1]:
@@ -313,7 +358,9 @@ class HypferRoomsHandler:
 
             return hull_vertices
         except Exception as e:
-            LOGGER.warning(f"Failed to compute convex hull: {e}. Falling back to bounding box.")
+            LOGGER.warning(
+                f"Failed to compute convex hull: {e}. Falling back to bounding box."
+            )
 
             # Fallback to bounding box if convex hull fails
             x_min, x_max = np.min(x_indices), np.max(x_indices)
@@ -404,8 +451,6 @@ class HypferRoomsHandler:
                 break
 
         return contour
-
-
 
     async def async_extract_room_properties(
         self, json_data: Dict[str, Any]
@@ -567,6 +612,7 @@ class HypferRoomsHandler:
 
         return inside
 
+
 def get_rrm_robot_position(json_data: JsonType) -> JsonType:
     """Get the robot position from the json."""
     return json_data.get("robot", {})
@@ -585,9 +631,7 @@ async def async_get_robot_position(self, entity_dict: dict) -> tuple | None:
     finally:
         if robot_pos:
             robot_position = robot_pos[0]["points"]
-            robot_position_angle = round(
-                float(robot_pos[0]["metaData"]["angle"]), 1
-            )
+            robot_position_angle = round(float(robot_pos[0]["metaData"]["angle"]), 1)
             if self.img_h.rooms_pos is None:
                 self.img_h.robot_pos = {
                     "x": robot_position[0],
@@ -604,12 +648,11 @@ async def async_get_robot_position(self, entity_dict: dict) -> tuple | None:
     return robot_pos, robot_position, robot_position_angle
 
 
-
-
 class MockImageHandler:
     """Mock class to simulate the ImageHandler for testing."""
+
     def __init__(self, vacuum_id, rooms_data):
-        self.shared = type('SharedData', (), {'file_name': f'test_{vacuum_id}'})()
+        self.shared = type("SharedData", (), {"file_name": f"test_{vacuum_id}"})()
         self.rooms_pos = []
         self.robot_in_room = None
         self.active_zones = None
@@ -618,17 +661,20 @@ class MockImageHandler:
         # Convert room_properties to the format expected by async_get_robot_in_room
         for room_id, props in rooms_data.items():
             room_info = {
-                'name': props['name'],
-                'outline': props['outline'],
-                'corners': [
+                "name": props["name"],
+                "outline": props["outline"],
+                "corners": [
                     # Extract corners from the outline (first 4 points or all if less)
-                    props['outline'][i] for i in range(min(4, len(props['outline'])))
-                ]
+                    props["outline"][i]
+                    for i in range(min(4, len(props["outline"])))
+                ],
             }
             self.rooms_pos.append(room_info)
 
+
 class MockImageDraw:
     """Mock class to test the async_get_robot_in_room function."""
+
     def __init__(self, image_handler):
         self.img_h = image_handler
         self.file_name = self.img_h.shared.file_name
@@ -678,7 +724,9 @@ class MockImageDraw:
         # If winding number is not 0, the point is inside the polygon
         return wn != 0
 
-    async def async_get_robot_in_room(self, robot_y: int = 0, robot_x: int = 0, angle: float = 0.0) -> dict:
+    async def async_get_robot_in_room(
+        self, robot_y: int = 0, robot_x: int = 0, angle: float = 0.0
+    ) -> dict:
         """Get the robot position and return in what room is."""
         # First check if we already have a cached room and if the robot is still in it
         if self.img_h.robot_in_room:
@@ -704,7 +752,9 @@ class MockImageDraw:
                         self.img_h.zooming = False
                     return temp
             # Fallback to bounding box check if no outline data
-            elif all(k in self.img_h.robot_in_room for k in ["left", "right", "up", "down"]):
+            elif all(
+                k in self.img_h.robot_in_room for k in ["left", "right", "up", "down"]
+            ):
                 if (
                     (self.img_h.robot_in_room["right"] >= int(robot_x))
                     and (self.img_h.robot_in_room["left"] <= int(robot_x))
@@ -742,7 +792,9 @@ class MockImageDraw:
         if abs(robot_x) > map_boundary or abs(robot_y) > map_boundary:
             _LOGGER.debug(
                 "%s robot position (%s, %s) is far outside map boundaries.",
-                self.file_name, robot_x, robot_y
+                self.file_name,
+                robot_x,
+                robot_y,
             )
             self.img_h.robot_in_room = last_room
             self.img_h.zooming = False
@@ -828,6 +880,7 @@ class MockImageDraw:
         }
         return temp
 
+
 async def test_robot_in_room(room_properties):
     """Test the async_get_robot_in_room function with the extracted room properties."""
     # Create mock objects
@@ -841,44 +894,62 @@ async def test_robot_in_room(room_properties):
 
     for room_id, props in room_properties.items():
         # Use the room's center coordinates as the robot position
-        robot_x = props['x']
-        robot_y = props['y']
+        robot_x = props["x"]
+        robot_y = props["y"]
 
         # Verify that the point is actually inside the polygon using our algorithm
-        is_inside = mock_draw.point_in_polygon(robot_x, robot_y, props['outline'])
+        is_inside = mock_draw.point_in_polygon(robot_x, robot_y, props["outline"])
         if not is_inside:
-            _LOGGER.warning(f"⚠️ Center point ({robot_x}, {robot_y}) is not inside room {room_id}: {props['name']}")
+            _LOGGER.warning(
+                f"⚠️ Center point ({robot_x}, {robot_y}) is not inside room {room_id}: {props['name']}"
+            )
             # Try to find a better test point by averaging some points from the outline
-            points = props['outline']
+            points = props["outline"]
             if len(points) >= 3:
                 # Use the average of the first 3 points as an alternative test point
                 alt_x = sum(p[0] for p in points[:3]) // 3
                 alt_y = sum(p[1] for p in points[:3]) // 3
-                if mock_draw.point_in_polygon(alt_x, alt_y, props['outline']):
-                    _LOGGER.info(f"   Using alternative point ({alt_x}, {alt_y}) for testing")
+                if mock_draw.point_in_polygon(alt_x, alt_y, props["outline"]):
+                    _LOGGER.info(
+                        f"   Using alternative point ({alt_x}, {alt_y}) for testing"
+                    )
                     robot_x, robot_y = alt_x, alt_y
 
         # Call the function to detect which room the robot is in
-        result = await mock_draw.async_get_robot_in_room(robot_y=robot_y, robot_x=robot_x)
+        result = await mock_draw.async_get_robot_in_room(
+            robot_y=robot_y, robot_x=robot_x
+        )
 
         # Check if the robot was correctly detected in this room
-        if result and result.get('in_room') == props['name']:
-            _LOGGER.info(f"✅ Robot correctly detected in room {room_id}: {props['name']}")
+        if result and result.get("in_room") == props["name"]:
+            _LOGGER.info(
+                f"✅ Robot correctly detected in room {room_id}: {props['name']}"
+            )
             success_count += 1
         else:
-            detected_room = result.get('in_room', 'None') if result else 'None'
-            _LOGGER.error(f"❌ Robot detection failed for room {room_id}: {props['name']}")
-            _LOGGER.error(f"   Robot at ({robot_x}, {robot_y}) was detected in: {detected_room}")
+            detected_room = result.get("in_room", "None") if result else "None"
+            _LOGGER.error(
+                f"❌ Robot detection failed for room {room_id}: {props['name']}"
+            )
+            _LOGGER.error(
+                f"   Robot at ({robot_x}, {robot_y}) was detected in: {detected_room}"
+            )
 
             # Debug: Check which room's polygon contains this point
             _LOGGER.error(f"   Debugging point-in-polygon for ({robot_x}, {robot_y}):")
             for test_id, test_props in room_properties.items():
-                test_result = mock_draw.point_in_polygon(robot_x, robot_y, test_props['outline'])
-                _LOGGER.error(f"   - Room {test_id} ({test_props['name']}): {test_result}")
+                test_result = mock_draw.point_in_polygon(
+                    robot_x, robot_y, test_props["outline"]
+                )
+                _LOGGER.error(
+                    f"   - Room {test_id} ({test_props['name']}): {test_result}"
+                )
 
     # Test with a position that should be outside all rooms
     outside_x, outside_y = -50000, -50000  # Very far outside any room
-    result = await mock_draw.async_get_robot_in_room(robot_y=outside_y, robot_x=outside_x)
+    result = await mock_draw.async_get_robot_in_room(
+        robot_y=outside_y, robot_x=outside_x
+    )
 
     # For points very far outside, we expect the boundary check to trigger
     # and return the last known room or None
@@ -888,21 +959,31 @@ async def test_robot_in_room(room_properties):
         # Verify that no room's polygon actually contains this point
         any_contains = False
         for test_id, test_props in room_properties.items():
-            test_result = mock_draw.point_in_polygon(outside_x, outside_y, test_props['outline'])
+            test_result = mock_draw.point_in_polygon(
+                outside_x, outside_y, test_props["outline"]
+            )
             if test_result:
                 any_contains = True
-                _LOGGER.error(f"   - Room {test_id} ({test_props['name']}) incorrectly contains the outside point!")
+                _LOGGER.error(
+                    f"   - Room {test_id} ({test_props['name']}) incorrectly contains the outside point!"
+                )
 
         if not any_contains:
             _LOGGER.info("   No room polygons contain the outside point (correct)")
 
     # Report overall success rate
-    _LOGGER.info(f"\nTest Results: {success_count}/{total_rooms} rooms correctly detected ({success_count/total_rooms*100:.1f}%)")
+    _LOGGER.info(
+        f"\nTest Results: {success_count}/{total_rooms} rooms correctly detected ({success_count / total_rooms * 100:.1f}%)"
+    )
     return success_count == total_rooms
+
 
 # Room Shape Regularization Functions
 
-def extract_room_outlines(room_properties: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+
+def extract_room_outlines(
+    room_properties: Dict[str, Dict[str, Any]],
+) -> Dict[str, Dict[str, Any]]:
     """
     Process all room properties and ensure their outlines are properly formed.
 
@@ -919,31 +1000,38 @@ def extract_room_outlines(room_properties: Dict[str, Dict[str, Any]]) -> Dict[st
         new_props = props.copy()
 
         # Get the outline
-        outline = props.get('outline', [])
+        outline = props.get("outline", [])
         if len(outline) >= 3:
             # Ensure the outline is properly formed
-            new_outline = ensure_closed_outline(outline, props.get('name', f'Room {room_id}'))
+            new_outline = ensure_closed_outline(
+                outline, props.get("name", f"Room {room_id}")
+            )
 
             # Update the outline
-            new_props['outline'] = new_outline
+            new_props["outline"] = new_outline
 
             # Recalculate center if needed
-            if 'x' in props and 'y' in props:
+            if "x" in props and "y" in props:
                 # Check if center is inside the new outline
-                center_x, center_y = props['x'], props['y']
+                center_x, center_y = props["x"], props["y"]
                 if not MockImageDraw.point_in_polygon(center_x, center_y, new_outline):
                     # Recalculate center as centroid of the new outline
                     xs = [p[0] for p in new_outline]
                     ys = [p[1] for p in new_outline]
-                    new_props['x'] = sum(xs) // len(xs)
-                    new_props['y'] = sum(ys) // len(ys)
-                    _LOGGER.debug(f"Recalculated center for {props.get('name', f'Room {room_id}')} from ({center_x}, {center_y}) to ({new_props['x']}, {new_props['y']})")
+                    new_props["x"] = sum(xs) // len(xs)
+                    new_props["y"] = sum(ys) // len(ys)
+                    _LOGGER.debug(
+                        f"Recalculated center for {props.get('name', f'Room {room_id}')} from ({center_x}, {center_y}) to ({new_props['x']}, {new_props['y']})"
+                    )
 
         processed_properties[room_id] = new_props
 
     return processed_properties
 
-def ensure_closed_outline(outline: List[Tuple[int, int]], room_name: str = "Unknown") -> List[Tuple[int, int]]:
+
+def ensure_closed_outline(
+    outline: List[Tuple[int, int]], room_name: str = "Unknown"
+) -> List[Tuple[int, int]]:
     """
     Ensure the room outline is properly formed and closed.
 
@@ -956,7 +1044,9 @@ def ensure_closed_outline(outline: List[Tuple[int, int]], room_name: str = "Unkn
     """
     # Ensure we have enough points
     if len(outline) < 3:
-        _LOGGER.warning(f"Room {room_name} has too few points ({len(outline)}) for a valid outline")
+        _LOGGER.warning(
+            f"Room {room_name} has too few points ({len(outline)}) for a valid outline"
+        )
         return outline
 
     # Remove duplicate consecutive points
@@ -972,13 +1062,16 @@ def ensure_closed_outline(outline: List[Tuple[int, int]], room_name: str = "Unkn
     # Check if the outline has at least 3 unique points
     unique_points = set(tuple(p) for p in cleaned_outline)
     if len(unique_points) < 3:
-        _LOGGER.warning(f"Room {room_name} has fewer than 3 unique points, which cannot form a valid polygon")
+        _LOGGER.warning(
+            f"Room {room_name} has fewer than 3 unique points, which cannot form a valid polygon"
+        )
         return outline
 
-    _LOGGER.info(f"Room {room_name}: Processed outline from {len(outline)} to {len(cleaned_outline)} points")
+    _LOGGER.info(
+        f"Room {room_name}: Processed outline from {len(outline)} to {len(cleaned_outline)} points"
+    )
 
     return cleaned_outline
-
 
 
 async def main():
@@ -995,7 +1088,7 @@ async def main():
 
         # Format the outline as a list of [x, y] coordinates for better readability
         # Convert numpy int64 values to regular integers
-        formatted_outline = [[int(x), int(y)] for x, y in props['outline']]
+        formatted_outline = [[int(x), int(y)] for x, y in props["outline"]]
         _LOGGER.info(f"  Outline: {formatted_outline}")
 
     # Get robot position from the test data
@@ -1005,6 +1098,7 @@ async def main():
     # Test the robot detection function
     _LOGGER.info("\nTesting robot detection function...")
     await test_robot_in_room(room_properties)
+
 
 if __name__ == "__main__":
     try:

@@ -187,7 +187,7 @@ class ImageDraw:
                     alpha = overlay[..., 3:4] / 255.0
                     region[:] = (1 - alpha) * region + alpha * overlay
 
-        except Exception as e:
+        except (IndexError, ValueError, TypeError, AttributeError) as e:
             _LOGGER.warning("%s: Material overlay error: %s", self.file_name, str(e))
 
         return img_np_array
@@ -426,13 +426,6 @@ class ImageDraw:
             if self.img_h.shared.mop_mode:
                 path_width = self.img_h.shared.mop_path_width
                 path_color = color_mop_move
-                # # Reduce alpha to half if greater than 100 for mop mode
-                # current_alpha = color_move[3] if len(color_move) == 4 else 255
-                # if current_alpha > 100:
-                #     mop_alpha = current_alpha // 2
-                #     path_color = (color_move[0], color_move[1], color_move[2], mop_alpha)
-                # else:
-                #     path_color = color_move
             else:
                 path_width = 5  # Default width
                 path_color = color_move

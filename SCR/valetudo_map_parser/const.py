@@ -327,6 +327,7 @@ ATTR_ZONES = "zones"
 ATTR_POINTS = "points"
 ATTR_OBSTACLES = "obstacles"
 ATTR_CAMERA_MODE = "camera_mode"
+ATTR_DOCK_STATE = "dock_state"
 
 # Status text constants
 charge_level = "\u03de"  # unicode Koppa symbol
