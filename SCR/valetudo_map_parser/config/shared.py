@@ -287,17 +287,17 @@ class CameraSharedManager:
             instance.attr_calibration_points = None
 
             # Initialize shared data with defaults from DEFAULT_VALUES
-            instance.offset_top = device_info.get(
-                CONF_OFFSET_TOP, DEFAULT_VALUES["offset_top"]
+            instance.offset_top = int(
+                device_info.get(CONF_OFFSET_TOP, DEFAULT_VALUES["offset_top"])
             )
-            instance.offset_down = device_info.get(
-                CONF_OFFSET_BOTTOM, DEFAULT_VALUES["offset_bottom"]
+            instance.offset_down = int(
+                device_info.get(CONF_OFFSET_BOTTOM, DEFAULT_VALUES["offset_bottom"])
             )
-            instance.offset_left = device_info.get(
-                CONF_OFFSET_LEFT, DEFAULT_VALUES["offset_left"]
+            instance.offset_left = int(
+                device_info.get(CONF_OFFSET_LEFT, DEFAULT_VALUES["offset_left"])
             )
-            instance.offset_right = device_info.get(
-                CONF_OFFSET_RIGHT, DEFAULT_VALUES["offset_right"]
+            instance.offset_right = int(
+                device_info.get(CONF_OFFSET_RIGHT, DEFAULT_VALUES["offset_right"])
             )
             instance.image_auto_zoom = device_info.get(
                 CONF_AUTO_ZOOM, DEFAULT_VALUES["auto_zoom"]
@@ -320,8 +320,8 @@ class CameraSharedManager:
             instance.vacuum_status_font = device_info.get(
                 CONF_VAC_STAT_FONT, DEFAULT_VALUES["vac_status_font"]
             )
-            instance.vacuum_status_size = device_info.get(
-                CONF_VAC_STAT_SIZE, DEFAULT_VALUES["vac_status_size"]
+            instance.vacuum_status_size = int(
+                device_info.get(CONF_VAC_STAT_SIZE, DEFAULT_VALUES["vac_status_size"])
             )
             instance.vacuum_status_position = device_info.get(
                 CONF_VAC_STAT_POS, DEFAULT_VALUES["vac_status_position"]
@@ -338,7 +338,12 @@ class CameraSharedManager:
             elif robot_size > 25:
                 robot_size = 25
             instance.robot_size = robot_size
-            instance.mop_path_width = device_info.get("mop_path_width", robot_size - 2)
+            # Mop path width - ensure it's an integer
+            mop_path_width = device_info.get("mop_path_width", robot_size - 2)
+            try:
+                instance.mop_path_width = int(mop_path_width)
+            except (ValueError, TypeError):
+                instance.mop_path_width = robot_size - 2
 
             # Check for new floors_data first
             floors_data = device_info.get("floors_data", {})
