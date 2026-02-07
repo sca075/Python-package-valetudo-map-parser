@@ -9,8 +9,6 @@ from __future__ import annotations
 from enum import IntEnum
 from typing import Dict, List, Tuple, Union
 
-import numpy as np
-
 from .colors import DefaultColors, SupportedColor
 from .types import LOGGER
 
@@ -35,6 +33,8 @@ class DrawableElement(IntEnum):
     PATH = 9
     PREDICTED_PATH = 10
     GO_TO_TARGET = 11
+    CARPET = 12
+    MATERIAL_OVERLAY = 13
 
     # Rooms (101-115 for up to 15 rooms)
     ROOM_1 = 101
@@ -96,6 +96,16 @@ class DrawingConfig:
             DrawableElement.GO_TO_TARGET: SupportedColor.GO_TO,
             DrawableElement.NO_MOP_AREA: SupportedColor.NO_GO,  # Using NO_GO for no-mop areas
             DrawableElement.OBSTACLE: SupportedColor.NO_GO,  # Using NO_GO for obstacles
+            DrawableElement.CARPET: SupportedColor.CARPET,
+        }
+
+        # Set default properties for material overlay
+        self._element_properties[DrawableElement.MATERIAL_OVERLAY] = {
+            "wood_color": (40, 40, 40),  # RGB for wood lines
+            "wood_alpha": 38,  # Alpha for wood lines
+            "tile_color": (40, 40, 40),  # RGB for tile lines
+            "tile_alpha": 45,  # Alpha for tile lines
+            "z_index": 11,  # Draw materials above rooms but below walls
         }
 
         # Set z-index for each element type
@@ -107,6 +117,7 @@ class DrawingConfig:
             DrawableElement.VIRTUAL_WALL: 30,
             DrawableElement.RESTRICTED_AREA: 25,
             DrawableElement.NO_MOP_AREA: 25,
+            DrawableElement.CARPET: 15,  # Draw carpets above floor but below walls
             DrawableElement.OBSTACLE: 15,
             DrawableElement.PATH: 35,
             DrawableElement.PREDICTED_PATH: 34,
@@ -137,26 +148,16 @@ class DrawingConfig:
         """Enable drawing of a specific element."""
         if element_code in self._enabled_elements:
             self._enabled_elements[element_code] = True
-            LOGGER.info(
+            LOGGER.debug(
                 "Enabled element %s (%s)", element_code.name, element_code.value
-            )
-            LOGGER.info(
-                "Element %s is now enabled: %s",
-                element_code.name,
-                self._enabled_elements[element_code],
             )
 
     def disable_element(self, element_code: DrawableElement) -> None:
         """Disable drawing of a specific element."""
         if element_code in self._enabled_elements:
             self._enabled_elements[element_code] = False
-            LOGGER.info(
+            LOGGER.debug(
                 "Disabled element %s (%s)", element_code.name, element_code.value
-            )
-            LOGGER.info(
-                "Element %s is now enabled: %s",
-                element_code.name,
-                self._enabled_elements[element_code],
             )
 
     def set_elements(self, element_codes: List[DrawableElement]) -> None:
@@ -215,7 +216,23 @@ class DrawingConfig:
             DrawableElement.GO_TO_TARGET: SupportedColor.GO_TO,
             DrawableElement.NO_MOP_AREA: SupportedColor.NO_GO,
             DrawableElement.OBSTACLE: SupportedColor.NO_GO,
+            DrawableElement.CARPET: SupportedColor.CARPET,
         }
+
+        # Update material overlay properties if present
+        material_properties = {
+            "color_material_wood": "wood_color",
+            "alpha_material_wood": "wood_alpha",
+            "color_material_tile": "tile_color",
+            "alpha_material_tile": "tile_alpha",
+        }
+        for device_key, property_name in material_properties.items():
+            if device_key in device_info:
+                self.set_property(
+                    DrawableElement.MATERIAL_OVERLAY,
+                    property_name,
+                    device_info[device_key],
+                )
 
         # Update room colors from device info
         for room_id in range(1, 16):
@@ -267,19 +284,18 @@ class DrawingConfig:
             "disable_virtual_walls": DrawableElement.VIRTUAL_WALL,
             "disable_restricted_areas": DrawableElement.RESTRICTED_AREA,
             "disable_no_mop_areas": DrawableElement.NO_MOP_AREA,
+            "disable_carpets": DrawableElement.CARPET,
             "disable_obstacles": DrawableElement.OBSTACLE,
             "disable_path": DrawableElement.PATH,
             "disable_predicted_path": DrawableElement.PREDICTED_PATH,
             "disable_go_to_target": DrawableElement.GO_TO_TARGET,
+            "disable_material_overlay": DrawableElement.MATERIAL_OVERLAY,
         }
 
         # Process base element disable flags
         for disable_key, element in element_disable_mapping.items():
             if device_info.get(disable_key, False):
                 self.disable_element(element)
-                LOGGER.info(
-                    "Disabled %s element from device_info setting", element.name
-                )
 
         # Process room disable flags (1-15)
         for room_id in range(1, 16):
@@ -287,6 +303,3 @@ class DrawingConfig:
             if device_info.get(disable_key, False):
                 room_element = getattr(DrawableElement, f"ROOM_{room_id}")
                 self.disable_element(room_element)
-                LOGGER.info(
-                    "Disabled ROOM_%d element from device_info setting", room_id
-                )

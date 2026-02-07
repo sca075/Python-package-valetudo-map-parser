@@ -12,13 +12,14 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Union
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from mvcrender.blend import get_blended_color, sample_and_blend_color
+from mvcrender.draw import circle_u8, line_u8, polygon_u8
+from PIL import ImageDraw, ImageFont
 
-from .color_utils import get_blended_color
-from .colors import ColorsManagement
-from .types import Color, NumpyArray, PilPNG, Point, Tuple, Union
+from .types import Color, NumpyArray, PilPNG, Point
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -53,49 +54,30 @@ class Drawable:
     ) -> NumpyArray:
         """Draw the layers (rooms) from the vacuum JSON data onto the image array."""
         image_array = layer
-        # Extract alpha from color
-        alpha = color[3] if len(color) == 4 else 255
+        need_blending = color[3] < 255
 
-        # Create the full color with alpha
-        full_color = color if len(color) == 4 else (*color, 255)
-
-        # Check if we need to blend colors (alpha < 255)
-        need_blending = alpha < 255
-
-        # Loop through pixels to find min and max coordinates
         for x, y, z in pixels:
             col = x * pixel_size
             row = y * pixel_size
-            # Draw pixels as blocks
             for i in range(z):
-                # Get the region to update
                 region_slice = (
                     slice(row, row + pixel_size),
                     slice(col + i * pixel_size, col + (i + 1) * pixel_size),
                 )
 
                 if need_blending:
-                    # Sample the center of the region for blending
-                    center_y = row + pixel_size // 2
-                    center_x = col + i * pixel_size + pixel_size // 2
-
-                    # Only blend if coordinates are valid
+                    cy = row + pixel_size // 2
+                    cx = col + i * pixel_size + pixel_size // 2
                     if (
-                        0 <= center_y < image_array.shape[0]
-                        and 0 <= center_x < image_array.shape[1]
+                        0 <= cy < image_array.shape[0]
+                        and 0 <= cx < image_array.shape[1]
                     ):
-                        # Get blended color
-                        blended_color = ColorsManagement.sample_and_blend_color(
-                            image_array, center_x, center_y, full_color
-                        )
-                        # Apply blended color to the region
-                        image_array[region_slice] = blended_color
+                        px = sample_and_blend_color(image_array, cx, cy, color)
+                        image_array[region_slice] = px
                     else:
-                        # Use original color if out of bounds
-                        image_array[region_slice] = full_color
+                        image_array[region_slice] = color
                 else:
-                    # No blending needed, use direct assignment
-                    image_array[region_slice] = full_color
+                    image_array[region_slice] = color
 
         return image_array
 
@@ -131,9 +113,7 @@ class Drawable:
             center_x = (start_col + end_col) // 2
 
             # Get blended color
-            blended_color = ColorsManagement.sample_and_blend_color(
-                layers, center_x, center_y, color
-            )
+            blended_color = sample_and_blend_color(layers, center_x, center_y, color)
 
             # Apply blended color
             layers[start_row:end_row, start_col:end_col] = blended_color
@@ -150,7 +130,7 @@ class Drawable:
         """
         Draw a flag centered at specified coordinates on the input layer.
         It uses the rotation angle of the image to orient the flag.
-        Includes color blending for better visual integration.
+        Uses mvcrender's polygon_u8 for efficient triangle drawing.
         """
         # Check if coordinates are within bounds
         height, width = layer.shape[:2]
@@ -165,9 +145,7 @@ class Drawable:
 
         # Blend flag color if needed
         if flag_alpha < 255:
-            flag_color = ColorsManagement.sample_and_blend_color(
-                layer, x, y, flag_color
-            )
+            flag_color = sample_and_blend_color(layer, x, y, flag_color)
 
         # Create pole color with alpha
         pole_color: Color = (
@@ -179,9 +157,7 @@ class Drawable:
 
         # Blend pole color if needed
         if pole_alpha < 255:
-            pole_color = ColorsManagement.sample_and_blend_color(
-                layer, x, y, pole_color
-            )
+            pole_color = sample_and_blend_color(layer, x, y, pole_color)
 
         flag_size = 50
         pole_width = 6
@@ -219,89 +195,31 @@ class Drawable:
             xp1, yp1 = center[0] - (pole_width // 2), y1
             xp2, yp2 = center[0] - (pole_width // 2), center[1] + flag_size
 
-        # Draw flag outline using _polygon_outline
-        points = [(x1, y1), (x2, y2), (x3, y3)]
-        layer = Drawable._polygon_outline(layer, points, 1, flag_color, flag_color)
+        # Draw flag triangle using mvcrender's polygon_u8 (much faster than _polygon_outline)
+        xs = np.array([x1, x2, x3], dtype=np.int32)
+        ys = np.array([y1, y2, y3], dtype=np.int32)
+        # Draw filled triangle with thin outline
+        polygon_u8(layer, xs, ys, flag_color, 1, flag_color)
+
         # Draw pole using _line
         layer = Drawable._line(layer, xp1, yp1, xp2, yp2, pole_color, pole_width)
         return layer
 
     @staticmethod
-    def point_inside(x: int, y: int, points: list[Tuple[int, int]]) -> bool:
-        """Check if a point (x, y) is inside a polygon defined by a list of points."""
-        n = len(points)
-        inside = False
-        inters_x = 0.0
-        p1x, p1y = points[0]
-        for i in range(1, n + 1):
-            p2x, p2y = points[i % n]
-            if y > min(p1y, p2y):
-                if y <= max(p1y, p2y) and x <= max(p1x, p2x):
-                    if p1y != p2y:
-                        inters_x = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
-                    if p1x == p2x or x <= inters_x:
-                        inside = not inside
-            p1x, p1y = p2x, p2y
-        return inside
-
-    @staticmethod
     def _line(
-        layer: np.ndarray,
+        layer: NumpyArray,
         x1: int,
         y1: int,
         x2: int,
         y2: int,
         color: Color,
         width: int = 3,
-    ) -> np.ndarray:
-        """Draw a line on a NumPy array (layer) from point A to B using Bresenham's algorithm.
-
-        Args:
-            layer: The numpy array to draw on (H, W, C)
-            x1, y1: Start point coordinates
-            x2, y2: End point coordinates
-            color: Color to draw with (tuple or array)
-            width: Width of the line in pixels
-        """
-        x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-
-        blended_color = get_blended_color(x1, y1, x2, y2, layer, color)
-
-        dx = abs(x2 - x1)
-        dy = abs(y2 - y1)
-        sx = 1 if x1 < x2 else -1
-        sy = 1 if y1 < y2 else -1
-        err = dx - dy
-
-        half_w = width // 2
-        h, w = layer.shape[:2]
-
-        while True:
-            # Draw a filled circle for thickness
-            yy, xx = np.ogrid[-half_w : half_w + 1, -half_w : half_w + 1]
-            mask = xx**2 + yy**2 <= half_w**2
-            y_min = max(0, y1 - half_w)
-            y_max = min(h, y1 + half_w + 1)
-            x_min = max(0, x1 - half_w)
-            x_max = min(w, x1 + half_w + 1)
-
-            sub_mask = mask[
-                (y_min - (y1 - half_w)) : (y_max - (y1 - half_w)),
-                (x_min - (x1 - half_w)) : (x_max - (x1 - half_w)),
-            ]
-            layer[y_min:y_max, x_min:x_max][sub_mask] = blended_color
-
-            if x1 == x2 and y1 == y2:
-                break
-
-            e2 = 2 * err
-            if e2 > -dy:
-                err -= dy
-                x1 += sx
-            if e2 < dx:
-                err += dx
-                y1 += sy
-
+    ) -> NumpyArray:
+        """Segment-aware preblend, then stamp a solid line."""
+        width = int(max(1, width))
+        # Preblend once for this segment
+        seg = get_blended_color(int(x1), int(y1), int(x2), int(y2), layer, color)
+        line_u8(layer, int(x1), int(y1), int(x2), int(y2), seg, width)
         return layer
 
     @staticmethod
@@ -337,11 +255,8 @@ class Drawable:
             if x0 == x1 and y0 == y1:
                 continue
 
-            # Get blended color for this line segment
-            blended_color = get_blended_color(x0, y0, x1, y1, arr, color)
-
             # Use the optimized line drawing method
-            arr = Drawable._line(arr, x0, y0, x1, y1, blended_color, width)
+            arr = Drawable._line(arr, x0, y0, x1, y1, color, width)
 
         return arr
 
@@ -355,66 +270,32 @@ class Drawable:
         outline_width: int = 0,
     ) -> NumpyArray:
         """
-        Draw a filled circle on the image using NumPy.
-        Optimized to only process the bounding box of the circle.
+        Draw a filled circle and optional outline using mvcrender.draw.circle_u8.
+        If alpha<255, preblend once at the center and stamp solid.
         """
-        y, x = center
-        height, width = image.shape[:2]
-
-        # Calculate the bounding box of the circle
-        min_y = max(0, y - radius - outline_width)
-        max_y = min(height, y + radius + outline_width + 1)
-        min_x = max(0, x - radius - outline_width)
-        max_x = min(width, x + radius + outline_width + 1)
-
-        # Create coordinate arrays for the bounding box
-        y_indices, x_indices = np.ogrid[min_y:max_y, min_x:max_x]
-
-        # Calculate distances from center
-        dist_sq = (y_indices - y) ** 2 + (x_indices - x) ** 2
-
-        # Create masks for the circle and outline
-        circle_mask = dist_sq <= radius**2
-
-        # Apply the fill color
-        image[min_y:max_y, min_x:max_x][circle_mask] = color
-
-        # Draw the outline if needed
-        if outline_width > 0 and outline_color is not None:
-            outer_mask = dist_sq <= (radius + outline_width) ** 2
-            outline_mask = outer_mask & ~circle_mask
-            image[min_y:max_y, min_x:max_x][outline_mask] = outline_color
-
-        return image
-
-    @staticmethod
-    def _filled_circle_optimized(
-        image: np.ndarray,
-        center: Tuple[int, int],
-        radius: int,
-        color: Color,
-        outline_color: Color = None,
-        outline_width: int = 0,
-    ) -> np.ndarray:
-        """
-        Optimized _filled_circle ensuring dtype compatibility with uint8.
-        """
-        x, y = center
+        cy, cx = (
+            int(center[0]),
+            int(center[1]),
+        )  # incoming Point is (y,x) in your codebase
         h, w = image.shape[:2]
-        color_np = np.array(color, dtype=image.dtype)
-        outline_color_np = (
-            np.array(outline_color, dtype=image.dtype)
-            if outline_color is not None
-            else None
-        )
-        y_indices, x_indices = np.meshgrid(np.arange(h), np.arange(w), indexing="ij")
-        dist_sq = (y_indices - y) ** 2 + (x_indices - x) ** 2
-        circle_mask = dist_sq <= radius**2
-        image[circle_mask] = color_np
-        if outline_width > 0 and outline_color_np is not None:
-            outer_mask = dist_sq <= (radius + outline_width) ** 2
-            outline_mask = outer_mask & ~circle_mask
-            image[outline_mask] = outline_color_np
+        if not (0 <= cx < w and 0 <= cy < h):
+            return image
+
+        fill_rgba = color
+        if fill_rgba[3] < 255:
+            fill_rgba = sample_and_blend_color(image, cx, cy, fill_rgba)
+
+        circle_u8(image, int(cx), int(cy), int(radius), fill_rgba, -1)
+
+        if outline_color is not None and outline_width > 0:
+            out_rgba = outline_color
+            if out_rgba[3] < 255:
+                out_rgba = sample_and_blend_color(image, cx, cy, out_rgba)
+            # outlined stroke thickness = outline_width
+            circle_u8(
+                image, int(cx), int(cy), int(radius), out_rgba, int(outline_width)
+            )
+
         return image
 
     @staticmethod
@@ -431,69 +312,20 @@ class Drawable:
         return image
 
     @staticmethod
-    def _polygon_outline(
-        arr: NumpyArray,
-        points: list[Tuple[int, int]],
-        width: int,
-        outline_color: Color,
-        fill_color: Color = None,
-    ) -> NumpyArray:
-        """
-        Draw the outline of a polygon on the array using _line, and optionally fill it.
-        Uses NumPy vectorized operations for improved performance.
-        """
-        # Draw the outline
-        for i, _ in enumerate(points):
-            current_point = points[i]
-            next_point = points[(i + 1) % len(points)]
-            arr = Drawable._line(
-                arr,
-                current_point[0],
-                current_point[1],
-                next_point[0],
-                next_point[1],
-                outline_color,
-                width,
-            )
-
-        # Fill the polygon if a fill color is provided
-        if fill_color is not None:
-            # Get the bounding box of the polygon
-            min_x = max(0, min(p[0] for p in points))
-            max_x = min(arr.shape[1] - 1, max(p[0] for p in points))
-            min_y = max(0, min(p[1] for p in points))
-            max_y = min(arr.shape[0] - 1, max(p[1] for p in points))
-
-            # Create a mask for the polygon region
-            mask = np.zeros((max_y - min_y + 1, max_x - min_x + 1), dtype=bool)
-
-            # Adjust points to the mask's coordinate system
-            adjusted_points = [(p[0] - min_x, p[1] - min_y) for p in points]
-
-            # Test each point in the grid
-            for i in range(mask.shape[0]):
-                for j in range(mask.shape[1]):
-                    mask[i, j] = Drawable.point_inside(j, i, adjusted_points)
-
-            # Apply the fill color to the masked region
-            arr[min_y : max_y + 1, min_x : max_x + 1][mask] = fill_color
-
-        return arr
-
-    @staticmethod
     async def zones(layers: NumpyArray, coordinates, color: Color) -> NumpyArray:
         """
-        Draw zones as solid filled polygons with alpha blending using a per-zone mask.
-        Keeps API the same; no dotted rendering.
+        Draw zones as filled polygons with alpha blending using mvcrender.
+        Creates a mask with polygon_u8 and blends it onto the image with proper alpha.
+        This eliminates PIL dependency for zone drawing.
         """
         if not coordinates:
             return layers
 
         height, width = layers.shape[:2]
-        # Precompute color and alpha
         r, g, b, a = color
         alpha = a / 255.0
         inv_alpha = 1.0 - alpha
+        # Pre-allocate color array once (avoid creating it in every iteration)
         color_rgb = np.array([r, g, b], dtype=np.float32)
 
         for zone in coordinates:
@@ -501,6 +333,7 @@ class Drawable:
                 pts = zone["points"]
             except (KeyError, TypeError):
                 continue
+
             if not pts or len(pts) < 6:
                 continue
 
@@ -512,29 +345,52 @@ class Drawable:
             if min_x >= max_x or min_y >= max_y:
                 continue
 
-            # Adjust polygon points to local bbox coordinates
-            poly_xy = [
-                (int(pts[i] - min_x), int(pts[i + 1] - min_y))
-                for i in range(0, len(pts), 2)
-            ]
             box_w = max_x - min_x + 1
             box_h = max_y - min_y + 1
 
-            # Build mask via PIL polygon fill (fast, C-impl)
-            mask_img = Image.new("L", (box_w, box_h), 0)
-            draw = ImageDraw.Draw(mask_img)
-            draw.polygon(poly_xy, fill=255)
-            zone_mask = np.array(mask_img, dtype=bool)
+            # Create mask using mvcrender's polygon_u8
+            mask_rgba = np.zeros((box_h, box_w, 4), dtype=np.uint8)
+
+            # Convert points to xs, ys arrays (adjusted to local bbox coordinates)
+            xs = np.array(
+                [int(pts[i] - min_x) for i in range(0, len(pts), 2)], dtype=np.int32
+            )
+            ys = np.array(
+                [int(pts[i] - min_y) for i in range(1, len(pts), 2)], dtype=np.int32
+            )
+
+            # Draw filled polygon on mask
+            polygon_u8(mask_rgba, xs, ys, (0, 0, 0, 0), 0, (255, 255, 255, 255))
+
+            # Extract boolean mask from first channel
+            zone_mask = mask_rgba[:, :, 0] > 0
+            del mask_rgba
+            del xs
+            del ys
+
             if not np.any(zone_mask):
+                del zone_mask
                 continue
 
-            # Vectorized alpha blend on RGB channels only
+            # Optimized alpha blend - minimize temporary allocations
             region = layers[min_y : max_y + 1, min_x : max_x + 1]
-            rgb = region[..., :3].astype(np.float32)
-            mask3 = zone_mask[:, :, None]
-            blended_rgb = np.where(mask3, rgb * inv_alpha + color_rgb * alpha, rgb)
-            region[..., :3] = blended_rgb.astype(np.uint8)
-            # Leave alpha channel unchanged to avoid stacking transparency
+
+            # Work directly on the region's RGB channels
+            rgb_region = region[..., :3]
+
+            # Apply blending only where mask is True
+            # Use boolean indexing to avoid creating full-size temporary arrays
+            rgb_masked = rgb_region[zone_mask].astype(np.float32)
+
+            # Blend: new_color = old_color * (1 - alpha) + zone_color * alpha
+            rgb_masked *= inv_alpha
+            rgb_masked += color_rgb * alpha
+
+            # Write back (convert to uint8)
+            rgb_region[zone_mask] = rgb_masked.astype(np.uint8)
+
+            del zone_mask
+            del rgb_masked
 
         return layers
 
@@ -650,161 +506,6 @@ class Drawable:
         return background_image
 
     @staticmethod
-    def draw_filled_circle(
-        image: np.ndarray,
-        centers: Tuple[int, int],
-        radius: int,
-        color: Tuple[int, int, int, int],
-    ) -> np.ndarray:
-        """
-        Draw multiple filled circles at once using a single NumPy mask.
-        """
-        h, w = image.shape[:2]
-        y_indices, x_indices = np.ogrid[:h, :w]  # Precompute coordinate grids
-        mask = np.zeros((h, w), dtype=bool)
-        for cx, cy in centers:
-            mask |= (x_indices - cx) ** 2 + (y_indices - cy) ** 2 <= radius**2
-        image[mask] = color
-        return image
-
-    @staticmethod
-    def batch_draw_elements(
-        image: np.ndarray,
-        elements: list,
-        element_type: str,
-        color: Color,
-    ) -> np.ndarray:
-        """
-        Efficiently draw multiple elements of the same type at once.
-
-        Args:
-            image: The image array to draw on
-            elements: List of element data (coordinates, etc.)
-            element_type: Type of element to draw ('circle', 'line', etc.)
-            color: Color to use for drawing
-
-        Returns:
-            Modified image array
-        """
-        if not elements or len(elements) == 0:
-            return image
-
-        # Get image dimensions
-        height, width = image.shape[:2]
-
-        if element_type == "circle":
-            # Extract circle centers and radii
-            centers = []
-            radii = []
-            for elem in elements:
-                if isinstance(elem, dict) and "center" in elem and "radius" in elem:
-                    centers.append(elem["center"])
-                    radii.append(elem["radius"])
-                elif isinstance(elem, (list, tuple)) and len(elem) >= 3:
-                    # Format: (x, y, radius)
-                    centers.append((elem[0], elem[1]))
-                    radii.append(elem[2])
-
-            # Process circles with the same radius together
-            for radius in set(radii):
-                same_radius_centers = [
-                    centers[i] for i in range(len(centers)) if radii[i] == radius
-                ]
-                if same_radius_centers:
-                    # Create a combined mask for all circles with this radius
-                    mask = np.zeros((height, width), dtype=bool)
-                    for cx, cy in same_radius_centers:
-                        if 0 <= cx < width and 0 <= cy < height:
-                            # Calculate circle bounds
-                            min_y = max(0, cy - radius)
-                            max_y = min(height, cy + radius + 1)
-                            min_x = max(0, cx - radius)
-                            max_x = min(width, cx + radius + 1)
-
-                            # Create coordinate arrays for the circle
-                            y_indices, x_indices = np.ogrid[min_y:max_y, min_x:max_x]
-
-                            # Add this circle to the mask
-                            circle_mask = (y_indices - cy) ** 2 + (
-                                x_indices - cx
-                            ) ** 2 <= radius**2
-                            mask[min_y:max_y, min_x:max_x] |= circle_mask
-
-                    # Apply color to all circles at once
-                    image[mask] = color
-
-        elif element_type == "line":
-            # Extract line endpoints
-            lines = []
-            widths = []
-            for elem in elements:
-                if isinstance(elem, dict) and "start" in elem and "end" in elem:
-                    lines.append((elem["start"], elem["end"]))
-                    widths.append(elem.get("width", 1))
-                elif isinstance(elem, (list, tuple)) and len(elem) >= 4:
-                    # Format: (x1, y1, x2, y2, [width])
-                    lines.append(((elem[0], elem[1]), (elem[2], elem[3])))
-                    widths.append(elem[4] if len(elem) > 4 else 1)
-
-            # Process lines with the same width together
-            for width in set(widths):
-                same_width_lines = [
-                    lines[i] for i in range(len(lines)) if widths[i] == width
-                ]
-                if same_width_lines:
-                    # Create a combined mask for all lines with this width
-                    mask = np.zeros((height, width), dtype=bool)
-
-                    # Draw all lines into the mask
-                    for start, end in same_width_lines:
-                        x1, y1 = start
-                        x2, y2 = end
-
-                        # Skip invalid lines
-                        if not (
-                            0 <= x1 < width
-                            and 0 <= y1 < height
-                            and 0 <= x2 < width
-                            and 0 <= y2 < height
-                        ):
-                            continue
-
-                        # Use Bresenham's algorithm to get line points
-                        length = max(abs(x2 - x1), abs(y2 - y1))
-                        if length == 0:
-                            continue
-
-                        t = np.linspace(0, 1, length * 2)
-                        x_coordinates = np.round(x1 * (1 - t) + x2 * t).astype(int)
-                        y_coordinates = np.round(y1 * (1 - t) + y2 * t).astype(int)
-
-                        # Add line points to mask
-                        for x, y in zip(x_coordinates, y_coordinates):
-                            if width == 1:
-                                mask[y, x] = True
-                            else:
-                                # For thicker lines
-                                half_width = width // 2
-                                min_y = max(0, y - half_width)
-                                max_y = min(height, y + half_width + 1)
-                                min_x = max(0, x - half_width)
-                                max_x = min(width, x + half_width + 1)
-
-                                # Create a circular brush
-                                y_indices, x_indices = np.ogrid[
-                                    min_y:max_y, min_x:max_x
-                                ]
-                                brush = (y_indices - y) ** 2 + (
-                                    x_indices - x
-                                ) ** 2 <= half_width**2
-                                mask[min_y:max_y, min_x:max_x] |= brush
-
-                    # Apply color to all lines at once
-                    image[mask] = color
-
-        return image
-
-    @staticmethod
     async def async_draw_obstacles(
         image: np.ndarray, obstacle_info_list, color: Color
     ) -> np.ndarray:
@@ -835,9 +536,7 @@ class Drawable:
                     continue
 
                 if need_blending:
-                    obs_color = ColorsManagement.sample_and_blend_color(
-                        image, x, y, color
-                    )
+                    obs_color = sample_and_blend_color(image, x, y, color)
                 else:
                     obs_color = color
 
@@ -877,13 +576,23 @@ class Drawable:
         """Draw the status text on the image."""
         module_dir = Path(__file__).resolve().parent
         default_font_path = module_dir / "fonts" / "FiraSans.ttf"
-        default_font = ImageFont.truetype(str(default_font_path), size)
+        # Load default font with safety fallback to PIL's built-in if missing
+        try:
+            default_font = ImageFont.truetype(str(default_font_path), size)
+        except OSError:
+            _LOGGER.warning(
+                "Default font not found at %s; using PIL default font",
+                default_font_path,
+            )
+            default_font = ImageFont.load_default()
 
-        user_font_path = Path(path_font)
-        if not user_font_path.is_absolute():
-            repo_root = module_dir.parents[2]
-            user_font_path = (repo_root / user_font_path).resolve()
-        user_font = ImageFont.truetype(str(user_font_path), size)
+        # Use provided font directly if available; else fall back to default
+        user_font = default_font
+        if path_font:
+            try:
+                user_font = ImageFont.truetype(str(path_font), size)
+            except OSError:
+                user_font = default_font
         if position:
             x, y = 10, 10
         else:

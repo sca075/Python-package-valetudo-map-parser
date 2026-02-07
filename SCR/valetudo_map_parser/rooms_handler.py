@@ -7,17 +7,15 @@ Version: 0.1.9
 
 from __future__ import annotations
 
-import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from scipy.ndimage import binary_dilation, binary_erosion
-from scipy.spatial import ConvexHull
+from scipy.spatial import ConvexHull  # pylint: disable=no-name-in-module
 
 from .config.drawable_elements import DrawableElement, DrawingConfig
 from .config.types import LOGGER, RoomsProperties
-
-from .map_data import RandImageData, ImageData
+from .map_data import RandImageData
 
 
 class RoomsHandler:
@@ -85,7 +83,7 @@ class RoomsHandler:
         """
         meta_data = layer.get("metaData", {})
         segment_id = meta_data.get("segmentId")
-        name = meta_data.get("name", "Room {}".format(segment_id))
+        name = meta_data.get("name", f"Room {segment_id}")
         compressed_pixels = layer.get("compressedPixels", [])
         pixels = self.sublist(compressed_pixels, 3)
 
@@ -104,14 +102,11 @@ class RoomsHandler:
                         is_enabled = self.drawing_config.is_enabled(room_element)
                         if not is_enabled:
                             # Skip this room if it's disabled
-                            LOGGER.debug("Skipping disabled room %s", segment_id)
                             return None, None
             except (ValueError, TypeError):
                 # If segment_id is not a valid integer, we can't map it to a room element
                 # In this case, we'll include the room (fail open)
-                LOGGER.debug(
-                    "Could not convert segment_id %s to room element", segment_id
-                )
+                pass
 
         # Optimization: Create a smaller mask for just the room area
         if not pixels:
@@ -166,8 +161,17 @@ class RoomsHandler:
             np.uint8
         )
 
+        # Free intermediate arrays to reduce memory usage
+        del local_mask
+        del struct_elem
+        del eroded
+
         # Extract contour from the mask
         outline = self.convex_hull_outline(mask)
+
+        # Free mask after extracting outline
+        del mask
+
         if not outline:
             return None, None
 
@@ -207,7 +211,6 @@ class RoomsHandler:
         Returns:
             Dictionary of room properties
         """
-        start_total = time.time()
         room_properties = {}
         pixel_size = json_data.get("pixelSize", 5)
         height = json_data["size"]["y"]
@@ -220,10 +223,6 @@ class RoomsHandler:
                 )
                 if room_id is not None and room_data is not None:
                     room_properties[room_id] = room_data
-
-        # Log timing information
-        total_time = time.time() - start_total
-        LOGGER.debug("Room extraction Total time: %.3fs", total_time)
         return room_properties
 
 
@@ -297,8 +296,8 @@ class RandRoomsHandler:
 
             return hull_points
 
-        except Exception as e:
-            LOGGER.warning(f"Error calculating convex hull: {e}")
+        except (ValueError, RuntimeError) as e:
+            LOGGER.warning("Error calculating convex hull: %s", e)
 
             # Fallback to bounding box if convex hull fails
             x_min, y_min = np.min(points_array, axis=0)
@@ -339,7 +338,6 @@ class RandRoomsHandler:
                         is_enabled = self.drawing_config.is_enabled(room_element)
                         if not is_enabled:
                             # Skip this room if it's disabled
-                            LOGGER.debug("Skipping disabled room %s", segment_id)
                             return None, None
             except (ValueError, TypeError):
                 # If segment_id is not a valid integer, we can't map it to a room element
@@ -399,7 +397,6 @@ class RandRoomsHandler:
         Returns:
             Dictionary of room properties
         """
-        start_total = time.time()
         room_properties = {}
 
         # Get basic map information
@@ -466,9 +463,5 @@ class RandRoomsHandler:
                     room_data["name"] = room_info.get("name", room_data["name"])
 
                 room_properties[room_id] = room_data
-
-        # Log timing information
-        total_time = time.time() - start_total
-        LOGGER.debug("Room extraction Total time: %.3fs", total_time)
 
         return room_properties

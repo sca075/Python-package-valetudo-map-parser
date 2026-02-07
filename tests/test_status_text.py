@@ -14,7 +14,6 @@ from SCR.valetudo_map_parser.config.status_text.status_text import StatusText
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
-
 async def _build_shared(file_name: str = "test_device"):
     manager = CameraSharedManager(file_name, device_info={})
     shared = manager.get_instance()
@@ -95,7 +94,6 @@ def test_current_room_suffix_appended():
         # Should contain " (Kitchen)"
         print(status_text)
         assert any(" (Kitchen)" in t for t in status_text)
-
 
 
 def test_graceful_when_no_image_passed():

@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import IntEnum, StrEnum
 from typing import Dict, List, Tuple
 
 import numpy as np
-from scipy import ndimage
 
-from .types import (
+from ..const import (
     ALPHA_BACKGROUND,
+    ALPHA_CARPET,
     ALPHA_CHARGER,
     ALPHA_GO_TO,
+    ALPHA_MATERIAL_TILE,
+    ALPHA_MATERIAL_WOOD,
+    ALPHA_MOP_MOVE,
     ALPHA_MOVE,
     ALPHA_NO_GO,
     ALPHA_ROBOT,
@@ -35,8 +38,12 @@ from .types import (
     ALPHA_WALL,
     ALPHA_ZONE_CLEAN,
     COLOR_BACKGROUND,
+    COLOR_CARPET,
     COLOR_CHARGER,
     COLOR_GO_TO,
+    COLOR_MATERIAL_TILE,
+    COLOR_MATERIAL_WOOD,
+    COLOR_MOP_MOVE,
     COLOR_MOVE,
     COLOR_NO_GO,
     COLOR_ROBOT,
@@ -59,14 +66,15 @@ from .types import (
     COLOR_TEXT,
     COLOR_WALL,
     COLOR_ZONE_CLEAN,
-    LOGGER,
-    Color,
 )
+from .types import LOGGER, Color
 
 
 color_transparent = (0, 0, 0, 0)
 color_charger = (0, 128, 0, 255)
+color_carpet = (67, 103, 125, 255)
 color_move = (238, 247, 255, 255)
+color_mop_move = (238, 225, 255, 255)
 color_robot = (255, 255, 204, 255)
 color_no_go = (255, 0, 0, 255)
 color_go_to = (0, 255, 0, 255)
@@ -76,6 +84,8 @@ color_wall = (255, 255, 0, 255)
 color_text = (255, 255, 255, 255)
 color_grey = (125, 125, 125, 255)
 color_black = (0, 0, 0, 255)
+color_material_wood = (40, 40, 40, 38)
+color_material_tile = (40, 40, 40, 45)
 color_room_0 = (135, 206, 250, 255)
 color_room_1 = (176, 226, 255, 255)
 color_room_2 = (164, 211, 238, 255)
@@ -113,17 +123,22 @@ rooms_color = [
 ]
 
 base_colors_array = [
-    color_wall,
-    color_zone_clean,
-    color_robot,
-    color_background,
-    color_move,
-    color_charger,
-    color_no_go,
-    color_go_to,
-    color_text,
+    color_wall,  # [0]
+    color_zone_clean,  # [1]
+    color_robot,  # [2]
+    color_background,  # [3]
+    color_move,  # [4]
+    color_charger,  # [5]
+    color_no_go,  # [6]
+    color_go_to,  # [7]
+    color_text,  # [8]
+    color_carpet,  # [9]
+    color_material_wood,  # [10]
+    color_material_tile,  # [11]
+    color_mop_move,  # [12]
 ]
 
+# Might be not used in the future we may remove it.
 color_array = [
     base_colors_array[0],  # color_wall
     base_colors_array[6],  # color_no_go
@@ -140,17 +155,44 @@ color_array = [
 ]
 
 
+class ColorIndex(IntEnum):
+    """
+    Named indices for user_colors array.
+    This prevents hardcoded indices and makes the code maintainable.
+    The order must match the order in set_initial_colours() base_color_keys.
+    """
+
+    WALL = 0
+    ZONE_CLEAN = 1
+    ROBOT = 2
+    BACKGROUND = 3
+    MOVE = 4
+    CHARGER = 5
+    CARPET = 6
+    NO_GO = 7
+    GO_TO = 8
+    TEXT = 9
+    MATERIAL_WOOD = 10
+    MATERIAL_TILE = 11
+    MOP_MOVE = 12
+
+
 class SupportedColor(StrEnum):
     """Color of a supported map element."""
 
     CHARGER = "color_charger"
     PATH = "color_move"
+    MOP_PATH = "color_mop_move"
     PREDICTED_PATH = "color_predicted_move"
     WALLS = "color_wall"
     ROBOT = "color_robot"
     GO_TO = "color_go_to"
     NO_GO = "color_no_go"
     ZONE_CLEAN = "color_zone_clean"
+    CARPET = "color_carpet"
+    OBSTACLE = "color_obstacle"
+    TILE = "color_material_tile"
+    WOOD = "color_material_wood"
     MAP_BACKGROUND = "color_background"
     TEXT = "color_text"
     TRANSPARENT = "color_transparent"
@@ -167,12 +209,17 @@ class DefaultColors:
     COLORS_RGB: Dict[str, Tuple[int, int, int]] = {
         SupportedColor.CHARGER: (255, 128, 0),
         SupportedColor.PATH: (50, 150, 255),  # More vibrant blue for better visibility
+        SupportedColor.MOP_PATH: (238, 225, 255),
         SupportedColor.PREDICTED_PATH: (93, 109, 126),
         SupportedColor.WALLS: (255, 255, 0),
         SupportedColor.ROBOT: (255, 255, 204),
         SupportedColor.GO_TO: (0, 255, 0),
         SupportedColor.NO_GO: (255, 0, 0),
         SupportedColor.ZONE_CLEAN: (255, 255, 255),
+        SupportedColor.CARPET: (67, 103, 125),
+        SupportedColor.OBSTACLE: (255, 0, 0),
+        SupportedColor.TILE: (40, 40, 40),
+        SupportedColor.WOOD: (40, 40, 40),
         SupportedColor.MAP_BACKGROUND: (0, 125, 255),
         SupportedColor.TEXT: (0, 0, 0),
         SupportedColor.TRANSPARENT: (0, 0, 0),
@@ -250,7 +297,7 @@ class ColorsManagement:
             List[Tuple[int, int, int, int]]: List of RGBA colors with alpha channel added.
         """
         if len(alpha_channels) != len(rgb_colors):
-            LOGGER.error("Input lists must have the same length.")
+            LOGGER.warning("Input lists must have the same length.")
             return []
 
         # Fast path for empty lists
@@ -303,9 +350,13 @@ class ColorsManagement:
                 (COLOR_BACKGROUND, color_background, ALPHA_BACKGROUND),
                 (COLOR_MOVE, color_move, ALPHA_MOVE),
                 (COLOR_CHARGER, color_charger, ALPHA_CHARGER),
+                (COLOR_CARPET, color_carpet, ALPHA_CARPET),
                 (COLOR_NO_GO, color_no_go, ALPHA_NO_GO),
                 (COLOR_GO_TO, color_go_to, ALPHA_GO_TO),
                 (COLOR_TEXT, color_text, ALPHA_TEXT),
+                (COLOR_MATERIAL_WOOD, color_material_wood, ALPHA_MATERIAL_WOOD),
+                (COLOR_MATERIAL_TILE, color_material_tile, ALPHA_MATERIAL_TILE),
+                (COLOR_MOP_MOVE, color_mop_move, ALPHA_MOP_MOVE),
             ]
 
             room_color_keys = [
@@ -357,22 +408,38 @@ class ColorsManagement:
             self.color_cache.clear()
 
         except (ValueError, IndexError, UnboundLocalError) as e:
-            LOGGER.error("Error while populating colors: %s", e)
+            LOGGER.warning("Error while populating colors: %s", e)
 
     def initialize_user_colors(self, device_info: dict) -> List[Color]:
         """
         Initialize user-defined colors with defaults as fallback.
+        The order MUST match ColorIndex enum and set_initial_colours() base_color_keys.
         :param device_info: Dictionary containing user-defined colors.
         :return: List of RGBA colors for map elements.
         """
+        # Define the canonical order matching ColorIndex enum
+        base_color_keys = [
+            (COLOR_WALL, color_wall, ALPHA_WALL),
+            (COLOR_ZONE_CLEAN, color_zone_clean, ALPHA_ZONE_CLEAN),
+            (COLOR_ROBOT, color_robot, ALPHA_ROBOT),
+            (COLOR_BACKGROUND, color_background, ALPHA_BACKGROUND),
+            (COLOR_MOVE, color_move, ALPHA_MOVE),
+            (COLOR_CHARGER, color_charger, ALPHA_CHARGER),
+            (COLOR_CARPET, color_carpet, ALPHA_CARPET),
+            (COLOR_NO_GO, color_no_go, ALPHA_NO_GO),
+            (COLOR_GO_TO, color_go_to, ALPHA_GO_TO),
+            (COLOR_TEXT, color_text, ALPHA_TEXT),
+            (COLOR_MATERIAL_WOOD, color_material_wood, ALPHA_MATERIAL_WOOD),
+            (COLOR_MATERIAL_TILE, color_material_tile, ALPHA_MATERIAL_TILE),
+            (COLOR_MOP_MOVE, color_mop_move, ALPHA_MOP_MOVE),
+        ]
+
         colors = []
-        for key in SupportedColor:
-            if key.startswith(SupportedColor.COLOR_ROOM_PREFIX):
-                continue  # Skip room colors for user_colors
-            rgb = device_info.get(key, DefaultColors.COLORS_RGB.get(key))
-            alpha = device_info.get(
-                f"alpha_{key}", DefaultColors.DEFAULT_ALPHA.get(f"alpha_{key}")
+        for color_key, default_color, alpha_key in base_color_keys:
+            rgb = device_info.get(
+                color_key, default_color[:3] if default_color else (0, 0, 0)
             )
+            alpha = device_info.get(alpha_key, 255.0)
             colors.append(self.add_alpha_to_color(rgb, alpha))
         return colors
 
@@ -404,120 +471,6 @@ class ColorsManagement:
         """
         return (*rgb, int(alpha)) if rgb else (0, 0, 0, int(alpha))
 
-    @staticmethod
-    def blend_colors(background: Color, foreground: Color) -> Color:
-        """
-        Blend foreground color with background color based on alpha values.
-        Optimized version with more fast paths and simplified calculations.
-
-        :param background: Background RGBA color (r,g,b,a)
-        :param foreground: Foreground RGBA color (r,g,b,a) to blend on top
-        :return: Blended RGBA color
-        """
-        # Fast paths for common cases
-        fg_a = foreground[3]
-
-        if fg_a == 255:  # Fully opaque foreground
-            return foreground
-
-        if fg_a == 0:  # Fully transparent foreground
-            return background
-
-        bg_a = background[3]
-        if bg_a == 0:  # Fully transparent background
-            return foreground
-
-        # Extract components (only after fast paths)
-        bg_r, bg_g, bg_b = background[:3]
-        fg_r, fg_g, fg_b = foreground[:3]
-
-        # Pre-calculate the blend factor once (avoid repeated division)
-        blend = fg_a / 255.0
-        inv_blend = 1.0 - blend
-
-        # Simple linear interpolation for RGB channels
-        # This is faster than the previous implementation
-        out_r = int(fg_r * blend + bg_r * inv_blend)
-        out_g = int(fg_g * blend + bg_g * inv_blend)
-        out_b = int(fg_b * blend + bg_b * inv_blend)
-
-        # Alpha blending - simplified calculation
-        out_a = int(fg_a + bg_a * inv_blend)
-
-        # No need for min/max checks as the blend math keeps values in range
-        # when input values are valid (0-255)
-
-        return [out_r, out_g, out_b, out_a]
-
-    # Cache for recently sampled background colors
-    _bg_color_cache = {}
-    _cache_size = 1024  # Limit cache size to avoid memory issues
-
-    @staticmethod
-    def sample_and_blend_color(array, x: int, y: int, foreground: Color) -> Color:
-        """
-        Sample the background color from the array at coordinates (x,y) and blend with foreground color.
-        Optimized version with caching and faster sampling.
-
-        Args:
-            array: The RGBA numpy array representing the image
-            x: Coordinate X to sample the background color from
-            y: Coordinate Y to sample the background color from
-            foreground: Foreground RGBA color (r,g,b,a) to blend on top
-
-        Returns:
-            Blended RGBA color
-        """
-        # Fast path for fully opaque foreground - no need to sample or blend
-        if foreground[3] == 255:
-            return foreground
-
-        # Ensure array exists
-        if array is None:
-            return foreground
-
-        # Check if coordinates are within bounds
-        height, width = array.shape[:2]
-        if not (0 <= y < height and 0 <= x < width):
-            return foreground
-
-        # Check cache for this coordinate
-        cache_key = (id(array), x, y)
-        cache = ColorsManagement._bg_color_cache
-
-        if cache_key in cache:
-            background = cache[cache_key]
-        else:
-            # Sample the background color using direct indexing (fastest method)
-            try:
-                background = tuple(map(int, array[y, x]))
-
-                # Update cache (with simple LRU-like behavior)
-                try:
-                    if len(cache) >= ColorsManagement._cache_size:
-                        # Remove a random entry if cache is full
-                        if cache:  # Make sure cache is not empty
-                            cache.pop(next(iter(cache)))
-                        else:
-                            # If cache is somehow empty but len reported >= _cache_size
-                            # This is an edge case that shouldn't happen but we handle it
-                            pass
-                    cache[cache_key] = background
-                except KeyError:
-                    # If we encounter a KeyError, reset the cache
-                    # This is a rare edge case that might happen in concurrent access
-                    ColorsManagement._bg_color_cache = {cache_key: background}
-
-            except (IndexError, ValueError):
-                return foreground
-
-        # Fast path for fully transparent foreground
-        if foreground[3] == 0:
-            return background
-
-        # Blend the colors
-        return ColorsManagement.blend_colors(background, foreground)
-
     def get_user_colors(self) -> List[Color]:
         """Return the list of RGBA colors for user-defined map elements."""
         return self.user_colors
@@ -525,303 +478,3 @@ class ColorsManagement:
     def get_rooms_colors(self) -> List[Color]:
         """Return the list of RGBA colors for rooms."""
         return self.rooms_colors
-
-    @staticmethod
-    def batch_blend_colors(image_array, mask, foreground_color):
-        """
-        Blend a foreground color with all pixels in an image where the mask is True.
-        Uses scipy.ndimage for efficient batch processing.
-
-        Args:
-            image_array: NumPy array of shape (height, width, 4) containing RGBA image data
-            mask: Boolean mask of shape (height, width) indicating pixels to blend
-            foreground_color: RGBA color tuple to blend with the masked pixels
-
-        Returns:
-            Modified image array with blended colors
-        """
-        if not np.any(mask):
-            return image_array  # No pixels to blend
-
-        # Extract foreground components
-        fg_r, fg_g, fg_b, fg_a = foreground_color
-
-        # Fast path for fully opaque foreground
-        if fg_a == 255:
-            # Just set the color directly where mask is True
-            image_array[mask, 0] = fg_r
-            image_array[mask, 1] = fg_g
-            image_array[mask, 2] = fg_b
-            image_array[mask, 3] = fg_a
-            return image_array
-
-        # Fast path for fully transparent foreground
-        if fg_a == 0:
-            return image_array  # No change needed
-
-        # For semi-transparent foreground, we need to blend
-        # Extract background components where mask is True
-        bg_pixels = image_array[mask]
-
-        # Convert alpha from [0-255] to [0-1] for calculations
-        fg_alpha = fg_a / 255.0
-        bg_alpha = bg_pixels[:, 3] / 255.0
-
-        # Calculate resulting alpha
-        out_alpha = fg_alpha + bg_alpha * (1 - fg_alpha)
-
-        # Calculate alpha ratios for blending
-        # Handle division by zero by setting ratio to 0 where out_alpha is near zero
-        alpha_ratio = np.zeros_like(out_alpha)
-        valid_alpha = out_alpha > 0.0001
-        alpha_ratio[valid_alpha] = fg_alpha / out_alpha[valid_alpha]
-        inv_alpha_ratio = 1.0 - alpha_ratio
-
-        # Calculate blended RGB components
-        out_r = np.clip(
-            (fg_r * alpha_ratio + bg_pixels[:, 0] * inv_alpha_ratio), 0, 255
-        ).astype(np.uint8)
-        out_g = np.clip(
-            (fg_g * alpha_ratio + bg_pixels[:, 1] * inv_alpha_ratio), 0, 255
-        ).astype(np.uint8)
-        out_b = np.clip(
-            (fg_b * alpha_ratio + bg_pixels[:, 2] * inv_alpha_ratio), 0, 255
-        ).astype(np.uint8)
-        out_a = np.clip((out_alpha * 255), 0, 255).astype(np.uint8)
-
-        # Update the image array with blended values
-        image_array[mask, 0] = out_r
-        image_array[mask, 1] = out_g
-        image_array[mask, 2] = out_b
-        image_array[mask, 3] = out_a
-
-        return image_array
-
-    @staticmethod
-    def process_regions_with_colors(image_array, regions_mask, colors):
-        """
-        Process multiple regions in an image with different colors using scipy.ndimage.
-        This is much faster than processing each region separately.
-
-        Args:
-            image_array: NumPy array of shape (height, width, 4) containing RGBA image data
-            regions_mask: NumPy array of shape (height, width) with integer labels for different regions
-            colors: List of RGBA color tuples corresponding to each region label
-
-        Returns:
-            Modified image array with all regions colored and blended
-        """
-        # Skip processing if no regions or colors
-        if regions_mask is None or not np.any(regions_mask) or not colors:
-            return image_array
-
-        # Get unique region labels (excluding 0 which is typically background)
-        unique_labels = np.unique(regions_mask)
-        unique_labels = unique_labels[unique_labels > 0]  # Skip background (0)
-
-        if len(unique_labels) == 0:
-            return image_array  # No regions to process
-
-        # Process each region with its corresponding color
-        for label in unique_labels:
-            if label <= len(colors):
-                # Create mask for this region
-                region_mask = regions_mask == label
-
-                # Get color for this region
-                color = colors[label - 1] if label - 1 < len(colors) else colors[0]
-
-                # Apply color to this region
-                image_array = ColorsManagement.batch_blend_colors(
-                    image_array, region_mask, color
-                )
-
-        return image_array
-
-    @staticmethod
-    def apply_color_to_shapes(image_array, shapes, color, thickness=1):
-        """
-        Apply a color to multiple shapes (lines, circles, etc.) using scipy.ndimage.
-
-        Args:
-            image_array: NumPy array of shape (height, width, 4) containing RGBA image data
-            shapes: List of shape definitions (each a list of points or parameters)
-            color: RGBA color tuple to apply to the shapes
-            thickness: Line thickness for shapes
-
-        Returns:
-            Modified image array with shapes drawn and blended
-        """
-        height, width = image_array.shape[:2]
-
-        # Create a mask for all shapes
-        shapes_mask = np.zeros((height, width), dtype=bool)
-
-        # Draw all shapes into the mask
-        for shape in shapes:
-            if len(shape) >= 2:  # At least two points for a line
-                # Draw line into mask
-                for i in range(len(shape) - 1):
-                    x1, y1 = shape[i]
-                    x2, y2 = shape[i + 1]
-
-                    # Use Bresenham's line algorithm via scipy.ndimage.map_coordinates
-                    # Create coordinates for the line
-                    length = int(np.hypot(x2 - x1, y2 - y1))
-                    if length == 0:
-                        continue
-
-                    t = np.linspace(0, 1, length * 2)
-                    x = np.round(x1 * (1 - t) + x2 * t).astype(int)
-                    y = np.round(y1 * (1 - t) + y2 * t).astype(int)
-
-                    # Filter points outside the image
-                    valid = (0 <= x) & (x < width) & (0 <= y) & (y < height)
-                    x, y = x[valid], y[valid]
-
-                    # Add points to mask
-                    if thickness == 1:
-                        shapes_mask[y, x] = True
-                    else:
-                        # For thicker lines, use a disk structuring element
-                        # Create a disk structuring element once
-                        disk_radius = thickness
-                        disk_size = 2 * disk_radius + 1
-                        disk_struct = np.zeros((disk_size, disk_size), dtype=bool)
-                        y_grid, x_grid = np.ogrid[
-                            -disk_radius : disk_radius + 1,
-                            -disk_radius : disk_radius + 1,
-                        ]
-                        mask = x_grid**2 + y_grid**2 <= disk_radius**2
-                        disk_struct[mask] = True
-
-                        # Use scipy.ndimage.binary_dilation for efficient dilation
-                        # Create a temporary mask for this line segment
-                        line_mask = np.zeros_like(shapes_mask)
-                        line_mask[y, x] = True
-                        # Dilate the line with the disk structuring element
-                        dilated_line = ndimage.binary_dilation(
-                            line_mask, structure=disk_struct
-                        )
-                        # Add to the overall shapes mask
-                        shapes_mask |= dilated_line
-
-        # Apply color to all shapes at once
-        return ColorsManagement.batch_blend_colors(image_array, shapes_mask, color)
-
-    @staticmethod
-    def batch_sample_colors(image_array, coordinates):
-        """
-        Efficiently sample colors from multiple coordinates in an image using scipy.ndimage.
-
-        Args:
-            image_array: NumPy array of shape (height, width, 4) containing RGBA image data
-            coordinates: List of (x,y) tuples or numpy array of shape (N,2) with coordinates to sample
-
-        Returns:
-            NumPy array of shape (N,4) containing the RGBA colors at each coordinate
-        """
-        if len(coordinates) == 0:
-            return np.array([])
-
-        height, width = image_array.shape[:2]
-
-        # Convert coordinates to numpy array if not already
-        coords = np.array(coordinates)
-
-        # Separate x and y coordinates
-        x_coords = coords[:, 0]
-        y_coords = coords[:, 1]
-
-        # Create a mask for valid coordinates (within image bounds)
-        valid_mask = (
-            (0 <= x_coords) & (x_coords < width) & (0 <= y_coords) & (y_coords < height)
-        )
-
-        # Initialize result array with zeros
-        result = np.zeros((len(coordinates), 4), dtype=np.uint8)
-
-        if not np.any(valid_mask):
-            return result  # No valid coordinates
-
-        # Filter valid coordinates
-        valid_x = x_coords[valid_mask].astype(int)
-        valid_y = y_coords[valid_mask].astype(int)
-
-        # Use scipy.ndimage.map_coordinates for efficient sampling
-        # This is much faster than looping through coordinates
-        for channel in range(4):
-            # Sample this color channel for all valid coordinates at once
-            channel_values = ndimage.map_coordinates(
-                image_array[..., channel],
-                np.vstack((valid_y, valid_x)),
-                order=0,  # Use nearest-neighbor interpolation
-                mode="nearest",
-            )
-
-            # Assign sampled values to result array
-            result[valid_mask, channel] = channel_values
-
-        return result
-
-    def cached_blend_colors(self, background: Color, foreground: Color) -> Color:
-        """
-        Cached version of blend_colors that stores frequently used combinations.
-        This improves performance when the same color combinations are used repeatedly.
-
-        Args:
-            background: Background RGBA color tuple
-            foreground: Foreground RGBA color tuple
-
-        Returns:
-            Blended RGBA color tuple
-        """
-        # Fast paths for common cases
-        if foreground[3] == 255:
-            return foreground
-        if foreground[3] == 0:
-            return background
-
-        # Create a cache key from the color tuples
-        cache_key = (background, foreground)
-
-        # Check if this combination is in the cache
-        if cache_key in self.color_cache:
-            return self.color_cache[cache_key]
-
-        # Calculate the blended color
-        result = ColorsManagement.blend_colors(background, foreground)
-
-        # Store in cache (with a maximum cache size to prevent memory issues)
-        if len(self.color_cache) < 1000:  # Limit cache size
-            self.color_cache[cache_key] = result
-
-        return result
-
-    def get_colour(self, supported_color: SupportedColor) -> Color:
-        """
-        Retrieve the color for a specific map element, prioritizing user-defined values.
-
-        :param supported_color: The SupportedColor key for the desired color.
-        :return: The RGBA color for the given map element.
-        """
-        # Handle room-specific colors
-        if supported_color.startswith("color_room_"):
-            room_index = int(supported_color.split("_")[-1])
-            try:
-                return self.rooms_colors[room_index]
-            except (IndexError, KeyError):
-                LOGGER.warning("Room index %s not found, using default.", room_index)
-                r, g, b = DefaultColors.DEFAULT_ROOM_COLORS[f"color_room_{room_index}"]
-                a = DefaultColors.DEFAULT_ALPHA[f"alpha_room_{room_index}"]
-                return r, g, b, int(a)
-
-        # Handle general map element colors
-        try:
-            index = list(SupportedColor).index(supported_color)
-            return self.user_colors[index]
-        except (IndexError, KeyError, ValueError):
-            LOGGER.warning(
-                "Color for %s not found. Returning default.", supported_color
-            )
-            return DefaultColors.get_rgba(supported_color, 255)  # Transparent fallback

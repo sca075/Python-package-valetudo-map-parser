@@ -8,12 +8,21 @@ Version: v0.1.10
 
 from __future__ import annotations
 
-import numpy as np
-from typing import List, Sequence, TypeVar, Any, TypedDict, NotRequired, Literal
+from dataclasses import asdict, dataclass, field
+from typing import (
+    Any,
+    Literal,
+    NotRequired,
+    Optional,
+    Sequence,
+    TypedDict,
+    TypeVar,
+)
 
-from dataclasses import dataclass, field
+import numpy as np
 
 from .config.types import ImageSize, JsonType
+
 
 T = TypeVar("T")
 
@@ -21,6 +30,8 @@ T = TypeVar("T")
 
 
 class RangeStats(TypedDict):
+    """Statistics for a range of values (min, max, mid, avg)."""
+
     min: int
     max: int
     mid: int
@@ -28,6 +39,8 @@ class RangeStats(TypedDict):
 
 
 class Dimensions(TypedDict):
+    """Dimensions with x/y range statistics and pixel count."""
+
     x: RangeStats
     y: RangeStats
     pixelCount: int
@@ -37,17 +50,24 @@ class Dimensions(TypedDict):
 
 
 class FloorWallMeta(TypedDict, total=False):
+    """Metadata for floor and wall layers."""
+
     area: int
 
 
 class SegmentMeta(TypedDict, total=False):
+    """Metadata for segment layers including segment ID and active state."""
+
     segmentId: str
     active: bool
     source: str
     area: int
+    material: str
 
 
 class MapLayerBase(TypedDict):
+    """Base structure for map layers with pixels and dimensions."""
+
     __class__: Literal["MapLayer"]
     type: str
     pixels: list[int]
@@ -56,11 +76,15 @@ class MapLayerBase(TypedDict):
 
 
 class FloorWallLayer(MapLayerBase):
+    """Map layer representing floor or wall areas."""
+
     metaData: FloorWallMeta
     type: Literal["floor", "wall"]
 
 
 class SegmentLayer(MapLayerBase):
+    """Map layer representing a room segment."""
+
     metaData: SegmentMeta
     type: Literal["segment"]
 
@@ -69,12 +93,16 @@ class SegmentLayer(MapLayerBase):
 
 
 class PointMeta(TypedDict, total=False):
+    """Metadata for point entities including angle, label, and ID."""
+
     angle: float
     label: str
     id: str
 
 
 class PointMapEntity(TypedDict):
+    """Point-based map entity (robot, charger, obstacle, etc.)."""
+
     __class__: Literal["PointMapEntity"]
     type: str
     points: list[int]
@@ -82,28 +110,51 @@ class PointMapEntity(TypedDict):
 
 
 class PathMapEntity(TypedDict):
+    """Path-based map entity representing robot movement paths."""
+
     __class__: Literal["PathMapEntity"]
     type: str
     points: list[int]
     metaData: dict[str, object]  # flexible for now
 
 
-Entity = PointMapEntity | PathMapEntity
+class PolygonMeta(TypedDict, total=False):
+    """Metadata for polygon entities including ID."""
+
+    id: str
+
+
+class PolygonMapEntity(TypedDict):
+    """Polygon-based map entity (zones, carpets, etc.)."""
+
+    __class__: Literal["PolygonMapEntity"]
+    type: str
+    points: list[int]
+    metaData: NotRequired[PolygonMeta]
+
+
+Entity = PointMapEntity | PathMapEntity | PolygonMapEntity
 
 # --- Top-level Map ---
 
 
 class MapMeta(TypedDict, total=False):
+    """Metadata for the Valetudo map including version and total area."""
+
     version: int
     totalLayerArea: int
 
 
 class Size(TypedDict):
+    """Map size with x and y dimensions."""
+
     x: int
     y: int
 
 
 class ValetudoMap(TypedDict):
+    """Complete Valetudo map structure with layers and entities."""
+
     __class__: Literal["ValetudoMap"]
     metaData: MapMeta
     size: Size
@@ -197,11 +248,61 @@ class ImageData:
         return obstacle_positions
 
     @staticmethod
+    def _convert_pixels_to_compressed(pixels: list) -> list:
+        """Convert pixels array from pairs to compressed triplets format."""
+        if not pixels:
+            return []
+        compressed_pixels = []
+        for i in range(0, len(pixels), 2):
+            if i + 1 < len(pixels):
+                compressed_pixels.extend([pixels[i], pixels[i + 1], 1])
+        return compressed_pixels
+
+    @staticmethod
+    def _extract_segment_metadata(
+        meta_data: dict, active_list: list[int], materials_dict: dict[str, str]
+    ) -> None:
+        """Extract active flag and material from segment metadata."""
+        try:
+            active_list.append(int(meta_data.get("active", 0)))
+        except (ValueError, TypeError):
+            pass
+
+        segment_id = meta_data.get("segmentId")
+        material = meta_data.get("material")
+        if segment_id and material:
+            materials_dict[segment_id] = material
+
+    @staticmethod
+    def _process_map_layer(
+        json_obj: dict,
+        layer_dict: dict[str, list[Any]],
+        active_list: list[int],
+        materials_dict: dict[str, str],
+    ) -> None:
+        """Process a single MapLayer object."""
+        layer_type = json_obj.get("type")
+        if not layer_type:
+            return
+
+        compressed_pixels = json_obj.get("compressedPixels")
+        if compressed_pixels is None:
+            pixels = json_obj.get("pixels", [])
+            compressed_pixels = ImageData._convert_pixels_to_compressed(pixels)
+
+        layer_dict.setdefault(layer_type, []).append(compressed_pixels)
+
+        if layer_type == "segment":
+            meta_data = json_obj.get("metaData") or {}
+            ImageData._extract_segment_metadata(meta_data, active_list, materials_dict)
+
+    @staticmethod
     def find_layers(
         json_obj: JsonType,
         layer_dict: dict[str, list[Any]] | None,
         active_list: list[int] | None,
-    ) -> tuple[dict[str, list[Any]], list[int]]:
+        materials_dict: dict[str, str] | None = None,
+    ) -> tuple[dict[str, list[Any]], list[int], dict[str, str]]:
         """
         Recursively traverse a JSON-like structure to find MapLayer entries.
 
@@ -209,40 +310,36 @@ class ImageData:
             json_obj: The JSON-like object (dicts/lists) to search.
             layer_dict: Optional mapping of layer_type to a list of compressed pixel data.
             active_list: Optional list of active segment flags.
+            materials_dict: Optional mapping of segment_id to material type.
 
         Returns:
             A tuple:
                 - dict mapping layer types to their compressed pixel arrays.
                 - list of integers marking active segment layers.
+                - dict mapping segment IDs to material types.
         """
         if layer_dict is None:
             layer_dict = {}
             active_list = []
+            materials_dict = {}
+
+        if materials_dict is None:
+            materials_dict = {}
 
         if isinstance(json_obj, dict):
             if json_obj.get("__class") == "MapLayer":
-                layer_type = json_obj.get("type")
-                meta_data = json_obj.get("metaData") or {}
-                if layer_type:
-                    layer_dict.setdefault(layer_type, []).append(
-                        json_obj.get("compressedPixels", [])
-                    )
-                    # Safely extract "active" flag if present and convertible to int
-                    if layer_type == "segment":
-                        try:
-                            active_list.append(int(meta_data.get("active", 0)))
-                        except (ValueError, TypeError):
-                            pass  # skip invalid/missing 'active' values
+                ImageData._process_map_layer(
+                    json_obj, layer_dict, active_list, materials_dict
+                )
 
-            # json_obj.items() yields (key, value), so we only want the values
             for _, value in json_obj.items():
-                ImageData.find_layers(value, layer_dict, active_list)
+                ImageData.find_layers(value, layer_dict, active_list, materials_dict)
 
         elif isinstance(json_obj, list):
             for item in json_obj:
-                ImageData.find_layers(item, layer_dict, active_list)
+                ImageData.find_layers(item, layer_dict, active_list, materials_dict)
 
-        return layer_dict, active_list
+        return layer_dict, active_list, materials_dict
 
     @staticmethod
     def find_points_entities(
@@ -364,6 +461,11 @@ class ImageData:
             Else:
                 (min_x_mm, min_y_mm, max_x_mm, max_y_mm)
         """
+
+        def to_mm(coord):
+            """Convert pixel coordinates to millimeters."""
+            return round(coord * pixel_size * 10)
+
         if not pixels:
             raise ValueError("Pixels list cannot be empty.")
 
@@ -384,7 +486,6 @@ class ImageData:
             min_y = min(min_y, y)
 
         if rand:
-            to_mm = lambda v: v * pixel_size * 10
             return (to_mm(max_x), to_mm(max_y)), (to_mm(min_x), to_mm(min_y))
 
         return (
@@ -475,7 +576,7 @@ class RandImageData:
         return json_data.get("path", {})
 
     @staticmethod
-    def get_rrm_goto_predicted_path(json_data: JsonType) -> List or None:
+    def get_rrm_goto_predicted_path(json_data: JsonType) -> Optional[list]:
         """Get the predicted path data from the json."""
         try:
             predicted_path = json_data.get("goto_predicted_path", {})
@@ -517,7 +618,7 @@ class RandImageData:
         return angle, json_data.get("robot_angle", 0)
 
     @staticmethod
-    def get_rrm_goto_target(json_data: JsonType) -> list or None:
+    def get_rrm_goto_target(json_data: JsonType) -> Any:
         """Get the goto target from the json."""
         try:
             path_data = json_data.get("goto_target", {})
@@ -530,21 +631,23 @@ class RandImageData:
         return None
 
     @staticmethod
-    def get_rrm_currently_cleaned_zones(json_data: JsonType) -> dict:
+    def get_rrm_currently_cleaned_zones(json_data: JsonType) -> list[dict[str, Any]]:
         """Get the currently cleaned zones from the json."""
         re_zones = json_data.get("currently_cleaned_zones", [])
         formatted_zones = RandImageData._rrm_valetudo_format_zone(re_zones)
         return formatted_zones
 
     @staticmethod
-    def get_rrm_forbidden_zones(json_data: JsonType) -> dict:
+    def get_rrm_forbidden_zones(json_data: JsonType) -> list[dict[str, Any]]:
         """Get the forbidden zones from the json."""
-        re_zones = json_data.get("forbidden_zones", [])
+        re_zones = json_data.get("forbidden_zones", []) + json_data.get(
+            "forbidden_mop_zones", []
+        )
         formatted_zones = RandImageData._rrm_valetudo_format_zone(re_zones)
         return formatted_zones
 
     @staticmethod
-    def _rrm_valetudo_format_zone(coordinates: list) -> Any:
+    def _rrm_valetudo_format_zone(coordinates: list) -> list[dict[str, Any]]:
         """Format the zones from RRM to Valetudo."""
         formatted_zones = []
         for zone_data in coordinates:
@@ -658,6 +761,11 @@ class RandImageData:
         img = RandImageData.get_rrm_image(json_data)
         seg_data = img.get("segments", {})
         seg_ids = seg_data.get("id")
+
+        # Handle missing or invalid segment IDs gracefully
+        if not seg_ids:
+            return ([], []) if out_lines else []
+
         segments = []
         outlines = []
         count_seg = 0
@@ -700,7 +808,7 @@ class HyperMapData:
     """Class to handle the map data snapshots."""
 
     json_data: Any = None
-    json_id: str = "" or None
+    json_id: Optional[str] = None
     obstacles: dict[str, list[Any]] = field(default_factory=dict)
     paths: dict[str, list[Any]] = field(default_factory=dict)
     image_size: dict[str, int | list[int]] = field(default_factory=dict)
@@ -710,6 +818,7 @@ class HyperMapData:
     layers: dict[str, list[Any]] = field(default_factory=dict)
     active_zones: list[int] = field(default_factory=list)
     virtual_walls: list[list[tuple[float, float]]] = field(default_factory=list)
+    materials: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     async def async_from_valetudo_json(cls, json_data: Any) -> "HyperMapData":
@@ -725,14 +834,15 @@ class HyperMapData:
         areas = ImageData.find_zone_entities(json_data)
         layers = {}
         active_zones = []
+        materials = {}
         # Hypothetical obstacles finder, if you have one
         obstacles = getattr(ImageData, "find_obstacles_entities", lambda *_: {})(
             json_data
         )
         virtual_walls = ImageData.find_virtual_walls(json_data)
         pixel_size = int(json_data["pixelSize"])
-        layers, active_zones = ImageData.find_layers(
-            json_data["layers"], layers, active_zones
+        layers, active_zones, materials = ImageData.find_layers(
+            json_data["layers"], layers, active_zones, materials
         )
         entity_dict = ImageData.find_points_entities(json_data)
 
@@ -748,4 +858,58 @@ class HyperMapData:
             pixel_size=pixel_size,
             layers=layers,
             active_zones=active_zones,
+            materials=materials,
         )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a dictionary representation of this dataclass."""
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "HyperMapData":
+        """Construct a HyperMapData from a plain dictionary.
+        Unknown keys are ignored; missing keys use safe defaults.
+        """
+        return cls(
+            json_data=data.get("json_data"),
+            json_id=data.get("json_id") or None,
+            obstacles=data.get("obstacles", {}),
+            paths=data.get("paths", {}),
+            image_size=data.get("image_size", {}),
+            areas=data.get("areas", {}),
+            pixel_size=int(data.get("pixel_size", 0) or 0),
+            entity_dict=data.get("entity_dict", {}),
+            layers=data.get("layers", {}),
+            active_zones=data.get("active_zones", []),
+            virtual_walls=data.get("virtual_walls", []),
+            materials=data.get("materials", {}),
+        )
+
+    def update_from_dict(self, updates: dict[str, Any]) -> None:
+        """Update one or more fields in place, preserving the rest.
+        Unknown keys are ignored; pixel_size is coerced to int.
+        """
+        if not updates:
+            return
+        allowed = {
+            "json_data",
+            "json_id",
+            "obstacles",
+            "paths",
+            "image_size",
+            "areas",
+            "pixel_size",
+            "entity_dict",
+            "layers",
+            "active_zones",
+            "virtual_walls",
+        }
+        for key, value in updates.items():
+            if key not in allowed:
+                continue
+            if key == "pixel_size":
+                try:
+                    value = int(value)
+                except (TypeError, ValueError):
+                    continue
+            setattr(self, key, value)

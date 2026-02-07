@@ -1,7 +1,8 @@
-"""New Rand256 Map Parser - Based on Xiaomi/Roborock implementation with precise binary parsing."""
+"""New Rand256 Map Parser -
+Based on Xiaomi/Roborock implementation with precise binary parsing."""
 
-import struct
 import math
+import struct
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -24,6 +25,14 @@ class RRMapParser:
         VIRTUAL_WALLS = 10
         CURRENTLY_CLEANED_BLOCKS = 11
         FORBIDDEN_MOP_ZONES = 12
+        OBSTACLES = 13
+        IGNORED_OBSTACLES = 14
+        OBSTACLES_WITH_PHOTO = 15
+        IGNORED_OBSTACLES_WITH_PHOTO = 16
+        CARPET_MAP = 17
+        MOP_PATH = 18
+        NO_CARPET_AREAS = 19
+        DIGEST = 1024
 
     class Tools:
         """Tools for coordinate transformations."""
@@ -33,6 +42,7 @@ class RRMapParser:
 
     def __init__(self):
         """Initialize the parser."""
+        self.is_valid = False
         self.map_data: Dict[str, Any] = {}
 
     # Xiaomi/Roborock style byte extraction methods
@@ -68,6 +78,64 @@ class RRMapParser:
         return value if value < 0x80000000 else value - 0x100000000
 
     @staticmethod
+    def _parse_carpet_map(data: bytes) -> set[int]:
+        """Parse carpet map using Xiaomi method."""
+        carpet_map = set()
+
+        for i, v in enumerate(data):
+            if v:
+                carpet_map.add(i)
+        return carpet_map
+
+    @staticmethod
+    def _parse_area(header: bytes, data: bytes) -> list:
+        """Parse area using Xiaomi method."""
+        area_pairs = RRMapParser._get_int16(header, 0x08)
+        areas = []
+        for area_start in range(0, area_pairs * 16, 16):
+            x0 = RRMapParser._get_int16(data, area_start + 0)
+            y0 = RRMapParser._get_int16(data, area_start + 2)
+            x1 = RRMapParser._get_int16(data, area_start + 4)
+            y1 = RRMapParser._get_int16(data, area_start + 6)
+            x2 = RRMapParser._get_int16(data, area_start + 8)
+            y2 = RRMapParser._get_int16(data, area_start + 10)
+            x3 = RRMapParser._get_int16(data, area_start + 12)
+            y3 = RRMapParser._get_int16(data, area_start + 14)
+            areas.append(
+                [
+                    x0,
+                    RRMapParser.Tools.DIMENSION_MM - y0,
+                    x1,
+                    RRMapParser.Tools.DIMENSION_MM - y1,
+                    x2,
+                    RRMapParser.Tools.DIMENSION_MM - y2,
+                    x3,
+                    RRMapParser.Tools.DIMENSION_MM - y3,
+                ]
+            )
+        return areas
+
+    @staticmethod
+    def _parse_zones(data: bytes, header: bytes) -> list:
+        """Parse zones using Xiaomi method."""
+        zone_pairs = RRMapParser._get_int16(header, 0x08)
+        zones = []
+        for zone_start in range(0, zone_pairs * 8, 8):
+            x0 = RRMapParser._get_int16(data, zone_start + 0)
+            y0 = RRMapParser._get_int16(data, zone_start + 2)
+            x1 = RRMapParser._get_int16(data, zone_start + 4)
+            y1 = RRMapParser._get_int16(data, zone_start + 6)
+            zones.append(
+                [
+                    x0,
+                    RRMapParser.Tools.DIMENSION_MM - y0,
+                    x1,
+                    RRMapParser.Tools.DIMENSION_MM - y1,
+                ]
+            )
+        return zones
+
+    @staticmethod
     def _parse_object_position(block_data_length: int, data: bytes) -> Dict[str, Any]:
         """Parse object position using Xiaomi method."""
         x = RRMapParser._get_int32(data, 0x00)
@@ -81,6 +149,26 @@ class RRMapParser:
             else:
                 angle = raw_angle
         return {"position": [x, y], "angle": angle}
+
+    @staticmethod
+    def _parse_walls(data: bytes, header: bytes) -> list:
+        """Parse walls using Xiaomi method."""
+        wall_pairs = RRMapParser._get_int16(header, 0x08)
+        walls = []
+        for wall_start in range(0, wall_pairs * 8, 8):
+            x0 = RRMapParser._get_int16(data, wall_start + 0)
+            y0 = RRMapParser._get_int16(data, wall_start + 2)
+            x1 = RRMapParser._get_int16(data, wall_start + 4)
+            y1 = RRMapParser._get_int16(data, wall_start + 6)
+            walls.append(
+                [
+                    x0,
+                    RRMapParser.Tools.DIMENSION_MM - y0,
+                    x1,
+                    RRMapParser.Tools.DIMENSION_MM - y1,
+                ]
+            )
+        return walls
 
     @staticmethod
     def _parse_path_block(buf: bytes, offset: int, length: int) -> Dict[str, Any]:
@@ -131,56 +219,110 @@ class RRMapParser:
         blocks = {}
         map_header_length = self._get_int16(raw, 0x02)
         block_start_position = map_header_length
-
         while block_start_position < len(raw):
             try:
-                # Parse block header using Xiaomi method
                 block_header_length = self._get_int16(raw, block_start_position + 0x02)
                 header = self._get_bytes(raw, block_start_position, block_header_length)
                 block_type = self._get_int16(header, 0x00)
                 block_data_length = self._get_int32(header, 0x04)
                 block_data_start = block_start_position + block_header_length
                 data = self._get_bytes(raw, block_data_start, block_data_length)
+                match block_type:
+                    case self.Types.DIGEST.value:
+                        self.is_valid = True
+                    case (
+                        self.Types.ROBOT_POSITION.value
+                        | self.Types.CHARGER_LOCATION.value
+                    ):
+                        blocks[block_type] = self._parse_object_position(
+                            block_data_length, data
+                        )
+                    case self.Types.PATH.value | self.Types.GOTO_PREDICTED_PATH.value:
+                        blocks[block_type] = self._parse_path_block(
+                            raw, block_start_position, block_data_length
+                        )
+                    case self.Types.CURRENTLY_CLEANED_ZONES.value:
+                        blocks[block_type] = {"zones": self._parse_zones(data, header)}
+                    case self.Types.FORBIDDEN_ZONES.value:
+                        blocks[block_type] = {
+                            "forbidden_zones": self._parse_area(header, data)
+                        }
+                    case self.Types.FORBIDDEN_MOP_ZONES.value:
+                        blocks[block_type] = {
+                            "forbidden_mop_zones": self._parse_area(header, data)
+                        }
+                    case self.Types.GOTO_TARGET.value:
+                        blocks[block_type] = {"position": self._parse_goto_target(data)}
+                    case self.Types.VIRTUAL_WALLS.value:
+                        blocks[block_type] = {
+                            "virtual_walls": self._parse_walls(data, header)
+                        }
+                    case self.Types.CARPET_MAP.value:
+                        data = RRMapParser._get_bytes(
+                            raw, block_data_start, block_data_length
+                        )
+                        blocks[block_type] = {
+                            "carpet_map": self._parse_carpet_map(data)
+                        }
+                    case self.Types.IMAGE.value:
+                        header_length = self._get_int8(header, 2)
+                        blocks[block_type] = self._parse_image_block(
+                            raw,
+                            block_start_position,
+                            block_data_length,
+                            header_length,
+                            pixels,
+                        )
 
-                # Parse different block types
-                if block_type == self.Types.ROBOT_POSITION.value:
-                    blocks[block_type] = self._parse_object_position(
-                        block_data_length, data
-                    )
-                elif block_type == self.Types.CHARGER_LOCATION.value:
-                    blocks[block_type] = self._parse_object_position(
-                        block_data_length, data
-                    )
-                elif block_type == self.Types.PATH.value:
-                    blocks[block_type] = self._parse_path_block(
-                        raw, block_start_position, block_data_length
-                    )
-                elif block_type == self.Types.GOTO_PREDICTED_PATH.value:
-                    blocks[block_type] = self._parse_path_block(
-                        raw, block_start_position, block_data_length
-                    )
-                elif block_type == self.Types.GOTO_TARGET.value:
-                    blocks[block_type] = {"position": self._parse_goto_target(data)}
-                elif block_type == self.Types.IMAGE.value:
-                    # Get header length for Gen1/Gen3 detection
-                    header_length = self._get_int8(header, 2)
-                    blocks[block_type] = self._parse_image_block(
-                        raw,
-                        block_start_position,
-                        block_data_length,
-                        header_length,
-                        pixels,
-                    )
-
-                # Move to next block using Xiaomi method
                 block_start_position = (
                     block_start_position + block_data_length + self._get_int8(header, 2)
                 )
-
             except (struct.error, IndexError):
                 break
-
         return blocks
+
+    def _process_image_pixels(
+        self,
+        buf: bytes,
+        offset: int,
+        g3offset: int,
+        length: int,
+        pixels: bool,
+        parameters: Dict[str, Any],
+    ) -> None:
+        """Process image pixels sequentially - segments are organized as blocks."""
+        current_segments = {}
+
+        for i in range(length):
+            pixel_byte = struct.unpack(
+                "<B",
+                buf[offset + 24 + g3offset + i : offset + 25 + g3offset + i],
+            )[0]
+
+            segment_type = pixel_byte & 0x07
+            if segment_type == 0:
+                continue
+
+            if segment_type == 1 and pixels:
+                # Wall pixel
+                parameters["pixels"]["walls"].append(i)
+            else:
+                # Floor or room segment
+                segment_id = pixel_byte >> 3
+                if segment_id == 0 and pixels:
+                    # Floor pixel
+                    parameters["pixels"]["floor"].append(i)
+                elif segment_id != 0:
+                    # Room segment - segments are sequential blocks
+                    if segment_id not in current_segments:
+                        parameters["segments"]["id"].append(segment_id)
+                        parameters["segments"]["pixels_seg_" + str(segment_id)] = []
+                        current_segments[segment_id] = True
+
+                    if pixels:
+                        parameters["segments"]["pixels_seg_" + str(segment_id)].append(
+                            i
+                        )
 
     def _parse_image_block(
         self, buf: bytes, offset: int, length: int, hlength: int, pixels: bool = True
@@ -231,41 +373,9 @@ class RRMapParser:
                 parameters["dimensions"]["height"] > 0
                 and parameters["dimensions"]["width"] > 0
             ):
-                # Process data sequentially - segments are organized as blocks
-                current_segments = {}
-
-                for i in range(length):
-                    pixel_byte = struct.unpack(
-                        "<B",
-                        buf[offset + 24 + g3offset + i : offset + 25 + g3offset + i],
-                    )[0]
-
-                    segment_type = pixel_byte & 0x07
-                    if segment_type == 0:
-                        continue
-
-                    if segment_type == 1 and pixels:
-                        # Wall pixel
-                        parameters["pixels"]["walls"].append(i)
-                    else:
-                        # Floor or room segment
-                        segment_id = pixel_byte >> 3
-                        if segment_id == 0 and pixels:
-                            # Floor pixel
-                            parameters["pixels"]["floor"].append(i)
-                        elif segment_id != 0:
-                            # Room segment - segments are sequential blocks
-                            if segment_id not in current_segments:
-                                parameters["segments"]["id"].append(segment_id)
-                                parameters["segments"][
-                                    "pixels_seg_" + str(segment_id)
-                                ] = []
-                                current_segments[segment_id] = True
-
-                            if pixels:
-                                parameters["segments"][
-                                    "pixels_seg_" + str(segment_id)
-                                ].append(i)
+                self._process_image_pixels(
+                    buf, offset, g3offset, length, pixels, parameters
+                )
 
             parameters["segments"]["count"] = len(parameters["segments"]["id"])
             return parameters
@@ -277,6 +387,79 @@ class RRMapParser:
                 "dimensions": {"height": 0, "width": 0},
                 "pixels": {"floor": [], "walls": [], "segments": {}},
             }
+
+    def _calculate_angle_from_points(self, points: list) -> Optional[float]:
+        """Calculate angle from last two points in a path."""
+        if len(points) >= 2:
+            last_point = points[-1]
+            second_last = points[-2]
+            dx = last_point[0] - second_last[0]
+            dy = last_point[1] - second_last[1]
+            if dx != 0 or dy != 0:
+                angle_rad = math.atan2(dy, dx)
+                return math.degrees(angle_rad)
+        return None
+
+    def _transform_path_coordinates(self, points: list) -> list:
+        """Apply coordinate transformation to path points."""
+        return [[point[0], self.Tools.DIMENSION_MM - point[1]] for point in points]
+
+    def _parse_path_data(self, blocks: dict, parsed_map_data: dict) -> list:
+        """Parse path data with coordinate transformation."""
+        transformed_path_points = []
+        if self.Types.PATH.value in blocks:
+            path_data = blocks[self.Types.PATH.value].copy()
+            transformed_path_points = self._transform_path_coordinates(
+                path_data["points"]
+            )
+            path_data["points"] = transformed_path_points
+
+            angle = self._calculate_angle_from_points(transformed_path_points)
+            if angle is not None:
+                path_data["current_angle"] = angle
+            parsed_map_data["path"] = path_data
+        return transformed_path_points
+
+    def _parse_goto_path_data(self, blocks: dict, parsed_map_data: dict) -> None:
+        """Parse goto predicted path with coordinate transformation."""
+        if self.Types.GOTO_PREDICTED_PATH.value in blocks:
+            goto_path_data = blocks[self.Types.GOTO_PREDICTED_PATH.value].copy()
+            goto_path_data["points"] = self._transform_path_coordinates(
+                goto_path_data["points"]
+            )
+
+            angle = self._calculate_angle_from_points(goto_path_data["points"])
+            if angle is not None:
+                goto_path_data["current_angle"] = angle
+            parsed_map_data["goto_predicted_path"] = goto_path_data
+
+    def _add_zone_data(self, blocks: dict, parsed_map_data: dict) -> None:
+        """Add zone and area data to parsed map."""
+        parsed_map_data["currently_cleaned_zones"] = (
+            blocks[self.Types.CURRENTLY_CLEANED_ZONES.value]["zones"]
+            if self.Types.CURRENTLY_CLEANED_ZONES.value in blocks
+            else []
+        )
+        parsed_map_data["forbidden_zones"] = (
+            blocks[self.Types.FORBIDDEN_ZONES.value]["forbidden_zones"]
+            if self.Types.FORBIDDEN_ZONES.value in blocks
+            else []
+        )
+        parsed_map_data["forbidden_mop_zones"] = (
+            blocks[self.Types.FORBIDDEN_MOP_ZONES.value]["forbidden_mop_zones"]
+            if self.Types.FORBIDDEN_MOP_ZONES.value in blocks
+            else []
+        )
+        parsed_map_data["virtual_walls"] = (
+            blocks[self.Types.VIRTUAL_WALLS.value]["virtual_walls"]
+            if self.Types.VIRTUAL_WALLS.value in blocks
+            else []
+        )
+        parsed_map_data["carpet_areas"] = (
+            blocks[self.Types.CARPET_MAP.value]["carpet_map"]
+            if self.Types.CARPET_MAP.value in blocks
+            else []
+        )
 
     def parse_rrm_data(
         self, map_buf: bytes, pixels: bool = False
@@ -294,39 +477,14 @@ class RRMapParser:
                 robot_data = blocks[self.Types.ROBOT_POSITION.value]
                 parsed_map_data["robot"] = robot_data["position"]
 
-            # Parse path data with coordinate transformation FIRST
-            transformed_path_points = []
-            if self.Types.PATH.value in blocks:
-                path_data = blocks[self.Types.PATH.value].copy()
-                # Apply coordinate transformation like current parser
-                transformed_path_points = [
-                    [point[0], self.Tools.DIMENSION_MM - point[1]]
-                    for point in path_data["points"]
-                ]
-                path_data["points"] = transformed_path_points
+            # Parse path data with coordinate transformation
+            transformed_path_points = self._parse_path_data(blocks, parsed_map_data)
 
-                # Calculate current angle from transformed points
-                if len(transformed_path_points) >= 2:
-                    last_point = transformed_path_points[-1]
-                    second_last = transformed_path_points[-2]
-                    dx = last_point[0] - second_last[0]
-                    dy = last_point[1] - second_last[1]
-                    if dx != 0 or dy != 0:
-                        angle_rad = math.atan2(dy, dx)
-                        path_data["current_angle"] = math.degrees(angle_rad)
-                parsed_map_data["path"] = path_data
-
-            # Get robot angle from TRANSFORMED path data (like current implementation)
+            # Get robot angle from transformed path data
             robot_angle = 0
-            if len(transformed_path_points) >= 2:
-                last_point = transformed_path_points[-1]
-                second_last = transformed_path_points[-2]
-                dx = last_point[0] - second_last[0]
-                dy = last_point[1] - second_last[1]
-                if dx != 0 or dy != 0:
-                    angle_rad = math.atan2(dy, dx)
-                    robot_angle = int(math.degrees(angle_rad))
-
+            angle = self._calculate_angle_from_points(transformed_path_points)
+            if angle is not None:
+                robot_angle = int(angle)
             parsed_map_data["robot_angle"] = robot_angle
 
             # Parse charger position
@@ -339,24 +497,7 @@ class RRMapParser:
                 parsed_map_data["image"] = blocks[self.Types.IMAGE.value]
 
             # Parse goto predicted path
-            if self.Types.GOTO_PREDICTED_PATH.value in blocks:
-                goto_path_data = blocks[self.Types.GOTO_PREDICTED_PATH.value].copy()
-                # Apply coordinate transformation
-                goto_path_data["points"] = [
-                    [point[0], self.Tools.DIMENSION_MM - point[1]]
-                    for point in goto_path_data["points"]
-                ]
-                # Calculate current angle from transformed points (like working parser)
-                if len(goto_path_data["points"]) >= 2:
-                    points = goto_path_data["points"]
-                    last_point = points[-1]
-                    second_last = points[-2]
-                    dx = last_point[0] - second_last[0]
-                    dy = last_point[1] - second_last[1]
-                    if dx != 0 or dy != 0:
-                        angle_rad = math.atan2(dy, dx)
-                        goto_path_data["current_angle"] = math.degrees(angle_rad)
-                parsed_map_data["goto_predicted_path"] = goto_path_data
+            self._parse_goto_path_data(blocks, parsed_map_data)
 
             # Parse goto target
             if self.Types.GOTO_TARGET.value in blocks:
@@ -364,9 +505,9 @@ class RRMapParser:
                     "position"
                 ]
 
-            # Add missing fields to match expected JSON format
-            parsed_map_data["forbidden_zones"] = []
-            parsed_map_data["virtual_walls"] = []
+            # Add zone and area data
+            self._add_zone_data(blocks, parsed_map_data)
+            parsed_map_data["is_valid"] = self.is_valid
 
             return parsed_map_data
 
@@ -388,8 +529,3 @@ class RRMapParser:
             except (struct.error, IndexError, ValueError):
                 return None
         return self.map_data
-
-    @staticmethod
-    def get_int32(data: bytes, address: int) -> int:
-        """Get a 32-bit integer from the data - kept for compatibility."""
-        return struct.unpack_from("<i", data, address)[0]

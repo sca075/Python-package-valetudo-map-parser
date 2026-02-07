@@ -28,27 +28,32 @@ from rooms_test import async_extract_room_properties
 from SCR.valetudo_map_parser.rooms_handler import RoomsHandler
 
 # Set up logging
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(funcName)s (line %(lineno)d) - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(funcName)s (line %(lineno)d) - %(message)s",
+)
 _LOGGER = logging.getLogger(__name__)
 
 # Define colors for visualization (RGB)
 ROOM_COLORS = [
-    (255, 0, 0),      # Red
-    (0, 255, 0),      # Green
-    (0, 0, 255),      # Blue
-    (255, 255, 0),    # Yellow
-    (255, 0, 255),    # Magenta
-    (0, 255, 255),    # Cyan
-    (128, 0, 0),      # Dark Red
-    (0, 128, 0),      # Dark Green
-    (0, 0, 128),      # Dark Blue
-    (128, 128, 0),    # Olive
-    (128, 0, 128),    # Purple
-    (0, 128, 128),    # Teal
+    (255, 0, 0),  # Red
+    (0, 255, 0),  # Green
+    (0, 0, 255),  # Blue
+    (255, 255, 0),  # Yellow
+    (255, 0, 255),  # Magenta
+    (0, 255, 255),  # Cyan
+    (128, 0, 0),  # Dark Red
+    (0, 128, 0),  # Dark Green
+    (0, 0, 128),  # Dark Blue
+    (128, 128, 0),  # Olive
+    (128, 0, 128),  # Purple
+    (0, 128, 128),  # Teal
 ]
 
-def create_map_visualization(room_properties: Dict[str, Dict[str, Any]], output_path: str) -> None:
+
+def create_map_visualization(
+    room_properties: Dict[str, Dict[str, Any]], output_path: str
+) -> None:
     """
     Create a visualization of the map with room outlines.
 
@@ -61,7 +66,7 @@ def create_map_visualization(room_properties: Dict[str, Dict[str, Any]], output_
     all_y = []
 
     for props in room_properties.values():
-        outline = props.get('outline', [])
+        outline = props.get("outline", [])
         if outline:
             all_x.extend([p[0] for p in outline])
             all_y.extend([p[1] for p in outline])
@@ -81,7 +86,7 @@ def create_map_visualization(room_properties: Dict[str, Dict[str, Any]], output_
     height = max_y - min_y
 
     # Create the image
-    img = Image.new('RGBA', (width, height), color=(255, 255, 255, 255))
+    img = Image.new("RGBA", (width, height), color=(255, 255, 255, 255))
     draw = ImageDraw.Draw(img)
 
     # Draw grid lines for better orientation
@@ -98,12 +103,12 @@ def create_map_visualization(room_properties: Dict[str, Dict[str, Any]], output_
 
     # Draw room outlines
     for i, (room_id, props) in enumerate(room_properties.items()):
-        outline = props.get('outline', [])
+        outline = props.get("outline", [])
         if not outline:
             continue
 
         color = ROOM_COLORS[i % len(ROOM_COLORS)]
-        room_name = props.get('name', f'Room {room_id}')
+        room_name = props.get("name", f"Room {room_id}")
 
         # Convert outline to screen coordinates
         points = [(int(p[0]) - min_x, int(p[1]) - min_y) for p in outline]
@@ -116,28 +121,41 @@ def create_map_visualization(room_properties: Dict[str, Dict[str, Any]], output_
         # Draw points with numbers to show the order
         for j, point in enumerate(points):
             # Draw point
-            point_color = (0, 0, 0) if j == 0 else (100, 100, 100)  # First point is black, others gray
-            draw.ellipse((point[0] - 3, point[1] - 3, point[0] + 3, point[1] + 3), fill=point_color)
+            point_color = (
+                (0, 0, 0) if j == 0 else (100, 100, 100)
+            )  # First point is black, others gray
+            draw.ellipse(
+                (point[0] - 3, point[1] - 3, point[0] + 3, point[1] + 3),
+                fill=point_color,
+            )
 
             # Draw point number
-            if j < len(points) - 1 or points[0] != points[-1]:  # Skip last point if it's the same as first
+            if (
+                j < len(points) - 1 or points[0] != points[-1]
+            ):  # Skip last point if it's the same as first
                 draw.text((point[0] + 5, point[1] - 5), str(j), fill=(50, 50, 50))
 
         # Draw center point
-        center_x, center_y = props.get('x', 0), props.get('y', 0)
+        center_x, center_y = props.get("x", 0), props.get("y", 0)
         center_x -= min_x
         center_y -= min_y
-        draw.ellipse((center_x - 5, center_y - 5, center_x + 5, center_y + 5), fill=(255, 0, 0))
+        draw.ellipse(
+            (center_x - 5, center_y - 5, center_x + 5, center_y + 5), fill=(255, 0, 0)
+        )
 
         # Draw room ID and name
-        draw.text((center_x - 10, center_y + 10), f"{room_id}: {room_name}", fill=(0, 0, 0))
+        draw.text(
+            (center_x - 10, center_y + 10), f"{room_id}: {room_name}", fill=(0, 0, 0)
+        )
 
         # Calculate and show area
         area = calculate_polygon_area(outline)
         draw.text((center_x - 10, center_y + 25), f"Area: {area:.0f}", fill=(0, 0, 0))
 
         # Show point count
-        draw.text((center_x - 10, center_y + 40), f"Points: {len(outline)}", fill=(0, 0, 0))
+        draw.text(
+            (center_x - 10, center_y + 40), f"Points: {len(outline)}", fill=(0, 0, 0)
+        )
 
     # Draw legend
     legend_y = height - 100
@@ -157,7 +175,7 @@ def create_map_visualization(room_properties: Dict[str, Dict[str, Any]], output_
         y = legend_y + row * row_height
 
         color = ROOM_COLORS[i % len(ROOM_COLORS)]
-        room_name = props.get('name', f'Room {room_id}')
+        room_name = props.get("name", f"Room {room_id}")
 
         # Draw color box
         draw.rectangle((x, y, x + 15, y + 15), fill=color)
@@ -169,6 +187,7 @@ def create_map_visualization(room_properties: Dict[str, Dict[str, Any]], output_
     img.save(output_path)
     img.show()
     _LOGGER.info(f"Map visualization saved to {output_path}")
+
 
 def calculate_polygon_area(polygon: List[Tuple[int, int]]) -> float:
     """
@@ -191,6 +210,7 @@ def calculate_polygon_area(polygon: List[Tuple[int, int]]) -> float:
         area -= polygon[j][0] * polygon[i][1]
 
     return abs(area) / 2.0
+
 
 async def main():
     # Get the map data file path from command line or use default
@@ -233,13 +253,16 @@ async def main():
     # Print a summary of the rooms
     _LOGGER.info("\nRoom Properties Summary:")
     for room_id, props in room_properties.items():
-        outline = props.get('outline', [])
+        outline = props.get("outline", [])
         area = calculate_polygon_area(outline)
 
         _LOGGER.info(f"Room {room_id} ({props.get('name', 'Unknown')}):")
         _LOGGER.info(f"  Points: {len(outline)}")
         _LOGGER.info(f"  Area: {area:.2f}")
-        _LOGGER.info(f"  Center: ({props.get('x', 'Unknown')}, {props.get('y', 'Unknown')})")
+        _LOGGER.info(
+            f"  Center: ({props.get('x', 'Unknown')}, {props.get('y', 'Unknown')})"
+        )
+
 
 if __name__ == "__main__":
     try:
