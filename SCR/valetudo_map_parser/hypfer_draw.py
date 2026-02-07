@@ -25,7 +25,10 @@ class ImageDraw:
     def __init__(self, image_handler):
         self.img_h = image_handler
         self.file_name = self.img_h.shared.file_name
-        self.robot_size = self.img_h.shared.robot_size
+        if self.img_h.shared.robot_size is None:
+            self.robot_size = 25
+        else:
+            self.robot_size = self.img_h.shared.robot_size
 
     async def draw_go_to_flag(
         self, np_array: NumpyArray, entity_dict: dict, color_go_to: Color
@@ -134,8 +137,12 @@ class ImageDraw:
                     if material and material != "generic":
                         # Get material colors from shared.user_colors using named indices
                         material_colors = MaterialColors(
-                            wood_rgba=self.img_h.shared.user_colors[ColorIndex.MATERIAL_WOOD],
-                            tile_rgba=self.img_h.shared.user_colors[ColorIndex.MATERIAL_TILE]
+                            wood_rgba=self.img_h.shared.user_colors[
+                                ColorIndex.MATERIAL_WOOD
+                            ],
+                            tile_rgba=self.img_h.shared.user_colors[
+                                ColorIndex.MATERIAL_TILE
+                            ],
                         )
                         img_np_array = self._apply_material_overlay(
                             img_np_array,
@@ -159,9 +166,7 @@ class ImageDraw:
     ):
         """Apply material texture overlay to a room segment."""
         try:
-            tile = MaterialTileRenderer.get_tile(
-                material, pixel_size, material_colors
-            )
+            tile = MaterialTileRenderer.get_tile(material, pixel_size, material_colors)
             if tile is None:
                 return img_np_array
 
@@ -395,6 +400,7 @@ class ImageDraw:
         m_json: JsonType,
         color_move: Color,
         color_gray: Color,
+        color_mop_move: Color,
     ) -> NumpyArray:
         """Get the paths from the JSON data."""
         # Initialize the variables
@@ -416,11 +422,20 @@ class ImageDraw:
                 np_array, predicted_pat2, 2, color_gray
             )
         if path_pixels:
-            # Calculate path width based on mop mode
+            # Calculate path width and color based on mop mode
             if self.img_h.shared.mop_mode:
-                path_width = max(1, self.robot_size - 2)
+                path_width = self.img_h.shared.mop_path_width
+                path_color = color_mop_move
+                # # Reduce alpha to half if greater than 100 for mop mode
+                # current_alpha = color_move[3] if len(color_move) == 4 else 255
+                # if current_alpha > 100:
+                #     mop_alpha = current_alpha // 2
+                #     path_color = (color_move[0], color_move[1], color_move[2], mop_alpha)
+                # else:
+                #     path_color = color_move
             else:
                 path_width = 5  # Default width
+                path_color = color_move
 
             for path in path_pixels:
                 # Get the points from the current path and extend multiple paths.
@@ -430,7 +445,7 @@ class ImageDraw:
                     sublist, 2
                 )
                 np_array = await self.img_h.draw.lines(
-                    np_array, self.img_h.shared.map_new_path, path_width, color_move
+                    np_array, self.img_h.shared.map_new_path, path_width, path_color
                 )
         return np_array
 
