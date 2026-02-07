@@ -6,15 +6,10 @@ Version: 0.1.9.b42
 
 from __future__ import annotations
 
-import logging
-
 from .config.drawable import Drawable
 from .config.drawable_elements import DrawableElement
-from .config.types import Color, JsonType, NumpyArray
+from .config.types import LOGGER, Color, JsonType, NumpyArray
 from .map_data import ImageData, RandImageData
-
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class ImageDraw:
@@ -48,7 +43,7 @@ class ImageDraw:
                     )
             return np_array
         except KeyError as e:
-            _LOGGER.warning(
+            LOGGER.warning(
                 "%s: Error in extraction of go-to target: %s",
                 self.file_name,
                 e,
@@ -70,7 +65,7 @@ class ImageDraw:
                 )
         except ValueError as e:
             self.img_h.segment_data = None
-            _LOGGER.info("%s: No segments data found: %s", self.file_name, e)
+            LOGGER.debug("%s: No segments data found: %s", self.file_name, e)
 
     async def async_draw_base_layer(
         self,
@@ -87,13 +82,13 @@ class ImageDraw:
         walls_data = self.data.get_rrm_walls(m_json)
         floor_data = self.data.get_rrm_floor(m_json)
 
-        _LOGGER.info("%s: Empty image with background color", self.file_name)
+        LOGGER.debug("%s: Empty image with background color", self.file_name)
         img_np_array = await self.draw.create_empty_image(
             self.img_h.img_size["x"], self.img_h.img_size["y"], color_background
         )
         room_id = 0
         if self.img_h.frame_number == 0:
-            _LOGGER.info("%s: Overlapping Layers", self.file_name)
+            LOGGER.debug("%s: Overlapping Layers", self.file_name)
 
             # checking if there are segments too (sorted pixels in the raw data).
             await self.async_segment_data(m_json, size_x, size_y, pos_top, pos_left)
@@ -148,10 +143,10 @@ class ImageDraw:
         room_id = 0
         rooms_list = [color_wall]
         if not segment_data:
-            _LOGGER.info("%s: No segments data found.", self.file_name)
+            LOGGER.debug("%s: No segments data found.", self.file_name)
             return room_id, img_np_array
 
-        _LOGGER.info("%s: Drawing segments.", self.file_name)
+        LOGGER.debug("%s: Drawing segments.", self.file_name)
         for pixels in segment_data:
             room_color = self.img_h.shared.rooms_colors[room_id]
             rooms_list.append(room_color)
@@ -211,9 +206,8 @@ class ImageDraw:
                 self.data.get_rrm_charger_position(m_json)
             )
         except KeyError as e:
-            _LOGGER.warning("%s: No charger position found: %s", self.file_name, e)
+            LOGGER.warning("%s: No charger position found: %s", self.file_name, e)
         else:
-            _LOGGER.debug("Charger position: %s", charger_pos)
             if charger_pos:
                 charger_pos_dictionary = {
                     "x": (charger_pos[0] * 10),
@@ -239,7 +233,7 @@ class ImageDraw:
             zone_clean = None
 
         if zone_clean:
-            _LOGGER.info("%s: Got zones.", self.file_name)
+            LOGGER.debug("%s: Got zones.", self.file_name)
             return await self.draw.zones(np_array, zone_clean, color_zone_clean)
         return np_array
 
@@ -253,7 +247,7 @@ class ImageDraw:
             virtual_walls = None
 
         if virtual_walls:
-            _LOGGER.info("%s: Got virtual walls.", self.file_name)
+            LOGGER.debug("%s: Got virtual walls.", self.file_name)
             np_array = await self.draw.draw_virtual_walls(
                 np_array, virtual_walls, color_no_go
             )
@@ -281,7 +275,7 @@ class ImageDraw:
                 self.data.rrm_valetudo_path_array(path_pixel["points"]), 2
             )
         except KeyError as e:
-            _LOGGER.warning(
+            LOGGER.warning(
                 "%s: Error extracting paths data: %s", self.file_name, str(e)
             )
         finally:
@@ -297,8 +291,9 @@ class ImageDraw:
             entity_dict = self.data_sup.find_points_entities(m_json)
         except (ValueError, KeyError):
             entity_dict = None
-        else:
-            _LOGGER.info("%s: Got the points in the json.", self.file_name)
+
+        if entity_dict:
+            LOGGER.debug("%s: Got the points in the json.", self.file_name)
         return entity_dict
 
     async def async_get_robot_position(self, m_json: JsonType) -> tuple | None:
@@ -311,17 +306,12 @@ class ImageDraw:
             robot_pos = self.data.rrm_coordinates_to_valetudo(robot_pos_data)
             angle = self.data.get_rrm_robot_angle(m_json)
         except (ValueError, KeyError):
-            _LOGGER.warning("%s No robot position found.", self.file_name)
+            LOGGER.warning("%s No robot position found.", self.file_name)
             return None, None, None
         finally:
             robot_position_angle = round(angle[0], 0)
             if robot_pos and robot_position_angle:
                 robot_position = robot_pos
-                _LOGGER.debug(
-                    "robot position: %s, robot angle: %s",
-                    str(robot_pos),
-                    str(robot_position_angle),
-                )
                 if self.img_h.rooms_pos is None:
                     self.img_h.robot_pos = {
                         "x": robot_position[0] * 10,
