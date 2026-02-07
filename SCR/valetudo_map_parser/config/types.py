@@ -334,13 +334,15 @@ class TrimsData:
     def from_list(cls, crop_area: List[int], floor: Optional[str] = None):
         """
         Initialize TrimsData from a list [left, up, right, down] (mvcrender crop_area format).
-        Correct mapping: crop_area[0]=left, crop_area[1]=up, crop_area[2]=right, crop_area[3]=down
+        NOTE: This matches the current implementation but needs investigation - mvcrender
+        documentation states crop_area is [left, up, right, down] but the mapping here
+        assigns crop_area[0] to trim_up and crop_area[1] to trim_left which seems reversed.
         """
         return cls(
-            trim_left=int(crop_area[0]),
-            trim_up=int(crop_area[1]),
-            trim_right=int(crop_area[2]),
-            trim_down=int(crop_area[3]),
+            trim_up=int(crop_area[0]),
+            trim_left=int(crop_area[1]),
+            trim_down=int(crop_area[2]),
+            trim_right=int(crop_area[3]),
             floor=floor,
         )
 
@@ -361,7 +363,6 @@ class FloorData:
     trims: TrimsData
     map_name: str = ""
     map_data: dict = None
-    rotation: int = 0  # Store rotation angle for these trims
 
     @classmethod
     def from_dict(cls, data: dict):
@@ -370,31 +371,24 @@ class FloorData:
             trims=TrimsData.from_dict(data.get("trims", {})),
             map_name=data.get("map_name", ""),
             map_data=data.get("map_data", None),
-            rotation=data.get("rotation", 0),
         )
 
     def to_dict(self) -> dict:
         """Convert FloorData to a dictionary."""
-        result = {
-            "trims": self.trims.to_dict(),
-            "map_name": self.map_name,
-            "rotation": self.rotation,
-        }
+        result = {"trims": self.trims.to_dict(), "map_name": self.map_name}
         if self.map_data is not None:
             result["map_data"] = self.map_data
         return result
 
-    def update_trims(self, new_trims: TrimsData, rotation: int = 0):
+    def update_trims(self, new_trims: TrimsData):
         """Update the trims for this floor."""
         self.trims = new_trims
-        self.rotation = rotation
 
     def clear(self):
         """Clear this floor's data."""
         self.trims = TrimsData()
         self.map_name = ""
         self.map_data = None
-        self.rotation = 0
 
 
 Color = Union[Tuple[int, int, int], Tuple[int, int, int, int]]

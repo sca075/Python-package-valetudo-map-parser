@@ -361,46 +361,18 @@ class CameraSharedManager:
                     current_floor, DEFAULT_VALUES["trims_data"]
                 )
 
-                # Handle FloorData object vs dict format
-                if isinstance(floor_data, FloorData):
-                    # FloorData object - check rotation and extract data
-                    saved_rotation = floor_data.rotation
-                    map_name = floor_data.map_name
-
-                    # Check if rotation has changed from saved value
-                    if saved_rotation != instance.image_rotate:
-                        # Rotation changed - reset trims to defaults and let auto-crop recalculate
-                        _LOGGER.info(
-                            "%s: Rotation changed from %d° to %d° - resetting trims for recalculation",
-                            self.file_name, saved_rotation, instance.image_rotate
-                        )
-                        instance.trims = TrimsData.from_dict(DEFAULT_VALUES["trims_data"])
-                    else:
-                        # Rotation matches - use saved trims
-                        instance.trims = floor_data.trims
-                elif isinstance(floor_data, dict) and "trims" in floor_data:
+                # Handle FloorData.to_dict() format: {"trims": {...}, "map_name": "..."}
+                # vs legacy format: just trims dict
+                if isinstance(floor_data, dict) and "trims" in floor_data:
                     # FloorData.to_dict() format - extract trims sub-dict
                     floor_trims = floor_data["trims"]
                     map_name = floor_data.get("map_name", "")
-                    saved_rotation = floor_data.get("rotation", 0)
-
-                    # Check if rotation has changed from saved value
-                    if saved_rotation != instance.image_rotate:
-                        # Rotation changed - reset trims to defaults and let auto-crop recalculate
-                        _LOGGER.info(
-                            "%s: Rotation changed from %d° to %d° - resetting trims for recalculation",
-                            self.file_name, saved_rotation, instance.image_rotate
-                        )
-                        instance.trims = TrimsData.from_dict(DEFAULT_VALUES["trims_data"])
-                    else:
-                        # Rotation matches - use saved trims
-                        instance.trims = TrimsData.from_dict(floor_trims)
                 else:
                     # Legacy format - floor_data is already the trims dict
                     floor_trims = floor_data
                     map_name = ""
-                    instance.trims = TrimsData.from_dict(floor_trims)
 
+                instance.trims = TrimsData.from_dict(floor_trims)
                 instance.current_floor = current_floor
                 # Store map_name if available (for rand256 operations)
                 if hasattr(instance, "map_name"):

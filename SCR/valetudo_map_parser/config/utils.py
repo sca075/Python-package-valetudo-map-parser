@@ -21,7 +21,6 @@ from .types import (
     LOGGER,
     ChargerPosition,
     Destinations,
-    FloorData,
     NumpyArray,
     PilPNG,
     RobotPosition,
@@ -240,8 +239,10 @@ class BaseHandler:
                 if self.shared.map_rooms:
                     LOGGER.debug("%s: Hyper attributes rooms updated", self.file_name)
 
-        if hasattr(self, "get_calibration_data"):
-            # Recalculate calibration points every time since crop_area changes with rotation
+        if (
+            hasattr(self, "get_calibration_data")
+            and self.shared.attr_calibration_points is None
+        ):
             # pylint: disable=no-member
             self.shared.attr_calibration_points = self.get_calibration_data(
                 self.shared.image_rotate
@@ -274,26 +275,10 @@ class BaseHandler:
         )
 
     def update_trims(self) -> None:
-        """Update the trims and floor data with current rotation."""
-        # Update current trims
+        """Update the trims."""
         self.shared.trims = TrimsData.from_list(
             self.crop_area, floor=self.shared.current_floor
         )
-
-        # Update floor_data with trims and rotation
-        current_floor = self.shared.current_floor
-        if current_floor not in self.shared.floors_trims:
-            # Create new FloorData if it doesn't exist
-            self.shared.floors_trims[current_floor] = FloorData(
-                trims=self.shared.trims,
-                rotation=self.shared.image_rotate
-            )
-        else:
-            # Update existing FloorData with new trims and rotation
-            self.shared.floors_trims[current_floor].update_trims(
-                self.shared.trims,
-                rotation=self.shared.image_rotate
-            )
 
     def get_charger_position(self) -> ChargerPosition | None:
         """Return the charger position."""
@@ -546,14 +531,8 @@ class BaseHandler:
             {"x": 0, "y": self.crop_img_size[1]},  # Bottom-left corner (optional) 3
         ]
 
-    def get_vacuum_points(self, _rotation_angle: int) -> list[dict[str, int]]:
-        """Calculate the calibration points from crop_area.
-
-        Note: crop_area is already rotated by mvcrender, so we don't need to
-        apply rotation transformations here. We just calculate the 4 corners
-        from the current crop_area values. The rotation_angle parameter is
-        kept for API compatibility but not used.
-        """
+    def get_vacuum_points(self, rotation_angle: int) -> list[dict[str, int]]:
+        """Calculate the calibration points based on the rotation angle."""
         if not self.crop_area:
             return [
                 {"x": 0, "y": 0},
@@ -561,34 +540,50 @@ class BaseHandler:
                 {"x": 0, "y": 0},
                 {"x": 0, "y": 0},
             ]
+        # get_calibration_data
         # crop_area format: [left, up, right, down]
-        # SWAP X and Y to compensate for Home Assistant coordinate system
-        LOGGER.info(
-            "%s: get_vacuum_points crop_area=%s, offset_x=%s, offset_y=%s",
-            self.file_name,
-            self.crop_area,
-            self.offset_x,
-            self.offset_y,
-        )
+        # Swap coordinates: crop_area[1] (up) → x, crop_area[0] (left) → y
         vacuum_points = [
             {
                 "x": self.crop_area[1] + self.offset_y,
                 "y": self.crop_area[0] + self.offset_x,
             },  # Top-left corner 0
             {
-                "x": self.crop_area[1] + self.offset_y,
-                "y": self.crop_area[2] - self.offset_x,
+                "x": self.crop_area[3] - self.offset_y,
+                "y": self.crop_area[0] + self.offset_x,
             },  # Top-right corner 1
             {
                 "x": self.crop_area[3] - self.offset_y,
                 "y": self.crop_area[2] - self.offset_x,
             },  # Bottom-right corner 2
             {
-                "x": self.crop_area[3] - self.offset_y,
-                "y": self.crop_area[0] + self.offset_x,
-            },  # Bottom-left corner 3
+                "x": self.crop_area[1] + self.offset_y,
+                "y": self.crop_area[2] - self.offset_x,
+            },  # Bottom-left corner (optional)3
         ]
-        LOGGER.info("%s: get_vacuum_points result=%s", self.file_name, vacuum_points)
+
+        # Rotate the vacuum points based on the rotation angle
+        if rotation_angle == 90:
+            vacuum_points = [
+                vacuum_points[1],
+                vacuum_points[2],
+                vacuum_points[3],
+                vacuum_points[0],
+            ]
+        elif rotation_angle == 180:
+            vacuum_points = [
+                vacuum_points[2],
+                vacuum_points[3],
+                vacuum_points[0],
+                vacuum_points[1],
+            ]
+        elif rotation_angle == 270:
+            vacuum_points = [
+                vacuum_points[3],
+                vacuum_points[0],
+                vacuum_points[1],
+                vacuum_points[2],
+            ]
 
         return vacuum_points
 
