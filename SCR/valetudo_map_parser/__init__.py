@@ -1,5 +1,5 @@
 """Valetudo map parser.
-Version: 0.2.4b2"""
+Version: 0.2.4b4"""
 
 from pathlib import Path
 
@@ -24,7 +24,7 @@ from .config.types import (
     TrimsData,
     UserLanguageStore,
 )
-from .config.utils import ResizeParams, async_resize_image
+from .config.utils import ResizeParams, async_resize_image, pil_size_rotation
 from .const import (
     ATTR_CALIBRATION_POINTS,
     ATTR_CAMERA_MODE,
@@ -182,4 +182,5 @@ __all__ = [
     "STATUS_TEXT_TRANSLATIONS",
     "async_resize_image",
     "get_default_font_path",
+    "pil_size_rotation",
 ]
