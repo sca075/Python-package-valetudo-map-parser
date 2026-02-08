@@ -562,25 +562,33 @@ class BaseHandler:
                 {"x": 0, "y": 0},
             ]
         # crop_area format: [left, up, right, down]
-        # Direct mapping: crop_area[0] (left) → x, crop_area[1] (up) → y
+        # SWAP X and Y to compensate for Home Assistant coordinate system
+        LOGGER.info(
+            "%s: get_vacuum_points crop_area=%s, offset_x=%s, offset_y=%s",
+            self.file_name,
+            self.crop_area,
+            self.offset_x,
+            self.offset_y,
+        )
         vacuum_points = [
             {
-                "x": self.crop_area[0] + self.offset_x,
-                "y": self.crop_area[1] + self.offset_y,
+                "x": self.crop_area[1] + self.offset_y,
+                "y": self.crop_area[0] + self.offset_x,
             },  # Top-left corner 0
             {
-                "x": self.crop_area[2] - self.offset_x,
-                "y": self.crop_area[1] + self.offset_y,
+                "x": self.crop_area[1] + self.offset_y,
+                "y": self.crop_area[2] - self.offset_x,
             },  # Top-right corner 1
             {
-                "x": self.crop_area[2] - self.offset_x,
-                "y": self.crop_area[3] - self.offset_y,
+                "x": self.crop_area[3] - self.offset_y,
+                "y": self.crop_area[2] - self.offset_x,
             },  # Bottom-right corner 2
             {
-                "x": self.crop_area[0] + self.offset_x,
-                "y": self.crop_area[3] - self.offset_y,
+                "x": self.crop_area[3] - self.offset_y,
+                "y": self.crop_area[0] + self.offset_x,
             },  # Bottom-left corner 3
         ]
+        LOGGER.info("%s: get_vacuum_points result=%s", self.file_name, vacuum_points)
 
         return vacuum_points
 
