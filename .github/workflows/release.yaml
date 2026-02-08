@@ -8,15 +8,21 @@ jobs:
   build-and-publish-pypi:
     name: Build and publish release to PyPI
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    environment:
+      name: valetudo_map_parser_pypi
+
     steps:
       # Step 1: Checkout the repository
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       # Step 2: Set up Python
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       # Step 3: Install Poetry
       - name: Install Poetry
@@ -46,9 +52,8 @@ jobs:
         run: poetry build --no-interaction
 
       # Step 8: Publish to PyPI
-      - name: Publish to PyPi
-        env:
-          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
-        run: |
-          poetry config pypi-token.pypi "${PYPI_TOKEN}"
-          poetry publish --no-interaction
+      - name: Publish to PyPI (Trusted Publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+          packages-dir: dist/

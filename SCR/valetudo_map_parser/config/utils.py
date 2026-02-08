@@ -295,6 +295,127 @@ class BaseHandler:
                 rotation=self.shared.image_rotate
             )
 
+        if hasattr(self, "async_get_image_from_json"):
+            # This is a Hypfer handler
+            self.json_data = await HyperMapData.async_from_valetudo_json(m_json)
+            return await self.async_get_image_from_json(m_json=m_json)
+
+        LOGGER.warning(
+            "%s: Handler type not recognized for async_get_image",
+            self.file_name,
+        )
+        return None
+
+    def _handle_failed_image_generation(self) -> Tuple[PilPNG | None, dict]:
+        """Handle case when image generation fails."""
+        LOGGER.warning("%s: Failed to generate image from JSON data", self.file_name)
+        return (
+            self.shared.last_image if hasattr(self.shared, "last_image") else None
+        ), self.shared.to_dict()
+
+    async def _process_new_image(
+        self, new_image: PilPNG, destinations: Destinations | None, bytes_format: bool
+    ) -> Tuple[PilPNG, dict]:
+        """Process and store the new image with text and binary conversion."""
+        # Update shared data
+        await self._async_update_shared_data(destinations)
+        self.shared.new_image = new_image
+
+        # Add text to the image
+        if self.shared.show_vacuum_state:
+            await self._add_status_text(new_image)
+
+        # Convert to binary (PNG bytes) if requested
+        self._convert_to_binary(new_image, bytes_format)
+
+        # Update the timestamp with current datetime
+        self.shared.image_last_updated = datetime.datetime.fromtimestamp(time())
+        LOGGER.debug("%s: Frame Completed.", self.file_name)
+
+        data = self.shared.to_dict() if bytes_format else {}
+        return new_image, data
+
+    async def _add_status_text(self, new_image: PilPNG):
+        """Add status text to the image."""
+        text_editor = StatusText(self.shared)
+        img_text = await text_editor.get_status_text(new_image)
+        Drawable.status_text(
+            new_image,
+            img_text[1],
+            self.shared.user_colors[ColorIndex.TEXT],
+            img_text[0],
+            self.shared.vacuum_status_font,
+            self.shared.vacuum_status_position,
+        )
+
+    def _convert_to_binary(self, new_image: PilPNG, bytes_format: bool):
+        """Convert image to binary PNG bytes."""
+        if bytes_format:
+            self.shared.binary_image = pil_to_png_bytes(new_image)
+        else:
+            self.shared.binary_image = pil_to_png_bytes(self.shared.last_image)
+
+    async def _async_update_shared_data(self, destinations: Destinations | None = None):
+        """Update the shared data with the latest information."""
+
+        if hasattr(self, "get_rooms_attributes") and (
+            self.shared.map_rooms is None and destinations is not None
+        ):
+            # pylint: disable=no-member
+            self.shared.map_rooms = await self.get_rooms_attributes(destinations)
+            if self.shared.map_rooms:
+                LOGGER.debug("%s: Rand256 attributes rooms updated", self.file_name)
+
+        if hasattr(self, "async_get_rooms_attributes") and (
+            self.shared.map_rooms is None
+        ):
+            if self.shared.map_rooms is None:
+                # pylint: disable=no-member
+                self.shared.map_rooms = await self.async_get_rooms_attributes()
+                if self.shared.map_rooms:
+                    LOGGER.debug("%s: Hyper attributes rooms updated", self.file_name)
+
+        if (
+            hasattr(self, "get_calibration_data")
+            and self.shared.attr_calibration_points is None
+        ):
+            # pylint: disable=no-member
+            self.shared.attr_calibration_points = self.get_calibration_data(
+                self.shared.image_rotate
+            )
+
+        if not self.shared.image_size:
+            self.shared.image_size = self.get_img_size()
+
+        self.shared.vac_json_id = self.get_json_id()
+
+        if not self.shared.charger_position:
+            self.shared.charger_position = self.get_charger_position()
+
+        self.shared.current_room = self.get_robot_position()
+
+    def prepare_resize_params(
+        self, pil_img: PilPNG, rand: bool = False
+    ) -> ResizeParams:
+        """Prepare resize parameters for image resizing."""
+        width, height = pil_size_rotation(self.shared.image_rotate, pil_img)
+
+        return ResizeParams(
+            pil_img=pil_img,
+            width=width,
+            height=height,
+            aspect_ratio=self.shared.image_aspect_ratio,
+            crop_size=self.crop_img_size,
+            offset_func=self.async_map_coordinates_offset,
+            is_rand=rand,
+        )
+
+    def update_trims(self) -> None:
+        """Update the trims."""
+        self.shared.trims = TrimsData.from_list(
+            self.crop_area, floor=self.shared.current_floor
+        )
+
     def get_charger_position(self) -> ChargerPosition | None:
         """Return the charger position."""
         return self.charger_pos
