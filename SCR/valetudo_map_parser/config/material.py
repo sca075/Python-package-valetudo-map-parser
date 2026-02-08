@@ -1,0 +1,208 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from functools import lru_cache
+from typing import Final, Optional
+
+import numpy as np
+from mvcrender.draw import line_u8
+
+from .colors import color_material_tile, color_material_wood
+from .types import Color, NumpyArray
+
+
+@dataclass(frozen=True, slots=True)
+class _MaterialSpec:
+    cells: int
+    kind: str  # "wood_h", "wood_v", "tile"
+
+
+@dataclass(frozen=True, slots=True)
+class MaterialColors:
+    """Material colors for rendering."""
+
+    wood_rgba: Color = color_material_wood
+    tile_rgba: Color = color_material_tile
+
+
+# Create a singleton instance for easy access
+_material_colors = MaterialColors()
+
+
+class MaterialTileRenderer:
+    """
+    Material patterns rendered as small RGBA tiles.
+
+    Wood is drawn as staggered rectangular planks (brick-like) with ONLY thin seams
+    (no extra inner grain line).
+    """
+
+    _SPECS: Final[dict[str, _MaterialSpec]] = {
+        "wood_horizontal": _MaterialSpec(cells=36, kind="wood_h"),
+        "wood_vertical": _MaterialSpec(cells=36, kind="wood_v"),
+        "tile": _MaterialSpec(cells=4, kind="tile"),
+    }
+
+    @staticmethod
+    def _empty_rgba(h: int, w: int) -> NumpyArray:
+        return np.zeros((h, w, 4), dtype=np.uint8)
+
+    @staticmethod
+    def _thin_px(pixel_size: int) -> int:
+        """Thin seam thickness in pixels (for pixel_size 5/7 -> 1 px)."""
+        return 1 if pixel_size <= 7 else 2
+
+    @staticmethod
+    def _draw_rect_outline(
+        tile: NumpyArray,
+        x0: int,
+        y0: int,
+        x1: int,
+        y1: int,
+        thickness: int,
+        rgba: Color,
+    ) -> None:
+        """Draw rectangle outline using mvcrender.line_u8."""
+        if x1 <= x0 or y1 <= y0:
+            return
+
+        # Draw four lines to form rectangle outline
+        # Top line
+        line_u8(tile, x0, y0, x1 - 1, y0, rgba, thickness)
+        # Bottom line
+        line_u8(tile, x0, y1 - 1, x1 - 1, y1 - 1, rgba, thickness)
+        # Left line
+        line_u8(tile, x0, y0, x0, y1 - 1, rgba, thickness)
+        # Right line
+        line_u8(tile, x1 - 1, y0, x1 - 1, y1 - 1, rgba, thickness)
+
+    @staticmethod
+    def _wood_planks_horizontal(
+        tile_px: int, pixel_size: int, color: Color
+    ) -> NumpyArray:
+        """
+        Horizontal wood planks as staggered rectangles.
+        ONLY thin seams (no inner lines).
+        """
+        t = MaterialTileRenderer._empty_rgba(tile_px, tile_px)
+        seam = MaterialTileRenderer._thin_px(pixel_size)
+
+        # Plank size in CELLS (tweak here)
+        plank_h_cells = 3
+        plank_w_cells = 24  # longer planks -> looks less like tiles
+
+        plank_h = plank_h_cells * pixel_size
+        plank_w = plank_w_cells * pixel_size
+
+        rows = max(1, tile_px // plank_h)
+        cols = max(1, (tile_px + plank_w - 1) // plank_w)
+
+        for r in range(rows + 1):
+            y0 = r * plank_h
+            y1 = y0 + plank_h
+            offset = (plank_w // 2) if (r % 2 == 1) else 0
+
+            for c in range(cols + 1):
+                x0 = c * plank_w - offset
+                x1 = x0 + plank_w
+
+                cx0 = max(0, x0)
+                cy0 = max(0, y0)
+                cx1 = min(tile_px, x1)
+                cy1 = min(tile_px, y1)
+
+                MaterialTileRenderer._draw_rect_outline(
+                    t, cx0, cy0, cx1, cy1, seam, color
+                )
+
+        return t
+
+    @staticmethod
+    def _wood_planks_vertical(
+        tile_px: int, pixel_size: int, color: Color
+    ) -> NumpyArray:
+        """Vertical wood planks as staggered rectangles, ONLY thin seams."""
+        t = MaterialTileRenderer._empty_rgba(tile_px, tile_px)
+        seam = MaterialTileRenderer._thin_px(pixel_size)
+
+        plank_w_cells = 3
+        plank_h_cells = 24
+
+        plank_w = plank_w_cells * pixel_size
+        plank_h = plank_h_cells * pixel_size
+
+        cols = max(1, tile_px // plank_w)
+        rows = max(1, (tile_px + plank_h - 1) // plank_h)
+
+        for c in range(cols + 1):
+            x0 = c * plank_w
+            x1 = x0 + plank_w
+            offset = (plank_h // 2) if (c % 2 == 1) else 0
+
+            for r in range(rows + 1):
+                y0 = r * plank_h - offset
+                y1 = y0 + plank_h
+
+                cx0 = max(0, x0)
+                cy0 = max(0, y0)
+                cx1 = min(tile_px, x1)
+                cy1 = min(tile_px, y1)
+
+                MaterialTileRenderer._draw_rect_outline(
+                    t, cx0, cy0, cx1, cy1, seam, color
+                )
+
+        return t
+
+    @staticmethod
+    def _tile_pixels(cells: int, pixel_size: int, tile_rgba: Color) -> NumpyArray:
+        """Draw tile grid using mvcrender.line_u8."""
+        size = cells * pixel_size
+        t = MaterialTileRenderer._empty_rgba(size, size)
+        th = MaterialTileRenderer._thin_px(pixel_size)
+        rgba = tile_rgba
+
+        # Draw horizontal line at top
+        line_u8(t, 0, 0, size - 1, 0, rgba, th)
+        # Draw vertical line at left
+        line_u8(t, 0, 0, 0, size - 1, rgba, th)
+
+        return t
+
+    @staticmethod
+    @lru_cache(maxsize=64)
+    def get_tile(
+        material: str, pixel_size: int, colors: MaterialColors = None
+    ) -> Optional[NumpyArray]:
+        spec = MaterialTileRenderer._SPECS.get(material)
+        if spec is None or pixel_size <= 0:
+            return None
+
+        # Use provided colors or fall back to defaults
+        if colors is None:
+            colors = _material_colors
+
+        wood_color = colors.wood_rgba
+        tile_color = colors.tile_rgba
+
+        if spec.kind == "tile":
+            return MaterialTileRenderer._tile_pixels(spec.cells, pixel_size, tile_color)
+
+        tile_px = spec.cells * pixel_size
+        if spec.kind == "wood_h":
+            return MaterialTileRenderer._wood_planks_horizontal(
+                tile_px, pixel_size, wood_color
+            )
+        if spec.kind == "wood_v":
+            return MaterialTileRenderer._wood_planks_vertical(
+                tile_px, pixel_size, wood_color
+            )
+
+        return None
+
+    @staticmethod
+    def tile_block(tile: NumpyArray, r0: int, r1: int, c0: int, c1: int) -> NumpyArray:
+        th, tw, _ = tile.shape
+        rows = (np.arange(r0, r1) % th).astype(np.intp, copy=False)
+        cols = (np.arange(c0, c1) % tw).astype(np.intp, copy=False)
+        return tile[rows[:, None], cols[None, :], :]
