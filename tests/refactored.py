@@ -8,13 +8,13 @@ Version: v2024.12.0
 
 from __future__ import annotations
 
+import asyncio
 import math
 
 import numpy as np
-import asyncio
 from PIL import ImageDraw, ImageFont
 
-from .types import Color, NumpyArray, PilPNG, Point, Union, Tuple
+from .types import Color, NumpyArray, PilPNG, Point, Tuple, Union
 
 
 class Drawable:

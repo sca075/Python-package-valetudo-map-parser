@@ -565,16 +565,16 @@ class BaseHandler:
         # Direct mapping: crop_area[0] (left) → x, crop_area[1] (up) → y
         vacuum_points = [
             {
-                "x": self.crop_area[0] + self.offset_x,
-                "y": self.crop_area[1] + self.offset_y,
+                "x": self.crop_area[1] + self.offset_y,
+                "y": self.crop_area[0] + self.offset_x,
             },  # Top-left corner 0
             {
-                "x": self.crop_area[2] - self.offset_x,
-                "y": self.crop_area[1] + self.offset_y,
+                "x": self.crop_area[3] - self.offset_y,
+                "y": self.crop_area[0] + self.offset_x,
             },  # Top-right corner 1
             {
-                "x": self.crop_area[2] - self.offset_x,
-                "y": self.crop_area[3] - self.offset_y,
+                "x": self.crop_area[3] - self.offset_y,
+                "y": self.crop_area[2] - self.offset_x,
             },  # Bottom-right corner 2
             {
                 "x": self.crop_area[0] + self.offset_x,

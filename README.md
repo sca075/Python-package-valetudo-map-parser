@@ -18,6 +18,7 @@ A Python library that converts Valetudo vacuum JSON map data into PIL (Python Im
   - Cleaning zones
   - Virtual restrictions
   - LiDAR data
+  - Mop mode path rendering (Hypfer only)
 - Provides auto-cropping and dynamic zooming
 - Supports image rotation and aspect ratio management
 - Enables custom color schemes
@@ -30,7 +31,7 @@ pip install valetudo_map_parser
 ```
 
 ### Requirements:
-- Python 3.12 or higher
+- Python 3.13 or higher
 - Dependencies:
   - Pillow (PIL) for image processing
   - NumPy for array operations
