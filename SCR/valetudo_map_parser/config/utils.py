@@ -570,6 +570,8 @@ class BaseHandler:
             self.offset_x,
             self.offset_y,
         )
+        # crop_area format: [left, up, right, down]
+        # Direct mapping: left/right → X, up/down → Y (NO SWAP NEEDED!)
         vacuum_points = [
             {
                 "x": self.crop_area[0] + self.offset_x,
