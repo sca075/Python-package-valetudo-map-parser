@@ -586,8 +586,8 @@ class BaseHandler:
                 "y": self.crop_area[3] - self.offset_y,
             },  # Bottom-right corner 2
             {
-                "x": self.crop_area[3] - self.offset_y,
-                "y": self.crop_area[0] + self.offset_x,
+                "x": self.crop_area[0] + self.offset_x,
+                "y": self.crop_area[3] - self.offset_y,
             },  # Bottom-left corner 3
         ]
         LOGGER.info("%s: get_vacuum_points result=%s", self.file_name, vacuum_points)
