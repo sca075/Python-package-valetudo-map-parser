@@ -34,6 +34,7 @@ pip install valetudo_map_parser
 - Dependencies:
   - Pillow (PIL) for image processing
   - NumPy for array operations
+  - MvcRender Specific C implementation of drawings
 
 ### Usage:
 The library is configured using a dictionary format. See our [sample code](https://github.com/sca075/Python-package-valetudo-map-parser/blob/main/tests/test.py) for implementation examples.
@@ -46,12 +47,22 @@ Key functionalities:
 - Supports asynchronous operations
 
 ### Development Status:
-Current version: 0.1.9.b41
-- Full functionality available in versions >= 0.1.9
+Current version: 0.2.4b3
+- Full functionality available in versions >= 0.2.0
 - Actively maintained and enhanced
 - Uses Poetry for dependency management
 - Implements comprehensive testing
-- Enforces code quality through ruff, isort, and pylint
+- Enforces code quality through ruff, isort, and pylint (10.00/10)
+
+### Recent Updates (v0.2.4):
+- **Fixed Critical Calibration Bug**: Calibration points now correctly update when map rotation changes
+- **Fixed Rotation Change Handling**: Prevents errors when changing rotation with saved floor data
+- **Multi-Floor Support**: Enhanced floor data management with add/update/remove methods
+- **Mop Path Customization**: Configurable mop path width, color, and transparency (Hypfer vacuums)
+- **Dock State Display**: Shows dock operations (e.g., "mop cleaning") in status text
+- **Improved Compatibility**: Python 3.12+ support for Home Assistant integration
+- **Performance**: Optimized image generation (~450ms average)
+- **Code Quality**: Refactored for better maintainability and reduced complexity
 
 ### Contributing:
 Contributions are welcome! You can help by:
