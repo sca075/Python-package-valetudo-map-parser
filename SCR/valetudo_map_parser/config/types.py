@@ -363,6 +363,7 @@ class FloorData:
     trims: TrimsData
     map_name: str = ""
     map_data: dict = None
+    rotation: int = 0  # Store rotation angle for these trims
 
     @classmethod
     def from_dict(cls, data: dict):
@@ -371,24 +372,31 @@ class FloorData:
             trims=TrimsData.from_dict(data.get("trims", {})),
             map_name=data.get("map_name", ""),
             map_data=data.get("map_data", None),
+            rotation=data.get("rotation", 0),
         )
 
     def to_dict(self) -> dict:
         """Convert FloorData to a dictionary."""
-        result = {"trims": self.trims.to_dict(), "map_name": self.map_name}
+        result = {
+            "trims": self.trims.to_dict(),
+            "map_name": self.map_name,
+            "rotation": self.rotation,
+        }
         if self.map_data is not None:
             result["map_data"] = self.map_data
         return result
 
-    def update_trims(self, new_trims: TrimsData):
+    def update_trims(self, new_trims: TrimsData, rotation: int = 0):
         """Update the trims for this floor."""
         self.trims = new_trims
+        self.rotation = rotation
 
     def clear(self):
         """Clear this floor's data."""
         self.trims = TrimsData()
         self.map_name = ""
         self.map_data = None
+        self.rotation = 0
 
 
 Color = Union[Tuple[int, int, int], Tuple[int, int, int, int]]
