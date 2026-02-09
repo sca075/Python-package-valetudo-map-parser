@@ -297,7 +297,7 @@ class RandRoomsHandler:
             return hull_points
 
         except (ValueError, RuntimeError) as e:
-            LOGGER.warning("Error calculating convex hull: %s", e)
+            LOGGER.debug("Error calculating convex hull: %s", e)
 
             # Fallback to bounding box if convex hull fails
             x_min, y_min = np.min(points_array, axis=0)

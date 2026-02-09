@@ -297,7 +297,7 @@ class ColorsManagement:
             List[Tuple[int, int, int, int]]: List of RGBA colors with alpha channel added.
         """
         if len(alpha_channels) != len(rgb_colors):
-            LOGGER.warning("Input lists must have the same length.")
+            LOGGER.debug("Input lists must have the same length.")
             return []
 
         # Fast path for empty lists
@@ -408,7 +408,7 @@ class ColorsManagement:
             self.color_cache.clear()
 
         except (ValueError, IndexError, UnboundLocalError) as e:
-            LOGGER.warning("Error while populating colors: %s", e)
+            LOGGER.debug("Error while populating colors: %s", e)
 
     def initialize_user_colors(self, device_info: dict) -> List[Color]:
         """

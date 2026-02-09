@@ -157,7 +157,7 @@ class ImageDraw:
                 room_id = (room_id + 1) % 16  # Cycle room_id back to 0 after 15
 
         except IndexError as e:
-            _LOGGER.warning("%s: Image Draw Error: %s", self.file_name, str(e))
+            _LOGGER.debug("%s: Image Draw Error: %s", self.file_name, str(e))
 
         return img_np_array, room_id
 
@@ -188,7 +188,7 @@ class ImageDraw:
                     region[:] = (1 - alpha) * region + alpha * overlay
 
         except (IndexError, ValueError, TypeError, AttributeError) as e:
-            _LOGGER.warning("%s: Material overlay error: %s", self.file_name, str(e))
+            _LOGGER.debug("%s: Material overlay error: %s", self.file_name, str(e))
 
         return img_np_array
 
@@ -230,7 +230,7 @@ class ImageDraw:
         # Get the element map if available
         element_map = getattr(self.img_h, "element_map", None)
         if element_map is None:
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "%s: Element map not available, drawing all walls", self.file_name
             )
             return await self.img_h.draw.from_json_to_image(
@@ -311,7 +311,7 @@ class ImageDraw:
         try:
             charger_pos = entity_dict.get("charger_location")
         except KeyError:
-            _LOGGER.warning("%s: No charger position found.", self.file_name)
+            _LOGGER.debug("%s: No charger position found.", self.file_name)
             return np_array
         if charger_pos:
             charger_pos = charger_pos[0]["points"]
@@ -412,7 +412,7 @@ class ImageDraw:
             predicted_path = paths_data.get("predicted_path", [])
             path_pixels = paths_data.get("path", [])
         except KeyError as e:
-            _LOGGER.warning("%s: Error extracting paths data:", str(e))
+            _LOGGER.debug("%s: Error extracting paths data:", str(e))
 
         if predicted_path:
             predicted_path = predicted_path[0]["points"]
@@ -456,7 +456,7 @@ class ImageDraw:
                 else:
                     self.img_h.zooming = False
             else:
-                _LOGGER.warning(
+                _LOGGER.debug(
                     "%s: Segment ID %s not found in room_keys %s",
                     self.file_name,
                     segment_id,
@@ -610,7 +610,7 @@ class ImageDraw:
         try:
             robot_pos = entity_dict.get("robot_position")
         except KeyError:
-            _LOGGER.warning("%s No robot position found.", self.file_name)
+            _LOGGER.debug("%s No robot position found.", self.file_name)
             return None, None, None
         finally:
             if robot_pos:

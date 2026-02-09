@@ -43,7 +43,7 @@ class ImageDraw:
                     )
             return np_array
         except KeyError as e:
-            LOGGER.warning(
+            LOGGER.debug(
                 "%s: Error in extraction of go-to target: %s",
                 self.file_name,
                 e,
@@ -206,7 +206,7 @@ class ImageDraw:
                 self.data.get_rrm_charger_position(m_json)
             )
         except KeyError as e:
-            LOGGER.warning("%s: No charger position found: %s", self.file_name, e)
+            LOGGER.debug("%s: No charger position found: %s", self.file_name, e)
         else:
             if charger_pos:
                 charger_pos_dictionary = {
@@ -275,7 +275,7 @@ class ImageDraw:
                 self.data.rrm_valetudo_path_array(path_pixel["points"]), 2
             )
         except KeyError as e:
-            LOGGER.warning(
+            LOGGER.debug(
                 "%s: Error extracting paths data: %s", self.file_name, str(e)
             )
         finally:
@@ -306,7 +306,7 @@ class ImageDraw:
             robot_pos = self.data.rrm_coordinates_to_valetudo(robot_pos_data)
             angle = self.data.get_rrm_robot_angle(m_json)
         except (ValueError, KeyError):
-            LOGGER.warning("%s No robot position found.", self.file_name)
+            LOGGER.debug("%s No robot position found.", self.file_name)
             return None, None, None
         finally:
             robot_position_angle = round(angle[0], 0)

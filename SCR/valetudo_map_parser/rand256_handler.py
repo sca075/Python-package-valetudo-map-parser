@@ -115,7 +115,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
             _ = RoomStore(self.file_name, room_properties)
             return room_properties
         except (RuntimeError, ValueError) as e:
-            LOGGER.warning(
+            LOGGER.debug(
                 "No rooms Data or Error in extract_room_properties: %s",
                 e,
                 exc_info=True,
@@ -185,7 +185,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
                 return await self._finalize_image(pil_img)
 
         except (RuntimeError, RuntimeWarning) as e:
-            LOGGER.warning(
+            LOGGER.debug(
                 "%s: Runtime Error %s during image creation.",
                 self.file_name,
                 str(e),
@@ -387,7 +387,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
     async def _finalize_image(self, pil_img):
         """Finalize the image by resizing if needed."""
         if pil_img is None:
-            LOGGER.warning("%s: Image is None. Returning None.", self.file_name)
+            LOGGER.debug("%s: Image is None. Returning None.", self.file_name)
             return None
         if self.check_zoom_and_aspect_ratio():
             resize_params = self.prepare_resize_params(pil_img, True)
