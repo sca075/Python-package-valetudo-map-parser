@@ -420,15 +420,15 @@ class CameraSharedManager:
                 instance.current_floor = "floor_0"  # Default
 
         except TypeError as ex:
-            _LOGGER.debug(
+            _LOGGER.warning(
                 "Shared data can't be initialized due to a TypeError! %s", ex
             )
         except AttributeError as ex:
-            _LOGGER.debug(
+            _LOGGER.warning(
                 "Shared data can't be initialized due to an AttributeError! %s", ex
             )
         except RuntimeError as ex:
-            _LOGGER.debug(
+            _LOGGER.warning(
                 "An unexpected error occurred while initializing shared data %s:", ex
             )
 

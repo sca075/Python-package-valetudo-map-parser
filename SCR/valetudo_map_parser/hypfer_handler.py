@@ -294,6 +294,8 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         colors: Colors = {
             name: self.shared.user_colors[idx] for idx, name in enumerate(COLORS)
         }
+        # Initialize img_np_array to None before conditional
+        img_np_array = None
         # Check if the JSON data is not None else process the image.
         try:
             if m_json is not None:
@@ -400,7 +402,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                 self.update_trims()
             # If the image is None return None and log the error.
             if img_np_array is None:
-                LOGGER.debug("%s: Image array is None.", self.file_name)
+                LOGGER.warning("%s: Image array is None.", self.file_name)
                 return None
 
             # Handle resizing if needed, then return based on format preference

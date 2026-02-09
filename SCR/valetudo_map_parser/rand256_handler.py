@@ -387,7 +387,7 @@ class ReImageHandler(BaseHandler, AutoCrop):
     async def _finalize_image(self, pil_img):
         """Finalize the image by resizing if needed."""
         if pil_img is None:
-            LOGGER.debug("%s: Image is None. Returning None.", self.file_name)
+            LOGGER.warning("%s: Image is None. Returning None.", self.file_name)
             return None
         if self.check_zoom_and_aspect_ratio():
             resize_params = self.prepare_resize_params(pil_img, True)
