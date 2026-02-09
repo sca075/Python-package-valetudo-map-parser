@@ -284,7 +284,7 @@ class CameraSharedManager:
         try:
             # Store the device_info in the instance
             instance.device_info = device_info
-            _LOGGER.info(
+            _LOGGER.debug(
                 "%s: Stored device_info in shared instance", instance.file_name
             )
 
@@ -370,7 +370,7 @@ class CameraSharedManager:
                     # Check if rotation has changed from saved value
                     if saved_rotation != instance.image_rotate:
                         # Rotation changed - reset trims to defaults and let auto-crop recalculate
-                        _LOGGER.info(
+                        _LOGGER.debug(
                             "%s: Rotation changed from %d° to %d° - resetting trims for recalculation",
                             self.file_name,
                             saved_rotation,
@@ -391,7 +391,7 @@ class CameraSharedManager:
                     # Check if rotation has changed from saved value
                     if saved_rotation != instance.image_rotate:
                         # Rotation changed - reset trims to defaults and let auto-crop recalculate
-                        _LOGGER.info(
+                        _LOGGER.debug(
                             "%s: Rotation changed from %d° to %d° - resetting trims for recalculation",
                             self.file_name,
                             saved_rotation,
@@ -420,15 +420,15 @@ class CameraSharedManager:
                 instance.current_floor = "floor_0"  # Default
 
         except TypeError as ex:
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "Shared data can't be initialized due to a TypeError! %s", ex
             )
         except AttributeError as ex:
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "Shared data can't be initialized due to an AttributeError! %s", ex
             )
         except RuntimeError as ex:
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "An unexpected error occurred while initializing shared data %s:", ex
             )
 
