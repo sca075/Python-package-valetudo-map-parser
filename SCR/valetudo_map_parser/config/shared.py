@@ -372,9 +372,13 @@ class CameraSharedManager:
                         # Rotation changed - reset trims to defaults and let auto-crop recalculate
                         _LOGGER.info(
                             "%s: Rotation changed from %d° to %d° - resetting trims for recalculation",
-                            self.file_name, saved_rotation, instance.image_rotate
+                            self.file_name,
+                            saved_rotation,
+                            instance.image_rotate,
                         )
-                        instance.trims = TrimsData.from_dict(DEFAULT_VALUES["trims_data"])
+                        instance.trims = TrimsData.from_dict(
+                            DEFAULT_VALUES["trims_data"]
+                        )
                     else:
                         # Rotation matches - use saved trims
                         instance.trims = floor_data.trims
@@ -389,9 +393,13 @@ class CameraSharedManager:
                         # Rotation changed - reset trims to defaults and let auto-crop recalculate
                         _LOGGER.info(
                             "%s: Rotation changed from %d° to %d° - resetting trims for recalculation",
-                            self.file_name, saved_rotation, instance.image_rotate
+                            self.file_name,
+                            saved_rotation,
+                            instance.image_rotate,
                         )
-                        instance.trims = TrimsData.from_dict(DEFAULT_VALUES["trims_data"])
+                        instance.trims = TrimsData.from_dict(
+                            DEFAULT_VALUES["trims_data"]
+                        )
                     else:
                         # Rotation matches - use saved trims
                         instance.trims = TrimsData.from_dict(floor_trims)
