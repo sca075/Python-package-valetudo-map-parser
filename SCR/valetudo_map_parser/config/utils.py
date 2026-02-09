@@ -212,6 +212,7 @@ class BaseHandler:
         if hasattr(self, "get_rooms_attributes") and (
             self.shared.map_rooms is None and destinations is not None
         ):
+            # pylint: disable=no-member  # Method exists in Rand256Handler subclass
             self.shared.map_rooms = await self.get_rooms_attributes(destinations)
             if self.shared.map_rooms:
                 LOGGER.debug("%s: Rand256 attributes rooms updated", self.file_name)
@@ -220,6 +221,7 @@ class BaseHandler:
             self.shared.map_rooms is None
         ):
             if self.shared.map_rooms is None:
+                # pylint: disable=no-member  # Method exists in HypferHandler subclass
                 self.shared.map_rooms = await self.async_get_rooms_attributes()
                 if self.shared.map_rooms:
                     LOGGER.debug("%s: Hyper attributes rooms updated", self.file_name)
