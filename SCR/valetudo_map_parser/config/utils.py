@@ -560,6 +560,7 @@ class BaseHandler:
         map the correct crop_area corners to the displayed image corners based
         on rotation.
         """
+        LOGGER.info("%s: crop_img_size=%s", self.file_name, self.crop_img_size)
         if not self.crop_area:
             return [
                 {"x": 0, "y": 0},
