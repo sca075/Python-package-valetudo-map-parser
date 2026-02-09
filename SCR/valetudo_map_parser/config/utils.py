@@ -285,14 +285,12 @@ class BaseHandler:
         if current_floor not in self.shared.floors_trims:
             # Create new FloorData if it doesn't exist
             self.shared.floors_trims[current_floor] = FloorData(
-                trims=self.shared.trims,
-                rotation=self.shared.image_rotate
+                trims=self.shared.trims, rotation=self.shared.image_rotate
             )
         else:
             # Update existing FloorData with new trims and rotation
             self.shared.floors_trims[current_floor].update_trims(
-                self.shared.trims,
-                rotation=self.shared.image_rotate
+                self.shared.trims, rotation=self.shared.image_rotate
             )
 
     def get_charger_position(self) -> ChargerPosition | None:
@@ -528,7 +526,11 @@ class BaseHandler:
     def get_map_points(
         self,
     ) -> list[dict[str, int] | dict[str, int] | dict[str, int] | dict[str, int]]:
-        """Return the map points."""
+        """Return the map points (corners of the displayed PIL image).
+
+        crop_img_size is in the vacuum coordinate system, so we need to swap
+        width/height for 90° and 270° rotations to match the displayed image.
+        """
         if not self.crop_img_size:
             return [
                 {"x": 0, "y": 0},
@@ -536,23 +538,27 @@ class BaseHandler:
                 {"x": 0, "y": 0},
                 {"x": 0, "y": 0},
             ]
+
+        # crop_img_size is set by mvcrender and represents [width, height] of the displayed image
+        width = self.crop_img_size[0]
+        height = self.crop_img_size[1]
+
         return [
             {"x": 0, "y": 0},  # Top-left corner 0
-            {"x": self.crop_img_size[0], "y": 0},  # Top-right corner 1
-            {
-                "x": self.crop_img_size[0],
-                "y": self.crop_img_size[1],
-            },  # Bottom-right corner 2
-            {"x": 0, "y": self.crop_img_size[1]},  # Bottom-left corner (optional) 3
+            {"x": width, "y": 0},  # Top-right corner 1
+            {"x": width, "y": height},  # Bottom-right corner 2
+            {"x": 0, "y": height},  # Bottom-left corner 3
         ]
 
-    def get_vacuum_points(self, _rotation_angle: int) -> list[dict[str, int]]:
+    def get_vacuum_points(self, rotation_angle: int) -> list[dict[str, int]]:
         """Calculate the calibration points from crop_area.
 
-        Note: crop_area is already rotated by mvcrender, so we don't need to
-        apply rotation transformations here. We just calculate the 4 corners
-        from the current crop_area values. The rotation_angle parameter is
-        kept for API compatibility but not used.
+        The vacuum points must be returned in the order that matches map_points:
+        [top-left, top-right, bottom-right, bottom-left] of the DISPLAYED image.
+
+        crop_area is in vacuum coordinates and doesn't rotate, so we need to
+        map the correct crop_area corners to the displayed image corners based
+        on rotation.
         """
         if not self.crop_area:
             return [
@@ -561,17 +567,18 @@ class BaseHandler:
                 {"x": 0, "y": 0},
                 {"x": 0, "y": 0},
             ]
-        # crop_area format: [left, up, right, down]
-        # Direct mapping: left/right → X, up/down → Y (NO SWAP NEEDED!)
+
         LOGGER.info(
-            "%s: get_vacuum_points crop_area=%s, offset_x=%s, offset_y=%s",
+            "%s: get_vacuum_points crop_area=%s, offset_x=%s, offset_y=%s, rotation=%s",
             self.file_name,
             self.crop_area,
             self.offset_x,
             self.offset_y,
+            rotation_angle,
         )
-        # crop_area format: [left, up, right, down]
-        # Direct mapping: left/right → X, up/down → Y (NO SWAP NEEDED!)
+
+        # crop_area format: [left, up, right, down] in vacuum coordinates
+        # Calculate the 4 corners in vacuum coordinate system
         vacuum_points = [
             {
                 "x": self.crop_area[0] + self.offset_x,
@@ -590,6 +597,33 @@ class BaseHandler:
                 "y": self.crop_area[3] - self.offset_y,
             },  # Bottom-left corner 3
         ]
+
+        # Rotate the vacuum points array to match the displayed image orientation
+        match rotation_angle:
+            case 90:
+                vacuum_points = [
+                    vacuum_points[1],  # Top-right becomes top-left
+                    vacuum_points[2],  # Bottom-right becomes top-right
+                    vacuum_points[3],  # Bottom-left becomes bottom-right
+                    vacuum_points[0],  # Top-left becomes bottom-left
+                ]
+            case 180:
+                vacuum_points = [
+                    vacuum_points[2],  # Bottom-right becomes top-left
+                    vacuum_points[3],  # Bottom-left becomes top-right
+                    vacuum_points[0],  # Top-left becomes bottom-right
+                    vacuum_points[1],  # Top-right becomes bottom-left
+                ]
+            case 270:
+                vacuum_points = [
+                    vacuum_points[3],  # Bottom-left becomes top-left
+                    vacuum_points[0],  # Top-left becomes top-right
+                    vacuum_points[1],  # Top-right becomes bottom-right
+                    vacuum_points[2],  # Bottom-right becomes bottom-left
+                ]
+            case _:
+                pass  # 0° or any other angle - no rotation needed
+
         LOGGER.info("%s: get_vacuum_points result=%s", self.file_name, vacuum_points)
 
         return vacuum_points
