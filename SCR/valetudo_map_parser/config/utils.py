@@ -77,7 +77,6 @@ class BaseHandler:
         self.crop_area = [0, 0, 0, 0]
         self.zooming = False
         self.async_resize_images = async_resize_image
-        # Drawing components are initialized by initialize_drawing_config in handlers
         self.drawing_config: Optional[DrawingConfig] = None
         self.draw: Optional[Drawable] = None
 
@@ -112,19 +111,14 @@ class BaseHandler:
         @return: PIL Image or None and data dictionary
         """
         try:
-            # Backup current image to last_image before processing new one
             self._backup_last_image()
-
-            # Call the appropriate handler method based on handler type
             new_image = await self._generate_new_image(m_json, destinations)
             if new_image is None:
                 return self._handle_failed_image_generation()
-
-            # Process and store the new image
             return await self._process_new_image(new_image, destinations, bytes_format)
 
         except (ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
-            LOGGER.warning(
+            LOGGER.debug(
                 "%s: Error in async_get_image: %s",
                 self.file_name,
                 str(e),
@@ -138,7 +132,6 @@ class BaseHandler:
     def _backup_last_image(self):
         """Backup current image to last_image before processing new one."""
         if hasattr(self.shared, "new_image") and self.shared.new_image is not None:
-            # Close old last_image to free memory before replacing it
             if (
                 hasattr(self.shared, "last_image")
                 and self.shared.last_image is not None
@@ -146,7 +139,7 @@ class BaseHandler:
                 try:
                     self.shared.last_image.close()
                 except (OSError, AttributeError, RuntimeError):
-                    pass  # Ignore errors if image is already closed
+                    pass
             self.shared.last_image = self.shared.new_image
 
     async def _generate_new_image(
@@ -154,18 +147,16 @@ class BaseHandler:
     ) -> PilPNG | None:
         """Generate new image based on handler type."""
         if hasattr(self, "get_image_from_rrm"):
-            # This is a Rand256 handler
             return await self.get_image_from_rrm(
                 m_json=m_json,
                 destinations=destinations,
             )
 
         if hasattr(self, "async_get_image_from_json"):
-            # This is a Hypfer handler
             self.json_data = await HyperMapData.async_from_valetudo_json(m_json)
             return await self.async_get_image_from_json(m_json=m_json)
 
-        LOGGER.warning(
+        LOGGER.debug(
             "%s: Handler type not recognized for async_get_image",
             self.file_name,
         )
@@ -173,7 +164,7 @@ class BaseHandler:
 
     def _handle_failed_image_generation(self) -> Tuple[PilPNG | None, dict]:
         """Handle case when image generation fails."""
-        LOGGER.warning("%s: Failed to generate image from JSON data", self.file_name)
+        LOGGER.debug("%s: Failed to generate image from JSON data", self.file_name)
         return (
             self.shared.last_image if hasattr(self.shared, "last_image") else None
         ), self.shared.to_dict()
@@ -182,18 +173,13 @@ class BaseHandler:
         self, new_image: PilPNG, destinations: Destinations | None, bytes_format: bool
     ) -> Tuple[PilPNG, dict]:
         """Process and store the new image with text and binary conversion."""
-        # Update shared data
         await self._async_update_shared_data(destinations)
         self.shared.new_image = new_image
 
-        # Add text to the image
         if self.shared.show_vacuum_state:
             await self._add_status_text(new_image)
 
-        # Convert to binary (PNG bytes) if requested
         self._convert_to_binary(new_image, bytes_format)
-
-        # Update the timestamp with current datetime
         self.shared.image_last_updated = datetime.datetime.fromtimestamp(time())
         LOGGER.debug("%s: Frame Completed.", self.file_name)
 
@@ -226,7 +212,7 @@ class BaseHandler:
         if hasattr(self, "get_rooms_attributes") and (
             self.shared.map_rooms is None and destinations is not None
         ):
-            # pylint: disable=no-member
+            # pylint: disable=no-member  # Method exists in Rand256Handler subclass
             self.shared.map_rooms = await self.get_rooms_attributes(destinations)
             if self.shared.map_rooms:
                 LOGGER.debug("%s: Rand256 attributes rooms updated", self.file_name)
@@ -235,14 +221,12 @@ class BaseHandler:
             self.shared.map_rooms is None
         ):
             if self.shared.map_rooms is None:
-                # pylint: disable=no-member
+                # pylint: disable=no-member  # Method exists in HypferHandler subclass
                 self.shared.map_rooms = await self.async_get_rooms_attributes()
                 if self.shared.map_rooms:
                     LOGGER.debug("%s: Hyper attributes rooms updated", self.file_name)
 
         if hasattr(self, "get_calibration_data"):
-            # Recalculate calibration points every time since crop_area changes with rotation
-            # pylint: disable=no-member
             self.shared.attr_calibration_points = self.get_calibration_data(
                 self.shared.image_rotate
             )
@@ -275,20 +259,16 @@ class BaseHandler:
 
     def update_trims(self) -> None:
         """Update the trims and floor data with current rotation."""
-        # Update current trims
         self.shared.trims = TrimsData.from_list(
             self.crop_area, floor=self.shared.current_floor
         )
 
-        # Update floor_data with trims and rotation
         current_floor = self.shared.current_floor
         if current_floor not in self.shared.floors_trims:
-            # Create new FloorData if it doesn't exist
             self.shared.floors_trims[current_floor] = FloorData(
                 trims=self.shared.trims, rotation=self.shared.image_rotate
             )
         else:
-            # Update existing FloorData with new trims and rotation
             self.shared.floors_trims[current_floor].update_trims(
                 self.shared.trims, rotation=self.shared.image_rotate
             )
@@ -315,7 +295,6 @@ class BaseHandler:
             or self.shared.image_aspect_ratio != "None"
         )
 
-    # Element selection methods centralized here
     def enable_element(self, element_code):
         """Enable drawing of a specific element."""
         if hasattr(self, "drawing_config") and self.drawing_config is not None:
@@ -539,15 +518,14 @@ class BaseHandler:
                 {"x": 0, "y": 0},
             ]
 
-        # crop_img_size is set by mvcrender and represents [width, height] of the displayed image
         width = self.crop_img_size[0]
         height = self.crop_img_size[1]
 
         return [
-            {"x": 0, "y": 0},  # Top-left corner 0
-            {"x": width, "y": 0},  # Top-right corner 1
-            {"x": width, "y": height},  # Bottom-right corner 2
-            {"x": 0, "y": height},  # Bottom-left corner 3
+            {"x": 0, "y": 0},
+            {"x": width, "y": 0},
+            {"x": width, "y": height},
+            {"x": 0, "y": height},
         ]
 
     def get_vacuum_points(self, rotation_angle: int) -> list[dict[str, int]]:
@@ -568,63 +546,49 @@ class BaseHandler:
                 {"x": 0, "y": 0},
             ]
 
-        LOGGER.info(
-            "%s: get_vacuum_points crop_area=%s, offset_x=%s, offset_y=%s, rotation=%s",
-            self.file_name,
-            self.crop_area,
-            self.offset_x,
-            self.offset_y,
-            rotation_angle,
-        )
-
-        # crop_area format: [left, up, right, down] in vacuum coordinates
-        # Calculate the 4 corners in vacuum coordinate system
         vacuum_points = [
             {
                 "x": self.crop_area[0] + self.offset_x,
                 "y": self.crop_area[1] + self.offset_y,
-            },  # Top-left corner 0
+            },
             {
                 "x": self.crop_area[2] - self.offset_x,
                 "y": self.crop_area[1] + self.offset_y,
-            },  # Top-right corner 1
+            },
             {
                 "x": self.crop_area[2] - self.offset_x,
                 "y": self.crop_area[3] - self.offset_y,
-            },  # Bottom-right corner 2
+            },
             {
                 "x": self.crop_area[0] + self.offset_x,
                 "y": self.crop_area[3] - self.offset_y,
-            },  # Bottom-left corner 3
+            },
         ]
 
-        # Rotate the vacuum points array to match the displayed image orientation
         match rotation_angle:
             case 90:
                 vacuum_points = [
-                    vacuum_points[1],  # Top-right becomes top-left
-                    vacuum_points[2],  # Bottom-right becomes top-right
-                    vacuum_points[3],  # Bottom-left becomes bottom-right
-                    vacuum_points[0],  # Top-left becomes bottom-left
+                    vacuum_points[1],
+                    vacuum_points[2],
+                    vacuum_points[3],
+                    vacuum_points[0],
                 ]
             case 180:
                 vacuum_points = [
-                    vacuum_points[2],  # Bottom-right becomes top-left
-                    vacuum_points[3],  # Bottom-left becomes top-right
-                    vacuum_points[0],  # Top-left becomes bottom-right
-                    vacuum_points[1],  # Top-right becomes bottom-left
+                    vacuum_points[2],
+                    vacuum_points[3],
+                    vacuum_points[0],
+                    vacuum_points[1],
                 ]
             case 270:
                 vacuum_points = [
-                    vacuum_points[3],  # Bottom-left becomes top-left
-                    vacuum_points[0],  # Top-left becomes top-right
-                    vacuum_points[1],  # Top-right becomes bottom-right
-                    vacuum_points[2],  # Bottom-right becomes bottom-left
+                    vacuum_points[3],
+                    vacuum_points[0],
+                    vacuum_points[1],
+                    vacuum_points[2],
                 ]
             case _:
-                pass  # 0° or any other angle - no rotation needed
-
-        LOGGER.info("%s: get_vacuum_points result=%s", self.file_name, vacuum_points)
+                pass
 
         return vacuum_points
 
@@ -635,43 +599,45 @@ class BaseHandler:
             {
                 "x": ((self.crop_area[0] + self.offset_x) * 10),
                 "y": ((self.crop_area[1] + self.offset_y) * 10),
-            },  # Top-left corner 0
+            },
             {
                 "x": ((self.crop_area[2] - self.offset_x) * 10),
                 "y": ((self.crop_area[1] + self.offset_y) * 10),
-            },  # Top-right corner 1
+            },
             {
                 "x": ((self.crop_area[2] - self.offset_x) * 10),
                 "y": ((self.crop_area[3] - self.offset_y) * 10),
-            },  # Bottom-right corner 2
+            },
             {
                 "x": ((self.crop_area[0] + self.offset_x) * 10),
                 "y": ((self.crop_area[3] - self.offset_y) * 10),
-            },  # Bottom-left corner (optional)3
+            },
         ]
 
-        # Rotate the vacuum points based on the rotation angle
-        if rotation_angle == 90:
-            vacuum_points = [
-                vacuum_points[1],
-                vacuum_points[2],
-                vacuum_points[3],
-                vacuum_points[0],
-            ]
-        elif rotation_angle == 180:
-            vacuum_points = [
-                vacuum_points[2],
-                vacuum_points[3],
-                vacuum_points[0],
-                vacuum_points[1],
-            ]
-        elif rotation_angle == 270:
-            vacuum_points = [
-                vacuum_points[3],
-                vacuum_points[0],
-                vacuum_points[1],
-                vacuum_points[2],
-            ]
+        match rotation_angle:
+            case 90:
+                vacuum_points = [
+                    vacuum_points[1],
+                    vacuum_points[2],
+                    vacuum_points[3],
+                    vacuum_points[0],
+                ]
+            case 180:
+                vacuum_points = [
+                    vacuum_points[2],
+                    vacuum_points[3],
+                    vacuum_points[0],
+                    vacuum_points[1],
+                ]
+            case 270:
+                vacuum_points = [
+                    vacuum_points[3],
+                    vacuum_points[0],
+                    vacuum_points[1],
+                    vacuum_points[2],
+                ]
+            case _:
+                pass
 
         return vacuum_points
 
@@ -741,7 +707,7 @@ async def async_resize_image(params: ResizeParams):
         wsf, hsf = [int(x) for x in ratio.split(":")]
 
         if wsf == 0 or hsf == 0 or params.width <= 0 or params.height <= 0:
-            LOGGER.warning(
+            LOGGER.debug(
                 "Invalid aspect ratio parameters: width=%s, height=%s, wsf=%s, hsf=%s. Returning original image.",
                 params.width,
                 params.height,
@@ -791,8 +757,6 @@ def initialize_drawing_config(handler):
     Returns:
         Tuple of (DrawingConfig, Drawable)
     """
-
-    # Initialize drawing configuration
     drawing_config = DrawingConfig()
 
     if (
@@ -801,9 +765,7 @@ def initialize_drawing_config(handler):
     ):
         drawing_config.update_from_device_info(handler.shared.device_info)
 
-    # Initialize drawing utilities
     draw = Drawable()
-
     return drawing_config, draw
 
 
@@ -859,35 +821,27 @@ def point_in_polygon(x: int, y: int, polygon: list) -> bool:
     Returns:
         True if the point is inside the polygon, False otherwise
     """
-    # Ensure we have a valid polygon with at least 3 points
     if len(polygon) < 3:
         return False
 
-    # Make sure the polygon is closed (last point equals first point)
     if polygon[0] != polygon[-1]:
         polygon = polygon + [polygon[0]]
 
-    # Use winding number algorithm for better accuracy
-    wn = 0  # Winding number counter
+    wn = 0
 
-    # Loop through all edges of the polygon
-    for i in range(len(polygon) - 1):  # Last vertex is first vertex
+    for i in range(len(polygon) - 1):
         p1x, p1y = polygon[i]
         p2x, p2y = polygon[i + 1]
 
-        # Test if a point is left/right/on the edge defined by two vertices
-        if p1y <= y:  # Start y <= P.y
-            if p2y > y:  # End y > P.y (upward crossing)
-                # Point left of edge
+        if p1y <= y:
+            if p2y > y:
                 if ((p2x - p1x) * (y - p1y) - (x - p1x) * (p2y - p1y)) > 0:
-                    wn += 1  # Valid up intersect
-        else:  # Start y > P.y
-            if p2y <= y:  # End y <= P.y (downward crossing)
-                # Point right of edge
+                    wn += 1
+        else:
+            if p2y <= y:
                 if ((p2x - p1x) * (y - p1y) - (x - p1x) * (p2y - p1y)) < 0:
-                    wn -= 1  # Valid down intersect
+                    wn -= 1
 
-    # If winding number is not 0, the point is inside the polygon
     return wn != 0
 
 
@@ -904,7 +858,7 @@ def handle_room_outline_error(file_name, room_id, error):
         None
     """
 
-    LOGGER.warning(
+    LOGGER.debug(
         "%s: Failed to trace outline for room %s: %s",
         file_name,
         str(room_id),
@@ -1023,7 +977,7 @@ async def async_extract_room_outline(
         return simplified_outline
 
     except (ValueError, IndexError, TypeError, ArithmeticError) as e:
-        LOGGER.warning(
+        LOGGER.debug(
             "%s: Error tracing room outline: %s. Using rectangular outline instead.",
             file_name,
             str(e),

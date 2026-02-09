@@ -294,6 +294,8 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         colors: Colors = {
             name: self.shared.user_colors[idx] for idx, name in enumerate(COLORS)
         }
+        # Initialize img_np_array to None before conditional
+        img_np_array = None
         # Check if the JSON data is not None else process the image.
         try:
             if m_json is not None:
@@ -419,7 +421,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
             del img_np_array
             return pil_img
         except (RuntimeError, RuntimeWarning) as e:
-            LOGGER.warning(
+            LOGGER.debug(
                 "%s: Error %s during image creation.",
                 self.file_name,
                 str(e),
@@ -442,12 +444,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         """Get the calibration data from the JSON data.
         this will create the attribute calibration points."""
         calibration_data = []
-        LOGGER.info(
-            "%s: get_calibration_data called with rotation_angle=%s, trims=%s",
-            self.file_name,
-            rotation_angle,
-            self.shared.trims.to_dict(),
-        )
 
         # Define the map points (fixed)
         map_points = self.get_map_points()
@@ -458,7 +454,6 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
         for vacuum_point, map_point in zip(vacuum_points, map_points):
             calibration_point = {"vacuum": vacuum_point, "map": map_point}
             calibration_data.append(calibration_point)
-        LOGGER.info("%s: calibration_data=%s", self.file_name, calibration_data)
         del vacuum_points, map_points, calibration_point, rotation_angle  # free memory.
         return calibration_data
 

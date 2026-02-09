@@ -297,7 +297,12 @@ class ColorsManagement:
             List[Tuple[int, int, int, int]]: List of RGBA colors with alpha channel added.
         """
         if len(alpha_channels) != len(rgb_colors):
-            LOGGER.warning("Input lists must have the same length.")
+            LOGGER.warning(
+                "Input lists must have the same length. "
+                "alpha_channels: %d, rgb_colors: %d",
+                len(alpha_channels),
+                len(rgb_colors),
+            )
             return []
 
         # Fast path for empty lists
