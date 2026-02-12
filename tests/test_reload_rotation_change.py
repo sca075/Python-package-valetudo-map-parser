@@ -72,7 +72,9 @@ def test_reload_with_rotation_change():
 
     import asyncio
 
-    img_270, data_270 = asyncio.run(handler_270.async_get_image(test_data, bytes_format=False))
+    img_270, data_270 = asyncio.run(
+        handler_270.async_get_image(test_data, bytes_format=False)
+    )
     image_270 = img_270.copy() if img_270 else None
 
     print(f"✅ Generated image at 270°")
@@ -125,7 +127,9 @@ def test_reload_with_rotation_change():
 
     handler_0 = HypferMapImageHandler(shared_0)
 
-    img_0, data_0 = asyncio.run(handler_0.async_get_image(test_data, bytes_format=False))
+    img_0, data_0 = asyncio.run(
+        handler_0.async_get_image(test_data, bytes_format=False)
+    )
     image_0 = img_0.copy() if img_0 else None
 
     print(f"\n✅ Generated image at 0° with old trims:")
@@ -147,4 +151,3 @@ def test_reload_with_rotation_change():
 
 if __name__ == "__main__":
     test_reload_with_rotation_change()
-
