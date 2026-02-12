@@ -391,6 +391,7 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                 self.zooming = self.imd.img_h.zooming
 
                 # Resize the image - auto_trim_and_zoom_image creates a new array
+                # Note: img_np_array currently references self.img_work_layer
                 img_np_array = self.auto_trim_and_zoom_image(
                     img_np_array,
                     colors["background"],
@@ -398,6 +399,9 @@ class HypferMapImageHandler(BaseHandler, AutoCrop):
                     int(self.shared.image_rotate),
                     self.zooming,
                 )
+                # After cropping, we no longer need the full-size working layer
+                # Clear it to free memory (will be recreated next frame if needed)
+                self.img_work_layer = None
                 # Update shared trims with calculated crop values
                 self.update_trims()
             # If the image is None return None and log the error.
