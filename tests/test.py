@@ -37,12 +37,14 @@ _LOGGER = logging.getLogger(__name__)
 
 # ----- Test Configuration -----
 TEST_FILE = "x40_carpet.json"  # Changed to test.json which has path data
-FRAME_COUNT = 1  # Set to 1/10/25/50/100 as needed
-ENABLE_PROFILER = False  # Master switch for profiler usage
+FRAME_COUNT = 100  # Set to 1/10/25/50/100 as needed
+ENABLE_PROFILER = True  # Master switch for profiler usage
 ENABLE_CPU_TIMING = False  # Lightweight per-frame CPU timing (process CPU time)
-ENABLE_MEMORY_PROFILING = False  # Use tracemalloc snapshots
+ENABLE_MEMORY_PROFILING = True  # Use tracemalloc snapshots
 SNAPSHOT_EVERY_FRAME = False  # If False, snapshot only first and last frame
 ENABLE_LEGACY_CPROFILE = False  # Legacy cProfile around the whole run
+ENABLE_PIL_SHOW = False  # Display images with PIL.show() (can cause memory overhead)
+SAVE_FIRST_FRAME = True  # Save first frame to /tmp for inspection
 # ------------------------------
 
 
@@ -380,7 +382,7 @@ class TestImageHandler:
             "color_carpet": [167, 103, 125],
             "alpha_carpet": 255.0,
             "disable_carpets": False,
-            "disable_material_overlay": False,  # DISABLED for testing
+            "disable_material_overlay": False,  # ENABLED - material rendering ON
             "color_material_wood": [
                 40,
                 40,
@@ -470,7 +472,7 @@ class TestImageHandler:
                 _LOGGER.info(f"Image size in bytes: {len(data['image']['binary'])}")
 
             # Save first frame for inspection
-            if iteration == 1 and self.image:
+            if SAVE_FIRST_FRAME and iteration == 1 and self.image:
                 try:
                     self.image.save("/tmp/test_frame_1_with_zones.png")
                     _LOGGER.info(
@@ -706,10 +708,11 @@ def __main__():
             break
 
         start_cpu = _thread_cpu_seconds(main_tid)
-        try:
-            item.show()  # display on the main thread
-        except Exception:
-            pass
+        if ENABLE_PIL_SHOW:
+            try:
+                item.show()  # display on the main thread
+            except Exception:
+                pass
         end_cpu = _thread_cpu_seconds(main_tid)
         if start_cpu is not None and end_cpu is not None:
             main_cpu_total += max(0.0, end_cpu - start_cpu)

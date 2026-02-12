@@ -68,12 +68,8 @@ class StatusText:
         return current_state
 
     def _dock_state(self, current_state: list[str]) -> list[str]:
-        """Return the dock state if active and not idle."""
-        if (
-            self._shared.dock_state is not None
-            and self._shared.dock_state != "idle"
-            and self._shared.vacuum_state == "docked"
-        ):
+        """Return the dock state when actively performing maintenance."""
+        if self._shared.dock_state is not None and self._shared.dock_state != "idle":
             current_state.append(f" {self._shared.dock_state}")
         return current_state
 
