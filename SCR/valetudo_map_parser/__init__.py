@@ -1,5 +1,5 @@
 """Valetudo map parser.
-Version: 0.2.4"""
+Version: 0.2.5b0"""
 
 from pathlib import Path
 
@@ -51,6 +51,9 @@ from .const import (
     CONF_ASPECT_RATIO,
     CONF_AUTO_ZOOM,
     CONF_EXPORT_SVG,
+    CONF_OBSTACLE_LINK_IP,
+    CONF_OBSTACLE_LINK_PORT,
+    CONF_OBSTACLE_LINK_PROTOCOL,
     CONF_OFFSET_BOTTOM,
     CONF_OFFSET_LEFT,
     CONF_OFFSET_RIGHT,
@@ -122,6 +125,9 @@ __all__ = [
     "CONF_ASPECT_RATIO",
     "CONF_AUTO_ZOOM",
     "CONF_EXPORT_SVG",
+    "CONF_OBSTACLE_LINK_IP",
+    "CONF_OBSTACLE_LINK_PORT",
+    "CONF_OBSTACLE_LINK_PROTOCOL",
     "CONF_OFFSET_BOTTOM",
     "CONF_OFFSET_LEFT",
     "CONF_OFFSET_RIGHT",

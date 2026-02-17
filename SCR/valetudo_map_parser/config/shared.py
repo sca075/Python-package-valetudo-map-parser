@@ -29,6 +29,9 @@ from ..const import (
     ATTR_ZONES,
     CONF_ASPECT_RATIO,
     CONF_AUTO_ZOOM,
+    CONF_OBSTACLE_LINK_IP,
+    CONF_OBSTACLE_LINK_PORT,
+    CONF_OBSTACLE_LINK_PROTOCOL,
     CONF_OFFSET_BOTTOM,
     CONF_OFFSET_LEFT,
     CONF_OFFSET_RIGHT,
@@ -103,6 +106,9 @@ class CameraShared:
         self.vacuum_api = None
         self.vacuum_ips = None
         self.vac_json_id = None
+        self.obstacle_link_ip = None
+        self.obstacle_link_port = None
+        self.obstacle_link_protocol = None
         self.margins = "100"
         self.obstacles_data = None
         self.obstacles_pos = None
@@ -145,21 +151,49 @@ class CameraShared:
         return (self.vacuum_state == "docked") and (self._battery_state == "charging")
 
     @staticmethod
-    def _compose_obstacle_links(vacuum_host_ip: str, obstacles: list) -> list | None:
-        """Compose JSON with obstacle details including the image link."""
+    def _compose_obstacle_links(
+        vacuum_host_ip: str,
+        obstacles: list,
+        custom_ip: str | None = None,
+        custom_port: int | None = None,
+        custom_protocol: str | None = None,
+    ) -> list | None:
+        """
+        Compose JSON with obstacle details including the image link.
+
+        Args:
+            vacuum_host_ip: Default vacuum host IP address
+            obstacles: List of obstacle dictionaries
+            custom_ip: Optional custom IP address for obstacle image links
+            custom_port: Optional custom port for obstacle image links
+            custom_protocol: Optional custom protocol (http/https) for obstacle image links
+
+        Returns:
+            List of obstacle dictionaries with image links, or None if no obstacles
+        """
         obstacle_links = []
         if not obstacles or not vacuum_host_ip:
             return None
+
+        # Determine which IP/port/protocol to use
+        ip_to_use = custom_ip if custom_ip else vacuum_host_ip
+        protocol_to_use = custom_protocol if custom_protocol else "http"
+
+        # Build base URL
+        if custom_port:
+            base_url = f"{protocol_to_use}://{ip_to_use}:{custom_port}"
+        else:
+            base_url = f"{protocol_to_use}://{ip_to_use}"
 
         for obstacle in obstacles:
             label = obstacle.get("label", "")
             points = obstacle.get("points", {})
             image_id = obstacle.get("id", "None")
 
-            if label and points and image_id and vacuum_host_ip:
+            if label and points and image_id:
                 if image_id != "None":
                     image_link = (
-                        f"http://{vacuum_host_ip}"
+                        f"{base_url}"
                         f"/api/v2/robot/capabilities/ObstacleImagesCapability/img/{image_id}"
                     )
                     obstacle_links.append(
@@ -230,7 +264,11 @@ class CameraShared:
             attrs[ATTR_DOCK_STATE] = self.dock_state
         if self.obstacles_pos and self.vacuum_ips:
             self.obstacles_data = self._compose_obstacle_links(
-                self.vacuum_ips, self.obstacles_pos
+                self.vacuum_ips,
+                self.obstacles_pos,
+                self.obstacle_link_ip,
+                self.obstacle_link_port,
+                self.obstacle_link_protocol,
             )
             attrs[ATTR_OBSTACLES] = self.obstacles_data
 
@@ -348,6 +386,18 @@ class CameraSharedManager:
                 instance.mop_path_width = int(mop_path_width)
             except (ValueError, TypeError):
                 instance.mop_path_width = robot_size - 2
+
+            # Obstacle link configuration
+            instance.obstacle_link_ip = device_info.get(CONF_OBSTACLE_LINK_IP)
+            instance.obstacle_link_protocol = device_info.get(CONF_OBSTACLE_LINK_PROTOCOL)
+            obstacle_link_port = device_info.get(CONF_OBSTACLE_LINK_PORT)
+            if obstacle_link_port is not None:
+                try:
+                    instance.obstacle_link_port = int(obstacle_link_port)
+                except (ValueError, TypeError):
+                    instance.obstacle_link_port = None
+            else:
+                instance.obstacle_link_port = None
 
             # Check for new floors_data first
             floors_data = device_info.get("floors_data", {})
