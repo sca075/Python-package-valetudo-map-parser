@@ -292,7 +292,11 @@ class CameraShared:
         return attr_is_streaming
 
     def to_dict(self) -> dict:
-        """Return a dictionary with image and attributes data."""
+        """Return a dictionary with image and attributes data.
+
+        Always includes image size information regardless of binary_image format.
+        binary_image can be either PNG bytes or PIL Image object.
+        """
         data = {
             "image": {
                 "binary": self.binary_image,
