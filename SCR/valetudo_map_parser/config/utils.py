@@ -203,19 +203,26 @@ class BaseHandler:
 
 
     def _convert_to_binary(self, new_image: PilPNG, bytes_format: bool):
-        """Convert image based on bytes_format and shared.image_format.
+        """Convert image based on bytes_format and shared._image_format.
 
         When bytes_format=False: Store PIL Image directly
-        When bytes_format=True: Convert based on shared.image_format
+        When bytes_format=True: Convert based on shared._image_format
+            - "image/pil" → PIL bytes
+            - "image/png" → PNG bytes
             - "image/jpeg" → JPEG bytes
-            - "image/png" or "image/pil" → PNG bytes (default)
         """
         if bytes_format:
-            if self.shared.image_format == "image/jpeg":
-                self.shared.binary_image = pil_to_jpeg_bytes(new_image)
-            else:
-                # Default: PNG bytes for "image/png" or "image/pil"
-                self.shared.binary_image = pil_to_png_bytes(new_image)
+            match self.shared.get_content_type():
+                case "image/jpeg":
+                    self.shared.binary_image = pil_to_jpeg_bytes(new_image)
+                case "image/png":
+                    self.shared.binary_image = pil_to_png_bytes(new_image)
+                case "image/pil":
+                    # PIL format: store PIL Image directly
+                    self.shared.binary_image = pil_to_pil_bytes(new_image)
+                case _:
+                    LOGGER.warning("Unsupported format received no binary format.")
+                    self.shared.binary_image = new_image
         else:
             # Store PIL Image directly
             self.shared.binary_image = new_image
@@ -998,6 +1005,11 @@ async def async_extract_room_outline(
         )
         return rect_outline
 
+def pil_to_pil_bytes(pil_img: Image.Image, compress_level: int = 1) -> bytes:
+    """Convert PIL Image to PNG bytes asynchronously."""
+    with io.BytesIO() as buf:
+        pil_img.save(buf, format="PIL", compress_level=compress_level)
+        return buf.getvalue()
 
 def pil_to_png_bytes(pil_img: Image.Image, compress_level: int = 1) -> bytes:
     """Convert PIL Image to PNG bytes asynchronously."""
@@ -1006,6 +1018,7 @@ def pil_to_png_bytes(pil_img: Image.Image, compress_level: int = 1) -> bytes:
         return buf.getvalue()
 
 def pil_to_jpeg_bytes(pil_img: Image.Image, quality: int = 85) -> bytes:
+    """Convert PIL Image to JPEG bytes asynchronously"""
     pil_img = pil_img.convert("RGB")
     with io.BytesIO() as buf:
         pil_img.save(buf, format="JPEG", quality=quality)

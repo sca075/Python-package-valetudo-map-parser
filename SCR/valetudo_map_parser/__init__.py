@@ -1,5 +1,5 @@
 """Valetudo map parser.
-Version: 0.2.5b1"""
+Version: 0.2.5b2"""
 
 from pathlib import Path
 
@@ -28,9 +28,11 @@ from .config.utils import (
     ResizeParams,
     async_resize_image,
     pil_to_jpeg_bytes,
+    pil_to_pil_bytes,
     pil_to_png_bytes,
 )
 from .const import (
+    ALLOWED_IMAGE_FORMAT,
     ATTR_CALIBRATION_POINTS,
     ATTR_CAMERA_MODE,
     ATTR_CONTENT_TYPE,
@@ -125,6 +127,7 @@ __all__ = [
     "ATTR_VACUUM_TOPIC",
     "ATTR_ZONES",
     # Configuration Constants
+    "ALLOWED_IMAGE_FORMAT",
     "CAMERA_STORAGE",
     "COLORS",
     "CONF_ASPECT_RATIO",
@@ -194,5 +197,6 @@ __all__ = [
     "async_resize_image",
     "get_default_font_path",
     "pil_to_jpeg_bytes",
+    "pil_to_pil_bytes",
     "pil_to_png_bytes",
 ]

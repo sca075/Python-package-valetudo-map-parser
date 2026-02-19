@@ -30,6 +30,12 @@ CONF_OBSTACLE_LINK_PROTOCOL = "obstacle_link_protocol"
 ICON = "mdi:camera"
 NAME = "MQTT Vacuum Camera"
 
+ALLOWED_IMAGE_FORMAT: dict[str, str] = {
+            "pil": "image/pil",
+            "png": "image/png",
+            "jpeg" : "image/jpeg"
+        }
+
 DEFAULT_IMAGE_SIZE = {
     "x": 5120,
     "y": 5120,

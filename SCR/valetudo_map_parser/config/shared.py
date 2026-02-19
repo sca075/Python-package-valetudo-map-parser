@@ -27,6 +27,7 @@ from ..const import (
     ATTR_VACUUM_POSITION,
     ATTR_VACUUM_STATUS,
     ATTR_ZONES,
+    ALLOWED_IMAGE_FORMAT,
     CONF_ASPECT_RATIO,
     CONF_AUTO_ZOOM,
     CONF_OBSTACLE_LINK_IP,
@@ -75,7 +76,7 @@ class CameraShared:
         self.new_image: PilPNG | None = None
         self.binary_image: bytes | None = None
         self.image_last_updated: float = 0.0
-        self.image_format = "image/pil"
+        self._image_format = "image/pil"
         self.image_size = None
         self.robot_size = 25
         self.mop_path_width = None
@@ -149,6 +150,18 @@ class CameraShared:
                 "charging" if int(self.vacuum_battery) < 100 else "charging_done"
             )
         return (self.vacuum_state == "docked") and (self._battery_state == "charging")
+
+    def set_content_type(self, new_image_format:str = "image/pil") -> None:
+        """ Set image format / content type"""
+        if new_image_format not in ALLOWED_IMAGE_FORMAT.keys():
+            self._image_format = "image/pil"
+            return
+        self._image_format = ALLOWED_IMAGE_FORMAT.get(new_image_format)
+
+    def get_content_type(self)->str:
+        """Return the current set _image_format"""
+        return self._image_format
+
 
     @staticmethod
     def _compose_obstacle_links(
@@ -251,7 +264,7 @@ class CameraShared:
         """Generate and return the shared attribute's dictionary."""
         attrs = {
             ATTR_IMAGE_LAST_UPDATED: self.image_last_updated,
-            ATTR_CONTENT_TYPE: self.image_format,
+            ATTR_CONTENT_TYPE: self._image_format,
             ATTR_VACUUM_JSON_ID: self.vac_json_id,
             ATTR_CAMERA_MODE: self.camera_mode,
             ATTR_VACUUM_STATUS: self.vacuum_state,
