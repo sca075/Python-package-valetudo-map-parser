@@ -19,6 +19,7 @@ from .drawable_elements import DrawingConfig
 from .status_text.status_text import StatusText
 from .types import (
     LOGGER,
+    CameraModes,
     ChargerPosition,
     Destinations,
     FloorData,
@@ -210,7 +211,17 @@ class BaseHandler:
             - "image/pil" → PIL bytes
             - "image/png" → PNG bytes
             - "image/jpeg" → JPEG bytes
+
+        Content type is automatically set based on camera_mode:
+            - MAP_VIEW ("map_view") → JPEG format
+            - OBSTACLE_VIEW ("obstacle_view") → PNG format
         """
+        # Set content type based on camera mode (compare string values for library compatibility)
+        if self.shared.camera_mode == CameraModes.MAP_VIEW:
+            self.shared.set_content_type("jpeg")
+        elif self.shared.camera_mode == CameraModes.OBSTACLE_VIEW:
+            self.shared.set_content_type("png")
+
         if bytes_format:
             match self.shared.get_content_type():
                 case "image/jpeg":
