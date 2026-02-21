@@ -170,7 +170,10 @@ class BaseHandler:
         ), self.shared.to_dict()
 
     async def _process_new_image(
-        self, new_image: PilPNG, destinations: Destinations | None, bytes_format: bool
+        self,
+        new_image: PilPNG,
+        destinations: Destinations | None,
+        bytes_format: bool,
     ) -> Tuple[PilPNG, dict]:
         """Process and store the new image with text and binary conversion."""
         await self._async_update_shared_data(destinations)
@@ -183,7 +186,8 @@ class BaseHandler:
         self.shared.image_last_updated = datetime.datetime.fromtimestamp(time())
         LOGGER.debug("%s: Frame Completed.", self.file_name)
 
-        data = self.shared.to_dict() if bytes_format else {}
+        # Always populate data structure with image size
+        data = self.shared.to_dict()
         return new_image, data
 
     async def _add_status_text(self, new_image: PilPNG):
@@ -200,11 +204,29 @@ class BaseHandler:
         )
 
     def _convert_to_binary(self, new_image: PilPNG, bytes_format: bool):
-        """Convert image to binary PNG bytes."""
+        """Convert image based on bytes_format and shared._image_format.
+
+        When bytes_format=False: Store PIL Image directly
+        When bytes_format=True: Convert based on shared._image_format
+            - "image/pil" → PIL bytes
+            - "image/png" → PNG bytes
+            - "image/jpeg" → JPEG bytes
+        """
         if bytes_format:
-            self.shared.binary_image = pil_to_png_bytes(new_image)
+            match self.shared.get_content_type():
+                case "image/jpeg":
+                    self.shared.binary_image = pil_to_jpeg_bytes(new_image)
+                case "image/png":
+                    self.shared.binary_image = pil_to_png_bytes(new_image)
+                case "image/pil":
+                    # PIL format: store PIL Image directly
+                    self.shared.binary_image = pil_to_pil_bytes(new_image)
+                case _:
+                    LOGGER.warning("Unsupported format received no binary format.")
+                    self.shared.binary_image = new_image
         else:
-            self.shared.binary_image = pil_to_png_bytes(self.shared.last_image)
+            # Store PIL Image directly
+            self.shared.binary_image = new_image
 
     async def _async_update_shared_data(self, destinations: Destinations | None = None):
         """Update the shared data with the latest information."""
@@ -985,10 +1007,25 @@ async def async_extract_room_outline(
         return rect_outline
 
 
+def pil_to_pil_bytes(pil_img: Image.Image, compress_level: int = 1) -> bytes:
+    """Convert PIL Image to PNG bytes asynchronously."""
+    with io.BytesIO() as buf:
+        pil_img.save(buf, format="PIL", compress_level=compress_level)
+        return buf.getvalue()
+
+
 def pil_to_png_bytes(pil_img: Image.Image, compress_level: int = 1) -> bytes:
     """Convert PIL Image to PNG bytes asynchronously."""
     with io.BytesIO() as buf:
         pil_img.save(buf, format="PNG", compress_level=compress_level)
+        return buf.getvalue()
+
+
+def pil_to_jpeg_bytes(pil_img: Image.Image, quality: int = 85) -> bytes:
+    """Convert PIL Image to JPEG bytes asynchronously"""
+    pil_img = pil_img.convert("RGB")
+    with io.BytesIO() as buf:
+        pil_img.save(buf, format="JPEG", quality=quality)
         return buf.getvalue()
 
 

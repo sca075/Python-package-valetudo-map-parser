@@ -24,8 +24,17 @@ CONF_EXPORT_SVG = "get_svg_file"
 CONF_AUTO_ZOOM = "auto_zoom"
 CONF_ZOOM_LOCK_RATIO = "zoom_lock_ratio"
 CONF_TRIMS_SAVE = "save_trims"
+CONF_OBSTACLE_LINK_IP = "obstacle_link_ip"
+CONF_OBSTACLE_LINK_PORT = "obstacle_link_port"
+CONF_OBSTACLE_LINK_PROTOCOL = "obstacle_link_protocol"
 ICON = "mdi:camera"
 NAME = "MQTT Vacuum Camera"
+
+ALLOWED_IMAGE_FORMAT: dict[str, str] = {
+            "pil": "image/pil",
+            "png": "image/png",
+            "jpeg" : "image/jpeg"
+        }
 
 DEFAULT_IMAGE_SIZE = {
     "x": 5120,
