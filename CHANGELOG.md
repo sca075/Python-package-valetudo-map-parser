@@ -7,6 +7,96 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.5] - 2026-02-21
+
+### 🎉 Stable Release
+
+This is a stable release based on 0.2.5b3 with all beta features tested and verified.
+
+### 📝 Changes from Beta
+- **0.2.5b3**: Reverted experimental automatic content type selection feature
+  - Feature was removed to maintain library simplicity
+  - Content type selection remains manual via `set_content_type()` method
+
+### ✨ Features Included
+- All features from 0.2.4 release
+- Stable multi-floor support
+- Mop path customization for Hypfer vacuums
+- Calibration rotation handling
+- Memory leak fixes
+
+---
+
+## [0.2.5b3] - 2026-02-21
+
+### 🔄 Changes
+- **Reverted**: Automatic content type selection based on camera mode
+  - Feature was experimental and removed before stable release
+  - Content type selection remains manual for library flexibility
+
+---
+
+## [0.2.5b2] - 2026-02-19
+
+### ✨ New Features
+- **Image Format Configuration**: Added support for configurable image output formats
+  - Added `ALLOWED_IMAGE_FORMAT` constant to define supported formats (PIL, PNG, JPEG)
+  - Made `image_format` private (`_image_format`) with public `set_content_type()` method
+  - Added `get_content_type()` method for accessing current format
+  - Exported `ALLOWED_IMAGE_FORMAT` and `pil_to_pil_bytes` in `__init__.py`
+
+### 🔧 Improvements
+- **Binary Conversion**: Enhanced `_convert_to_binary()` with match-case for all formats
+  - `image/jpeg` → JPEG bytes conversion
+  - `image/png` → PNG bytes conversion
+  - `image/pil` → PIL bytes conversion
+  - Added `pil_to_pil_bytes()` utility function
+- **Code Quality**: Used proper encapsulation with getter methods instead of direct attribute access
+
+---
+
+## [0.2.5b1] - 2026-02-18
+
+### ✨ New Features
+- **JPEG Format Support**: Added JPEG output format for image generation
+  - New `pil_to_jpeg_bytes()` function with RGB conversion and quality control
+  - Configurable via `shared.image_format = "image/jpeg"`
+  - Default quality: 85, optimized for web delivery
+
+### 🐛 Bug Fixes
+- **API Consistency**: Fixed `data["image"]` structure to always be populated
+  - Previously missing when `bytes_format=False`
+  - Now always includes `binary`, `size`, and `streaming` keys
+  - Ensures consistent API for mqtt_vacuum_camera integration
+
+### 🔧 Improvements
+- **Direct PIL Storage**: When `bytes_format=False`, stores PIL Image object directly
+  - Enables efficient PIL→JPEG conversion in MJPEG streaming
+  - Reduces unnecessary PNG conversion overhead
+- **Public API**: Exported `pil_to_jpeg_bytes` and `pil_to_png_bytes` utility functions
+
+### 📝 Testing
+- Added `test_bytes_format_consistency.py` to verify API consistency
+
+---
+
+## [0.2.5b0] - 2026-02-17
+
+### ✨ New Features
+- **Customizable Obstacle Image Links**: Added configuration for custom obstacle image endpoints
+  - New constants: `CONF_OBSTACLE_LINK_IP`, `CONF_OBSTACLE_LINK_PORT`, `CONF_OBSTACLE_LINK_PROTOCOL`
+  - Allows using different IP/port/protocol than vacuum's main connection
+  - Falls back to `vacuum_ips` if custom parameters not provided
+  - Exported in `__init__.py` for mqtt_vacuum_camera integration
+
+### 🔧 Improvements
+- **Obstacle Link Composition**: Updated `_compose_obstacle_links()` to accept custom parameters
+  - Supports HTTPS protocol for secure obstacle image retrieval
+  - Configurable port for non-standard setups
+  - Separate IP address for obstacle image server
+
+---
+
 ## [0.2.4] - 2026-02-08
 
 ### 🐛 Critical Bug Fixes

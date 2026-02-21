@@ -19,7 +19,6 @@ from .drawable_elements import DrawingConfig
 from .status_text.status_text import StatusText
 from .types import (
     LOGGER,
-    CameraModes,
     ChargerPosition,
     Destinations,
     FloorData,
@@ -171,7 +170,10 @@ class BaseHandler:
         ), self.shared.to_dict()
 
     async def _process_new_image(
-        self, new_image: PilPNG, destinations: Destinations | None, bytes_format: bool,
+        self,
+        new_image: PilPNG,
+        destinations: Destinations | None,
+        bytes_format: bool,
     ) -> Tuple[PilPNG, dict]:
         """Process and store the new image with text and binary conversion."""
         await self._async_update_shared_data(destinations)
@@ -201,8 +203,6 @@ class BaseHandler:
             self.shared.vacuum_status_position,
         )
 
-
-
     def _convert_to_binary(self, new_image: PilPNG, bytes_format: bool):
         """Convert image based on bytes_format and shared._image_format.
 
@@ -211,17 +211,7 @@ class BaseHandler:
             - "image/pil" → PIL bytes
             - "image/png" → PNG bytes
             - "image/jpeg" → JPEG bytes
-
-        Content type is automatically set based on camera_mode:
-            - MAP_VIEW ("map_view") → JPEG format
-            - OBSTACLE_VIEW ("obstacle_view") → PNG format
         """
-        # Set content type based on camera mode (compare string values for library compatibility)
-        if self.shared.camera_mode == CameraModes.MAP_VIEW:
-            self.shared.set_content_type("jpeg")
-        elif self.shared.camera_mode == CameraModes.OBSTACLE_VIEW:
-            self.shared.set_content_type("png")
-
         if bytes_format:
             match self.shared.get_content_type():
                 case "image/jpeg":
@@ -1016,17 +1006,20 @@ async def async_extract_room_outline(
         )
         return rect_outline
 
+
 def pil_to_pil_bytes(pil_img: Image.Image, compress_level: int = 1) -> bytes:
     """Convert PIL Image to PNG bytes asynchronously."""
     with io.BytesIO() as buf:
         pil_img.save(buf, format="PIL", compress_level=compress_level)
         return buf.getvalue()
 
+
 def pil_to_png_bytes(pil_img: Image.Image, compress_level: int = 1) -> bytes:
     """Convert PIL Image to PNG bytes asynchronously."""
     with io.BytesIO() as buf:
         pil_img.save(buf, format="PNG", compress_level=compress_level)
         return buf.getvalue()
+
 
 def pil_to_jpeg_bytes(pil_img: Image.Image, quality: int = 85) -> bytes:
     """Convert PIL Image to JPEG bytes asynchronously"""
