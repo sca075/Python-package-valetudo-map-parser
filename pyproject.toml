@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "valetudo-map-parser"
-version = "0.2.5b3"
+version = "0.2.6"
 description = "A Python library to parse Valetudo map data returning a PIL Image object."
 authors = ["Sandro Cantarella <gsca075@gmail.com>"]
 license = "Apache-2.0"
@@ -14,11 +14,11 @@ packages = [{include = "valetudo_map_parser", from = "SCR"}]
 "Changelog" = "https://github.com/sca075/Python-package-valetudo-map-parser/releases"
 
 [tool.poetry.dependencies]
-python = ">=3.12"
+python = ">=3.13"
 numpy = ">=2.0.0"
 Pillow = ">=12.0.0"
 scipy = ">=1.17.0"
-mvcrender = "==0.0.9"
+mvcrender = "==0.2.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "*"
