@@ -1,5 +1,5 @@
 """Valetudo map parser.
-Version: 0.2.5b3"""
+Version: 0.2.6"""
 
 from pathlib import Path
 

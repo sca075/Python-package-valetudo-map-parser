@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### 🔧 Dependencies
+- **Updated**: mvcrender dependency from 0.1.1 to 0.2.0
+  - Adds support for Python 3.14
+  - Waiting for PyPI publication before updating poetry.lock
+
+---
+
 ## [0.2.5] - 2026-02-21
 
 ### 🎉 Stable Release
