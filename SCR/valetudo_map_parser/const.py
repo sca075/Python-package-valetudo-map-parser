@@ -31,10 +31,10 @@ ICON = "mdi:camera"
 NAME = "MQTT Vacuum Camera"
 
 ALLOWED_IMAGE_FORMAT: dict[str, str] = {
-            "pil": "image/pil",
-            "png": "image/png",
-            "jpeg" : "image/jpeg"
-        }
+    "pil": "image/pil",
+    "png": "image/png",
+    "jpeg": "image/jpeg",
+}
 
 DEFAULT_IMAGE_SIZE = {
     "x": 5120,
