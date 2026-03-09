@@ -274,6 +274,18 @@ class ImageData:
             materials_dict[segment_id] = material
 
     @staticmethod
+    def is_conga_map(json_data: Any) -> bool:
+        """Detect whether the JSON data originates from a Conga vacuum.
+
+        Conga maps are identified by the presence of a 'congaPixels' field
+        in at least one layer entry.
+        """
+        layers = json_data.get("layers", []) if isinstance(json_data, dict) else []
+        return any(
+            "congaPixels" in layer for layer in layers if isinstance(layer, dict)
+        )
+
+    @staticmethod
     def _process_map_layer(
         json_obj: dict,
         layer_dict: dict[str, list[Any]],
@@ -287,7 +299,7 @@ class ImageData:
 
         compressed_pixels = json_obj.get("compressedPixels")
         if compressed_pixels is None:
-            pixels = json_obj.get("pixels", [])
+            pixels = json_obj.get("pixels") or json_obj.get("congaPixels", [])
             compressed_pixels = ImageData._convert_pixels_to_compressed(pixels)
 
         layer_dict.setdefault(layer_type, []).append(compressed_pixels)

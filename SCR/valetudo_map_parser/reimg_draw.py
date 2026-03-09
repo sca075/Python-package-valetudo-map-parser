@@ -275,9 +275,7 @@ class ImageDraw:
                 self.data.rrm_valetudo_path_array(path_pixel["points"]), 2
             )
         except KeyError as e:
-            LOGGER.debug(
-                "%s: Error extracting paths data: %s", self.file_name, str(e)
-            )
+            LOGGER.debug("%s: Error extracting paths data: %s", self.file_name, str(e))
         finally:
             if path_pixel_formatted:
                 np_array = await self.draw.lines(

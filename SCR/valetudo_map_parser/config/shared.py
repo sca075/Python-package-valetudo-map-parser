@@ -11,6 +11,7 @@ from typing import List
 from PIL import Image
 
 from ..const import (
+    ALLOWED_IMAGE_FORMAT,
     ATTR_CALIBRATION_POINTS,
     ATTR_CAMERA_MODE,
     ATTR_CONTENT_TYPE,
@@ -27,7 +28,6 @@ from ..const import (
     ATTR_VACUUM_POSITION,
     ATTR_VACUUM_STATUS,
     ATTR_ZONES,
-    ALLOWED_IMAGE_FORMAT,
     CONF_ASPECT_RATIO,
     CONF_AUTO_ZOOM,
     CONF_OBSTACLE_LINK_IP,
@@ -151,17 +151,16 @@ class CameraShared:
             )
         return (self.vacuum_state == "docked") and (self._battery_state == "charging")
 
-    def set_content_type(self, new_image_format:str = "image/pil") -> None:
-        """ Set image format / content type"""
+    def set_content_type(self, new_image_format: str = "image/pil") -> None:
+        """Set image format / content type"""
         if new_image_format not in ALLOWED_IMAGE_FORMAT.keys():
             self._image_format = "image/pil"
             return
         self._image_format = ALLOWED_IMAGE_FORMAT.get(new_image_format)
 
-    def get_content_type(self)->str:
+    def get_content_type(self) -> str:
         """Return the current set _image_format"""
         return self._image_format
-
 
     @staticmethod
     def _compose_obstacle_links(
@@ -406,7 +405,9 @@ class CameraSharedManager:
 
             # Obstacle link configuration
             instance.obstacle_link_ip = device_info.get(CONF_OBSTACLE_LINK_IP)
-            instance.obstacle_link_protocol = device_info.get(CONF_OBSTACLE_LINK_PROTOCOL)
+            instance.obstacle_link_protocol = device_info.get(
+                CONF_OBSTACLE_LINK_PROTOCOL
+            )
             obstacle_link_port = device_info.get(CONF_OBSTACLE_LINK_PORT)
             if obstacle_link_port is not None:
                 try:
