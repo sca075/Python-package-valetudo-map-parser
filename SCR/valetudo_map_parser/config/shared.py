@@ -71,6 +71,7 @@ class CameraShared:
         self.rand256_active_zone: list = []
         self.rand256_zone_coordinates: list = []
         self.is_rand: bool = False
+        self.is_conga: bool = False
         self._new_mqtt_message = False
         self.last_image = Image.new("RGBA", (250, 150), (128, 128, 128, 255))
         self.new_image: PilPNG | None = None

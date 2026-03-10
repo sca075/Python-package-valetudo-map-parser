@@ -11,7 +11,7 @@ from typing import Callable, List, Optional, Tuple
 import numpy as np
 from PIL import Image, ImageOps
 
-from ..map_data import HyperMapData, ImageData
+from ..map_data import HyperMapData
 from .async_utils import AsyncNumPy
 from .colors import ColorIndex
 from .drawable import Drawable
@@ -79,23 +79,6 @@ class BaseHandler:
         self.async_resize_images = async_resize_image
         self.drawing_config: Optional[DrawingConfig] = None
         self.draw: Optional[Drawable] = None
-
-    @staticmethod
-    def detect_vacuum_type(json_data: dict) -> str:
-        """Detect the vacuum type from the raw JSON map data.
-
-        Returns:
-            'conga'   — Conga vacuum (congaPixels present in layers)
-            'hypfer'  — Standard Hypfer/Valetudo vacuum
-            'rand256' — Rand256 / Valetudo Re vacuum (rrm key present)
-        """
-        if not isinstance(json_data, dict):
-            return "hypfer"
-        if "rrm" in json_data or json_data.get("__class") == "RRMap":
-            return "rand256"
-        if ImageData.is_conga_map(json_data):
-            return "conga"
-        return "hypfer"
 
     def get_frame_number(self) -> int:
         """Return the frame number of the image."""
@@ -168,6 +151,9 @@ class BaseHandler:
                 m_json=m_json,
                 destinations=destinations,
             )
+        
+        if hasattr(self, "async_get_conga_from_json"):
+            return await self.async_get_conga_from_json(m_json=m_json)
 
         if hasattr(self, "async_get_image_from_json"):
             self.json_data = await HyperMapData.async_from_valetudo_json(m_json)

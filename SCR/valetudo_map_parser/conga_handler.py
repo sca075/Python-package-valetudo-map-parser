@@ -56,7 +56,7 @@ class CongaMapImageHandler(HypferMapImageHandler):
                 entity["points"] = [v * scale for v in pts]
         return scaled
 
-    async def async_get_image_from_json(
+    async def async_get_conga_from_json(
         self, m_json: JsonType | None
     ) -> Image.Image | None:
         """Scale Conga JSON to pixel_size=CONGA_SCALE, then render normally."""
