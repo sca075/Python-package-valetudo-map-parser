@@ -152,12 +152,20 @@ class CameraShared:
             )
         return (self.vacuum_state == "docked") and (self._battery_state == "charging")
 
-    def set_content_type(self, new_image_format: str = "image/pil") -> None:
-        """Set image format / content type"""
-        if new_image_format not in ALLOWED_IMAGE_FORMAT.keys():
-            self._image_format = "image/pil"
-            return
-        self._image_format = ALLOWED_IMAGE_FORMAT.get(new_image_format)
+    def set_content_type(self, new_image_format: str = "pil") -> None:
+        """Set image format / content type.
+
+        Accepts either a short key ('pil', 'png', 'jpeg') or the full MIME
+        value returned by get_content_type() ('image/pil', 'image/png',
+        'image/jpeg'), so that a round-trip set→get→set preserves the format.
+        Unknown values fall back to 'image/pil'.
+        """
+        if new_image_format in ALLOWED_IMAGE_FORMAT:
+            self._image_format = ALLOWED_IMAGE_FORMAT[new_image_format]
+        elif new_image_format in ALLOWED_IMAGE_FORMAT.values():
+            self._image_format = new_image_format
+        else:
+            self._image_format = ALLOWED_IMAGE_FORMAT["pil"]
 
     def get_content_type(self) -> str:
         """Return the current set _image_format"""
