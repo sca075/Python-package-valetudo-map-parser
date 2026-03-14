@@ -216,7 +216,7 @@ class BaseHandler:
             - "image/jpeg" → JPEG bytes
         """
         if bytes_format:
-            match self.shared.get_content_type():
+            match self.shared.get_content_type:
                 case "image/jpeg":
                     self.shared.binary_image = pil_to_jpeg_bytes(new_image)
                 case "image/png":

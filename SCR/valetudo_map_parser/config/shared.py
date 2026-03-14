@@ -156,7 +156,7 @@ class CameraShared:
         """Set image format / content type.
 
         Accepts either a short key ('pil', 'png', 'jpeg') or the full MIME
-        value returned by get_content_type() ('image/pil', 'image/png',
+        value returned by content_type ('image/pil', 'image/png',
         'image/jpeg'), so that a round-trip set→get→set preserves the format.
         Unknown values fall back to 'image/pil'.
         """
@@ -167,6 +167,7 @@ class CameraShared:
         else:
             self._image_format = ALLOWED_IMAGE_FORMAT["pil"]
 
+    @property
     def get_content_type(self) -> str:
         """Return the current set _image_format"""
         return self._image_format
@@ -392,6 +393,9 @@ class CameraSharedManager:
             )
             instance.vacuum_status_position = device_info.get(
                 CONF_VAC_STAT_POS, DEFAULT_VALUES["vac_status_position"]
+            )
+            instance.set_content_type(
+                device_info.get("def_context_type", "pil")
             )
             # Robot size
             robot_size = device_info.get("robot_size", 25)
