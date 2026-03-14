@@ -36,14 +36,14 @@ logging.basicConfig(
 _LOGGER = logging.getLogger(__name__)
 
 # ----- Test Configuration -----
-TEST_FILE = "x40_carpet.json"  # Changed to test.json which has path data
-FRAME_COUNT = 100  # Set to 1/10/25/50/100 as needed
+TEST_FILE = "X40_carpet.json"  # Changed to test.json which has path data
+FRAME_COUNT = 10  # Set to 1/10/25/50/100 as needed
 ENABLE_PROFILER = True  # Master switch for profiler usage
 ENABLE_CPU_TIMING = False  # Lightweight per-frame CPU timing (process CPU time)
 ENABLE_MEMORY_PROFILING = True  # Use tracemalloc snapshots
 SNAPSHOT_EVERY_FRAME = False  # If False, snapshot only first and last frame
 ENABLE_LEGACY_CPROFILE = False  # Legacy cProfile around the whole run
-ENABLE_PIL_SHOW = False  # Display images with PIL.show() (can cause memory overhead)
+ENABLE_PIL_SHOW = True  # Display images with PIL.show() (can cause memory overhead)
 SAVE_FIRST_FRAME = True  # Save first frame to /tmp for inspection
 # ------------------------------
 
@@ -346,10 +346,10 @@ class TestImageHandler:
             "get_svg_file": False,
             "trims_data": {
                 "floor": "floor_0",
-                "trim_up": 2400,
-                "trim_left": 2945,
-                "trim_down": 3654,
-                "trim_right": 3740,
+                "trim_up": 0,
+                "trim_left": 0,
+                "trim_down": 0,
+                "trim_right": 0,
             },
             "disable_floor": False,
             "disable_wall": False,
@@ -395,6 +395,11 @@ class TestImageHandler:
                 40,
             ],  # Bright GREEN for tile grout lines (testing)
             "alpha_material_tile": 40,  # High alpha for very visible grout
+            # Obstacle link configuration (optional custom endpoint)
+            "obstacle_link_ip": "192.168.1.59",  # Custom IP for obstacle images
+            "obstacle_link_port": 10,  # Custom port for obstacle images
+            "obstacle_link_protocol": "https",  # Custom protocol for obstacle images
+            "def_context_type": "png",
         }
 
         # 'trims_data': {
@@ -426,6 +431,11 @@ class TestImageHandler:
         # Active zones will be populated from the JSON data automatically
         # No need to manually set them here
 
+        _LOGGER.info(
+            "Content type loaded from device_info: %s (expected: image/%s)",
+            shared.get_content_type,
+            device_info.get("def_context_type", "pil"),
+        )
         _LOGGER.debug(f"Shared instance trims: {shared.trims}")
         _LOGGER.info(f"Mop mode enabled: {shared.mop_mode}")
 
