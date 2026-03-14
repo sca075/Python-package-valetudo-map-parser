@@ -286,8 +286,8 @@ class ImageData:
             return
 
         compressed_pixels = json_obj.get("compressedPixels")
-        if compressed_pixels is None:
-            pixels = json_obj.get("pixels", [])
+        if not compressed_pixels:
+            pixels = json_obj.get("pixels") or json_obj.get("congaPixels", [])
             compressed_pixels = ImageData._convert_pixels_to_compressed(pixels)
 
         layer_dict.setdefault(layer_type, []).append(compressed_pixels)
@@ -840,9 +840,9 @@ class HyperMapData:
             json_data
         )
         virtual_walls = ImageData.find_virtual_walls(json_data)
-        pixel_size = int(json_data["pixelSize"])
+        pixel_size = int(json_data.get("pixelSize", 5))
         layers, active_zones, materials = ImageData.find_layers(
-            json_data["layers"], layers, active_zones, materials
+            json_data.get("layers", []), layers, active_zones, materials
         )
         entity_dict = ImageData.find_points_entities(json_data)
 

@@ -151,6 +151,9 @@ class BaseHandler:
                 m_json=m_json,
                 destinations=destinations,
             )
+        
+        if hasattr(self, "async_get_conga_from_json"):
+            return await self.async_get_conga_from_json(m_json=m_json)
 
         if hasattr(self, "async_get_image_from_json"):
             self.json_data = await HyperMapData.async_from_valetudo_json(m_json)

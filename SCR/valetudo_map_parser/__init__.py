@@ -1,5 +1,5 @@
 """Valetudo map parser.
-Version: 0.2.7"""
+Version: 0.3.0b2"""
 
 from pathlib import Path
 
@@ -31,6 +31,7 @@ from .config.utils import (
     pil_to_pil_bytes,
     pil_to_png_bytes,
 )
+from .conga_handler import CongaMapImageHandler
 from .const import (
     ALLOWED_IMAGE_FORMAT,
     ATTR_CALIBRATION_POINTS,
@@ -90,7 +91,7 @@ from .const import (
     SENSOR_NO_DATA,
 )
 from .hypfer_handler import HypferMapImageHandler
-from .map_data import HyperMapData
+from .map_data import HyperMapData, ImageData
 from .rand256_handler import ReImageHandler
 from .rooms_handler import RandRoomsHandler, RoomsHandler
 
@@ -168,11 +169,13 @@ __all__ = [
     "CameraShared",
     "CameraSharedManager",
     "ColorsManagement",
+    "CongaMapImageHandler",
     "Drawable",
     "DrawableElement",
     "DrawingConfig",
     "HyperMapData",
     "HypferMapImageHandler",
+    "ImageData",
     "RRMapParser",
     "RandRoomsHandler",
     "ReImageHandler",
