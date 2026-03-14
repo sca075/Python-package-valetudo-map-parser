@@ -1,4 +1,5 @@
 """Test to check shared.to_dict()['attributes'] output."""
+
 from __future__ import annotations
 
 import json
@@ -6,10 +7,13 @@ import logging
 import os
 import sys
 
+import pytest
+
 # Add the project root directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from SCR.valetudo_map_parser.config.shared import CameraSharedManager
+
 
 # Configure logging
 logging.basicConfig(
@@ -22,7 +26,7 @@ _LOGGER = logging.getLogger(__name__)
 
 def test_shared_attributes():
     """Test shared.to_dict()['attributes'] output."""
-    
+
     # Device info from test.py
     device_info = {
         "platform": "mqtt_vacuum_camera",
@@ -79,25 +83,25 @@ def test_shared_attributes():
         },
         "image_format": "image/jpeg",  # TEST: Set image format via device_info
     }
-    
+
     _LOGGER.info("=" * 80)
     _LOGGER.info("TEST: image_format from device_info")
     _LOGGER.info("=" * 80)
-    
+
     # Initialize shared data
     file_name = "test_shared_attributes"
     shared_data = CameraSharedManager(file_name, device_info)
     shared = shared_data.get_instance()
-    
+
     # Set some vacuum state
     shared.vacuum_state = "docked"
     shared.dock_state = "mop cleaning"
     shared.vacuum_connection = True
     shared.vacuum_battery = 100
     shared.set_content_type("jpeg")
-    
+
     # Check what image_format was set to
-    _LOGGER.info(f"shared.get_content_type() = {shared.get_content_type()}")
+    _LOGGER.info(f"shared.get_content_type = {shared.get_content_type}")
     _LOGGER.info(f"Expected: 'image/jpeg'")
 
     # Get the to_dict output
@@ -111,17 +115,84 @@ def test_shared_attributes():
     _LOGGER.info("\n" + "=" * 80)
     _LOGGER.info("VERIFICATION")
     _LOGGER.info("=" * 80)
-    content_type = result['attributes']['content_type']
+    content_type = result["attributes"]["content_type"]
     _LOGGER.info(f"content_type in attributes: {content_type}")
 
     if content_type == "image/jpeg":
         _LOGGER.info("✅ SUCCESS: set_content_type('jpeg') is working!")
     else:
         _LOGGER.error(f"❌ FAIL: Expected 'image/jpeg', got '{content_type}'")
-    
+
     return result
+
+
+_MINIMAL_DEVICE_INFO = {
+    "platform": "mqtt_vacuum_camera",
+    "unique_id": "test_camera",
+    "vacuum_config_entry": "abc123",
+    "vacuum_map": "valetudo/test",
+    "vacuum_identifiers": {("mqtt", "test")},
+    "is_rand256": False,
+}
+
+
+@pytest.fixture()
+def shared():
+    """Return a fresh CameraShared instance for each test."""
+    mgr = CameraSharedManager("test_content_type", _MINIMAL_DEVICE_INFO)
+    return mgr.get_instance()
+
+
+class TestSetGetContentType:
+    """Tests for set_content_type / get_content_type property round-trips."""
+
+    def test_set_by_key_pil(self, shared):
+        shared.set_content_type("pil")
+        assert shared.get_content_type == "image/pil"
+
+    def test_set_by_key_png(self, shared):
+        shared.set_content_type("png")
+        assert shared.get_content_type == "image/png"
+
+    def test_set_by_key_jpeg(self, shared):
+        shared.set_content_type("jpeg")
+        assert shared.get_content_type == "image/jpeg"
+
+    def test_set_by_mime_pil(self, shared):
+        """Passing a MIME value returned by get_content_type must be accepted."""
+        shared.set_content_type("image/pil")
+        assert shared.get_content_type == "image/pil"
+
+    def test_set_by_mime_png(self, shared):
+        shared.set_content_type("image/png")
+        assert shared.get_content_type == "image/png"
+
+    def test_set_by_mime_jpeg(self, shared):
+        shared.set_content_type("image/jpeg")
+        assert shared.get_content_type == "image/jpeg"
+
+    def test_round_trip_jpeg(self, shared):
+        """set → get → set again must preserve the format."""
+        shared.set_content_type("jpeg")
+        mime = shared.get_content_type           # "image/jpeg"
+        shared.set_content_type(mime)            # must NOT reset to "image/pil"
+        assert shared.get_content_type == "image/jpeg"
+
+    def test_round_trip_png(self, shared):
+        shared.set_content_type("png")
+        shared.set_content_type(shared.get_content_type)
+        assert shared.get_content_type == "image/png"
+
+    def test_invalid_input_falls_back_to_pil(self, shared):
+        shared.set_content_type("webp")
+        assert shared.get_content_type == "image/pil"
+
+    def test_default_parameter_is_pil(self, shared):
+        """Default value of set_content_type() must produce image/pil."""
+        shared.set_content_type("jpeg")          # change away from default
+        shared.set_content_type()                # call with no argument
+        assert shared.get_content_type == "image/pil"
 
 
 if __name__ == "__main__":
     test_shared_attributes()
-
