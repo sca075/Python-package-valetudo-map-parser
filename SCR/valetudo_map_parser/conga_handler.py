@@ -65,3 +65,67 @@ class CongaMapImageHandler(HypferMapImageHandler):
         scaled_json = self._scale_conga_json(m_json, CONGA_SCALE)
         self.json_data = await HyperMapData.async_from_valetudo_json(scaled_json)
         return await super().async_get_image_from_json(m_json=scaled_json)
+
+    def get_vacuum_points(self, rotation_angle: int) -> list[dict[str, int]]:
+        """Calculate the calibration points from crop_area.
+
+        The vacuum points must be returned in the order that matches map_points:
+        [top-left, top-right, bottom-right, bottom-left] of the DISPLAYED image.
+
+        crop_area is in vacuum coordinates and doesn't rotate, so we need to
+        map the correct crop_area corners to the displayed image corners based
+        on rotation.
+        """
+        if not self.crop_area:
+            return [
+                {"x": 0, "y": 0},
+                {"x": 0, "y": 0},
+                {"x": 0, "y": 0},
+                {"x": 0, "y": 0},
+            ]
+
+        vacuum_points = [
+            {
+                "x": self.crop_area[0] // CONGA_SCALE + self.offset_x,
+                "y": self.crop_area[1] // CONGA_SCALE + self.offset_y,
+            },
+            {
+                "x": self.crop_area[2] // CONGA_SCALE - self.offset_x,
+                "y": self.crop_area[1] // CONGA_SCALE + self.offset_y,
+            },
+            {
+                "x": self.crop_area[2] // CONGA_SCALE - self.offset_x,
+                "y": self.crop_area[3] // CONGA_SCALE - self.offset_y,
+            },
+            {
+                "x": self.crop_area[0] // CONGA_SCALE + self.offset_x,
+                "y": self.crop_area[3] // CONGA_SCALE - self.offset_y,
+            },
+        ]
+
+        match rotation_angle:
+            case 90:
+                vacuum_points = [
+                    vacuum_points[1],
+                    vacuum_points[2],
+                    vacuum_points[3],
+                    vacuum_points[0],
+                ]
+            case 180:
+                vacuum_points = [
+                    vacuum_points[2],
+                    vacuum_points[3],
+                    vacuum_points[0],
+                    vacuum_points[1],
+                ]
+            case 270:
+                vacuum_points = [
+                    vacuum_points[3],
+                    vacuum_points[0],
+                    vacuum_points[1],
+                    vacuum_points[2],
+                ]
+            case _:
+                pass
+
+        return vacuum_points
