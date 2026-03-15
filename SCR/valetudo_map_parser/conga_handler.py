@@ -56,6 +56,23 @@ class CongaMapImageHandler(HypferMapImageHandler):
                 entity["points"] = [v * scale for v in pts]
         return scaled
 
+    async def async_get_rooms_attributes(self):
+        """Get room attributes with outline and centre coordinates divided back by CONGA_SCALE.
+
+        The parent extracts outlines from the pre-scaled JSON, so every coordinate is
+        multiplied by CONGA_SCALE.  Dividing here restores the original vacuum space.
+        """
+        rooms = await super().async_get_rooms_attributes()
+        if not rooms:
+            return rooms
+        for room_data in rooms.values():
+            room_data["outline"] = [
+                (x // CONGA_SCALE, y // CONGA_SCALE) for x, y in room_data["outline"]
+            ]
+            room_data["x"] = room_data["x"] // CONGA_SCALE
+            room_data["y"] = room_data["y"] // CONGA_SCALE
+        return rooms
+
     async def async_get_conga_from_json(
         self, m_json: JsonType | None
     ) -> Image.Image | None:
