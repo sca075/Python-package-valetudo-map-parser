@@ -129,4 +129,3 @@ class CongaMapImageHandler(HypferMapImageHandler):
                 pass
 
         return vacuum_points
-
