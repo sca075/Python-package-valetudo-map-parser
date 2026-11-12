@@ -1,26 +1,26 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import cProfile
-import pstats
-import tracemalloc
-
-import psutil
 import gc
+import logging
+import os
+import pstats
+import sys
 import time
+import tracemalloc
 from typing import Dict, List, Tuple
 
-import sys
-import os
+import psutil
+
 
 # Add the parent directory to the path so we can import the SCR module
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from SCR.valetudo_map_parser.config.colors import ColorsManagement
+from SCR.valetudo_map_parser.config.rand256_parser import RRMapParser as Rand256Parser
 from SCR.valetudo_map_parser.config.shared import CameraSharedManager
 from SCR.valetudo_map_parser.rand256_handler import ReImageHandler
-from SCR.valetudo_map_parser.config.rand256_parser import RRMapParser as Rand256Parser
 
 
 # Configure logging

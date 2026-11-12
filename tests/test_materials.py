@@ -19,8 +19,8 @@ logging.basicConfig(level=logging.INFO)
 _LOGGER = logging.getLogger(__name__)
 
 
-async def test_materials():
-    """Test that materials are extracted and applied."""
+async def run_materials():
+    """Check that materials are extracted and applied."""
     # Load test JSON
     json_path = Path(__file__).parent / "X40_carpet.json"
     with open(json_path) as f:
@@ -48,11 +48,11 @@ async def test_materials():
         "image_auto_zoom": False,
     }
 
-    shared = CameraSharedManager("test_materials")
-    shared.update_shared_data(device_info)
+    shared = CameraSharedManager("test_materials", device_info).get_instance()
 
+    # async_get_image parses the JSON into handler.json_data before drawing.
     handler = HypferMapImageHandler(shared)
-    image_data = await handler.async_get_image_from_json(json_data)
+    image_data, _ = await handler.async_get_image(json_data)
 
     assert image_data is not None, "Image generation failed"
     assert handler.json_data is not None, "JSON data not stored"
@@ -72,8 +72,12 @@ async def test_materials():
     return True
 
 
+def test_materials():
+    assert asyncio.run(run_materials())
+
+
 if __name__ == "__main__":
-    result = asyncio.run(test_materials())
+    result = asyncio.run(run_materials())
     if result:
         print("\n✅ All material tests passed!")
     else:

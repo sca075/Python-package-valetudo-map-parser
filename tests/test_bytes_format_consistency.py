@@ -12,6 +12,7 @@ import os
 import sys
 from pathlib import Path
 
+
 # Add the project root directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -19,12 +20,13 @@ from SCR.valetudo_map_parser.config.colors import ColorsManagement
 from SCR.valetudo_map_parser.config.shared import CameraSharedManager
 from SCR.valetudo_map_parser.hypfer_handler import HypferMapImageHandler
 
+
 logging.basicConfig(level=logging.INFO)
 _LOGGER = logging.getLogger(__name__)
 
 
-async def test_bytes_format_consistency():
-    """Test that data structure is consistent for both bytes_format values."""
+async def run_bytes_format_consistency():
+    """Check that data structure is consistent for both bytes_format values."""
 
     # Load test JSON
     json_path = Path(__file__).parent / "X40_carpet.json"
@@ -50,29 +52,35 @@ async def test_bytes_format_consistency():
     file_name = "test_bytes_format_true"
     shared_data_true = CameraSharedManager(file_name, device_info)
     shared_true = shared_data_true.get_instance()
+    # bytes_format=True is used with a streaming content type (as the camera does);
+    # the default "image/pil" content type is meant for bytes_format=False.
+    shared_true.set_content_type("png")
     colors_true = ColorsManagement(shared_true)
     colors_true.set_initial_colours(device_info)
 
     handler_true = HypferMapImageHandler(shared_true)
     image_true, data_true = await handler_true.async_get_image(
-        m_json=json_data,
-        bytes_format=True
+        m_json=json_data, bytes_format=True
     )
-    
+
     _LOGGER.info(f"Image type: {type(image_true)}")
     _LOGGER.info(f"Data keys: {list(data_true.keys())}")
     _LOGGER.info(f"Data['image'] keys: {list(data_true.get('image', {}).keys())}")
-    
+
     assert "image" in data_true, "❌ FAIL: data['image'] missing with bytes_format=True"
     assert "binary" in data_true["image"], "❌ FAIL: data['image']['binary'] missing"
     assert "size" in data_true["image"], "❌ FAIL: data['image']['size'] missing"
-    assert isinstance(data_true["image"]["binary"], bytes), "❌ FAIL: binary should be bytes"
-    assert isinstance(data_true["image"]["size"], tuple), "❌ FAIL: size should be tuple"
-    
+    assert isinstance(data_true["image"]["binary"], bytes), (
+        "❌ FAIL: binary should be bytes"
+    )
+    assert isinstance(data_true["image"]["size"], tuple), (
+        "❌ FAIL: size should be tuple"
+    )
+
     _LOGGER.info(f"✅ Binary type: {type(data_true['image']['binary'])}")
     _LOGGER.info(f"✅ Binary size: {len(data_true['image']['binary'])} bytes")
     _LOGGER.info(f"✅ Image size: {data_true['image']['size']}")
-    
+
     # Test with bytes_format=False
     _LOGGER.info("")
     _LOGGER.info("=" * 60)
@@ -88,29 +96,33 @@ async def test_bytes_format_consistency():
 
     handler_false = HypferMapImageHandler(shared_false)
     image_false, data_false = await handler_false.async_get_image(
-        m_json=json_data,
-        bytes_format=False
+        m_json=json_data, bytes_format=False
     )
-    
+
     _LOGGER.info(f"Image type: {type(image_false)}")
     _LOGGER.info(f"Data keys: {list(data_false.keys())}")
     _LOGGER.info(f"Data['image'] keys: {list(data_false.get('image', {}).keys())}")
-    
+
     # This is the critical test - data["image"] should exist even with bytes_format=False
-    assert "image" in data_false, "❌ FAIL: data['image'] missing with bytes_format=False"
+    assert "image" in data_false, (
+        "❌ FAIL: data['image'] missing with bytes_format=False"
+    )
     assert "binary" in data_false["image"], "❌ FAIL: data['image']['binary'] missing"
     assert "size" in data_false["image"], "❌ FAIL: data['image']['size'] missing"
-    assert isinstance(data_false["image"]["size"], tuple), "❌ FAIL: size should be tuple"
-    
+    assert isinstance(data_false["image"]["size"], tuple), (
+        "❌ FAIL: size should be tuple"
+    )
+
     _LOGGER.info(f"✅ Binary type: {type(data_false['image']['binary'])}")
-    if isinstance(data_false['image']['binary'], bytes):
+    if isinstance(data_false["image"]["binary"], bytes):
         _LOGGER.info(f"✅ Binary size: {len(data_false['image']['binary'])} bytes")
     _LOGGER.info(f"✅ Image size: {data_false['image']['size']}")
-    
+
     # Verify sizes match
-    assert data_true["image"]["size"] == data_false["image"]["size"], \
+    assert data_true["image"]["size"] == data_false["image"]["size"], (
         "❌ FAIL: Image sizes don't match between bytes_format=True and False"
-    
+    )
+
     _LOGGER.info("")
     _LOGGER.info("=" * 60)
     _LOGGER.info("✅ SUCCESS: API consistency verified!")
@@ -124,6 +136,9 @@ async def test_bytes_format_consistency():
     _LOGGER.info("  - Avoids PIL → PNG → PIL → JPEG (2 conversions)")
 
 
-if __name__ == "__main__":
-    asyncio.run(test_bytes_format_consistency())
+def test_bytes_format_consistency():
+    asyncio.run(run_bytes_format_consistency())
 
+
+if __name__ == "__main__":
+    test_bytes_format_consistency()

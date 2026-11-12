@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/Python-package-valetudo-map-parser.iml" filepath="$PROJECT_DIR$/.idea/Python-package-valetudo-map-parser.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/valetudo-map-parser.iml" filepath="$PROJECT_DIR$/.idea/valetudo-map-parser.iml" />
     </modules>
   </component>
 </project>
