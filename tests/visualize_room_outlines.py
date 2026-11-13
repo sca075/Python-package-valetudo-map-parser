@@ -17,15 +17,17 @@ import logging
 import os
 import sys
 import time
-from typing import Dict, Any, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
-from PIL import Image, ImageDraw
 
 # Import the room extraction code from manage_rooms.py
-from manage_rooms import load_test_data, HypferRoomsHandler
+from manage_rooms import HypferRoomsHandler, load_test_data
+from PIL import Image, ImageDraw
 from rooms_test import async_extract_room_properties
+
 from SCR.valetudo_map_parser.rooms_handler import RoomsHandler
+
 
 # Set up logging
 logging.basicConfig(

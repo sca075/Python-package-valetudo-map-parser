@@ -7,12 +7,14 @@ import logging
 import os
 import sys
 
+
 # Add the project root directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from SCR.valetudo_map_parser.config.colors import ColorsManagement
 from SCR.valetudo_map_parser.config.shared import CameraSharedManager
 from SCR.valetudo_map_parser.hypfer_handler import HypferMapImageHandler
+
 
 # Configure logging
 logging.basicConfig(
@@ -54,7 +56,7 @@ def test_reload_with_rotation_change():
         "vacuum_identifiers": "test_vacuum",
         "vacuum_model": "Dreame.vacuum.r2228o",
         "auto_zoom": True,
-        "margins": 100,
+        "margins": 10,
         "rotate_image": 270,
         "aspect_ratio": "1, 1",
     }
@@ -93,7 +95,7 @@ def test_reload_with_rotation_change():
     # Clean up
     del shared_data_270, shared_270, handler_270, colors_270
     if image_270:
-        image_270.close()
+        image_270.show()
 
     # SCENARIO 2: Reload with rotation changed to 0° but old trims
     print("\n" + "=" * 70)
@@ -139,7 +141,7 @@ def test_reload_with_rotation_change():
 
     # Save images for visual inspection
     if image_0:
-        image_0.save("/tmp/reload_test_0_with_old_trims.png")
+        image_0.show()
         print(f"\n💾 Saved image to /tmp/reload_test_0_with_old_trims.png")
 
     print("\n" + "=" * 70)
