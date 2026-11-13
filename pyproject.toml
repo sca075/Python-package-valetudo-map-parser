@@ -18,7 +18,7 @@ python = ">=3.13"
 numpy = ">=2.3.2"  # aligned with Home Assistant 2026.11 package constraints
 Pillow = ">=13.0.0"  # aligned with Home Assistant 2026.11 package constraints
 scipy = ">=1.17.0"
-mvcrender = "==0.2.6"
+mvcrender = "==0.2.5"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "*"
@@ -31,6 +31,7 @@ psutil = "*"  # used by the memory/performance tests
 # Pytest settings
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pytest-asyncio = "*"
 # Disable the globally installed Home Assistant pytest plugin (if present): its
 # autouse fixture calls asyncio.get_event_loop() and breaks asyncio.run() based tests.
 addopts = "-p no:homeassistant"
