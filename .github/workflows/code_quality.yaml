@@ -4,6 +4,9 @@ on:
       - master
   push:
 
+permissions:
+  contents: read
+
 jobs:
   code_quality:
     name: ${{ matrix.name }}
