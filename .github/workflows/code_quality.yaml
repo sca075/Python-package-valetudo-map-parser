@@ -4,6 +4,9 @@ on:
       - master
   push:
 
+permissions:
+  contents: read
+
 jobs:
   code_quality:
     name: ${{ matrix.name }}
@@ -20,10 +23,10 @@ jobs:
           #   name: Check code with pylint
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python 3
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         id: python
         with:
           python-version: "3.13"
