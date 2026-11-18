@@ -48,7 +48,10 @@ async def run_materials():
         "image_auto_zoom": False,
     }
 
+    from SCR.valetudo_map_parser.config.colors import ColorsManagement
+
     shared = CameraSharedManager("test_materials", device_info).get_instance()
+    ColorsManagement(shared).set_initial_colours(device_info)
 
     # async_get_image parses the JSON into handler.json_data before drawing.
     handler = HypferMapImageHandler(shared)
