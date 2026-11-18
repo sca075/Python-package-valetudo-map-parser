@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="test.py" type="PythonConfigurationType" factoryName="Python" activateToolWindowBeforeRun="false" focusToolWindowBeforeRun="true" show_console_on_std_err="true" show_console_on_std_out="true">
-    <module name="Python-package-valetudo-map-parser" />
+    <module name="valetudo-map-parser" />
     <option name="ENV_FILES" value="" />
     <option name="INTERPRETER_OPTIONS" value="" />
     <option name="PARENT_ENVS" value="true" />
@@ -12,6 +12,8 @@
     <option name="IS_MODULE_SDK" value="true" />
     <option name="ADD_CONTENT_ROOTS" value="true" />
     <option name="ADD_SOURCE_ROOTS" value="true" />
+    <option name="RUN_TOOL" value="" />
+    <option name="RUN_AS_SCRIPT" value="" />
     <option name="SCRIPT_NAME" value="tests/test.py" />
     <option name="PARAMETERS" value="" />
     <option name="SHOW_COMMAND_LINE" value="false" />

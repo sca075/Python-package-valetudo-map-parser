@@ -336,7 +336,7 @@ class TestImageHandler:
             "offset_bottom": 0,
             "offset_left": 0,
             "offset_right": 0,
-            "rotate_image": "270",
+            "rotate_image": "0",
             "margins": "100",
             "show_vac_status": True,
             "vac_status_font": "SCR/valetudo_map_parser/config/fonts/FiraSans.ttf",

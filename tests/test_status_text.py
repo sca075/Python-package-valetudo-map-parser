@@ -7,11 +7,13 @@ import os
 import sys
 
 from PIL import Image
-from valetudo_map_parser.config.shared import CameraSharedManager
-from SCR.valetudo_map_parser.config.status_text.status_text import StatusText
+
 
 # Ensure package root is on sys.path for test execution contexts
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from SCR.valetudo_map_parser.config.shared import CameraSharedManager
+from SCR.valetudo_map_parser.config.status_text.status_text import StatusText
 
 
 async def _build_shared(file_name: str = "test_device"):
@@ -29,14 +31,15 @@ async def _build_shared(file_name: str = "test_device"):
 
 
 def run_async(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    # asyncio.run creates and closes its own loop (works on Python 3.13 and 3.14+).
+    return asyncio.run(coro)
 
 
 def test_language_fallback_and_ready_text():
     async def inner():
         shared = await _build_shared()
         shared.user_language = None  # fallback to EN
-        st = StatusText(hass=None, camera_shared=shared)
+        st = StatusText(shared)
         img = Image.new("RGBA", (300, 50), (0, 0, 0, 0))
 
         status_text, size = await st.get_status_text(img)
@@ -54,7 +57,7 @@ def test_language_fallback_and_ready_text():
 def test_docked_battery_branches():
     async def inner():
         shared = await _build_shared()
-        st = StatusText(hass=None, camera_shared=shared)
+        st = StatusText(shared)
         img = Image.new("RGBA", (600, 60), (0, 0, 0, 0))
 
         # Battery < 100 -> should show charging symbol and percentage
@@ -75,7 +78,7 @@ def test_mqtt_disconnected_uses_translated_key():
         shared = await _build_shared()
         shared.vacuum_connection = False
         shared.user_language = "en"
-        st = StatusText(hass=None, camera_shared=shared)
+        st = StatusText(shared)
         img = Image.new("RGBA", (400, 40), (0, 0, 0, 0))
 
         status_text, _ = await st.get_status_text(img)
@@ -87,19 +90,20 @@ def test_mqtt_disconnected_uses_translated_key():
 def test_current_room_suffix_appended():
     async def inner():
         shared = await _build_shared()
-        st = StatusText(hass=None, camera_shared=shared)
+        st = StatusText(shared)
         img = Image.new("RGBA", (400, 40), (0, 0, 0, 0))
 
         status_text, _ = await st.get_status_text(img)
         # Should contain " (Kitchen)"
-        print(status_text)
         assert any(" (Kitchen)" in t for t in status_text)
+
+    run_async(inner())
 
 
 def test_graceful_when_no_image_passed():
     async def inner():
         shared = await _build_shared()
-        st = StatusText(hass=None, camera_shared=shared)
+        st = StatusText(shared)
         status_text, size = await st.get_status_text(None)  # type: ignore[arg-type]
         assert size == shared.vacuum_status_size
         assert status_text[0].startswith(shared.file_name + ": ")
@@ -110,7 +114,7 @@ def test_graceful_when_no_image_passed():
 def test_graceful_when_image_closed():
     async def inner():
         shared = await _build_shared()
-        st = StatusText(hass=None, camera_shared=shared)
+        st = StatusText(shared)
         img = Image.new("RGBA", (300, 50), (0, 0, 0, 0))
         img.close()
         status_text, size = await st.get_status_text(img)
@@ -123,7 +127,7 @@ def test_graceful_when_image_closed():
 def test_dynamic_size_uses_image_width_when_large_size():
     async def inner():
         shared = await _build_shared()
-        st = StatusText(hass=None, camera_shared=shared)
+        st = StatusText(shared)
 
         # Two images with different widths should yield different computed sizes when size >= 50
         img_small = Image.new("RGBA", (200, 40), (0, 0, 0, 0))

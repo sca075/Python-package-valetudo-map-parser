@@ -46,8 +46,8 @@ def format_bytes(bytes_val):
     return f"{bytes_val:.1f}TB"
 
 
-async def test_memory_leak():
-    """Test for memory leaks in image generation."""
+async def run_memory_leak():
+    """Report memory growth in image generation (informational, no thresholds)."""
     # Load test data
     json_path = Path(__file__).parent / TEST_FILE
     with open(json_path) as f:
@@ -136,5 +136,9 @@ async def test_memory_leak():
     tracemalloc.stop()
 
 
+def test_memory_leak():
+    asyncio.run(run_memory_leak())
+
+
 if __name__ == "__main__":
-    asyncio.run(test_memory_leak())
+    test_memory_leak()
