@@ -79,6 +79,32 @@ def test_materials():
     assert asyncio.run(run_materials())
 
 
+async def render_map(json_data, name):
+    from SCR.valetudo_map_parser.config.colors import ColorsManagement
+
+    device_info = {"rand256": False, "image_rotate": 0, "image_auto_zoom": False}
+    shared = CameraSharedManager(name, device_info).get_instance()
+    ColorsManagement(shared).set_initial_colours(device_info)
+    image, _ = await HypferMapImageHandler(shared).async_get_image(json_data)
+    return image
+
+
+def test_materials_follow_segment_id_not_position():
+    json_path = Path(__file__).parent / "X40_carpet.json"
+    with open(json_path) as f:
+        contiguous = json.load(f)
+    with_gap = json.loads(json.dumps(contiguous))
+    for layer in with_gap["layers"]:
+        meta = layer.get("metaData") or {}
+        if layer["type"] == "segment" and int(meta["segmentId"]) >= 2:
+            meta["segmentId"] = str(int(meta["segmentId"]) + 1)
+
+    expected = asyncio.run(render_map(contiguous, "test_materials_contiguous"))
+    actual = asyncio.run(render_map(with_gap, "test_materials_with_gap"))
+
+    assert actual.tobytes() == expected.tobytes()
+
+
 if __name__ == "__main__":
     result = asyncio.run(run_materials())
     if result:

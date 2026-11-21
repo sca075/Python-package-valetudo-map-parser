@@ -131,7 +131,12 @@ class ImageDraw:
                         DrawableElement.MATERIAL_OVERLAY
                     )
                 ):
-                    segment_id = str(room_id + 1)
+                    # Valetudo segment IDs can have gaps, so room_id (the draw
+                    # position) is not the segment ID.
+                    segment_ids = getattr(self.img_h.json_data, "segment_ids", [])
+                    segment_id = (
+                        segment_ids[room_id] if room_id < len(segment_ids) else None
+                    )
                     materials = getattr(self.img_h.json_data, "materials", {})
                     material = materials.get(segment_id)
                     if material and material != "generic":

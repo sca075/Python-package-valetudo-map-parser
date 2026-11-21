@@ -260,15 +260,19 @@ class ImageData:
 
     @staticmethod
     def _extract_segment_metadata(
-        meta_data: dict, active_list: list[int], materials_dict: dict[str, str]
+        meta_data: dict,
+        active_list: list[int],
+        materials_dict: dict[str, str],
+        segment_ids: list[str | None],
     ) -> None:
-        """Extract active flag and material from segment metadata."""
+        """Extract active flag, segment ID and material from segment metadata."""
         try:
             active_list.append(int(meta_data.get("active", 0)))
         except (ValueError, TypeError):
             pass
 
         segment_id = meta_data.get("segmentId")
+        segment_ids.append(segment_id)
         material = meta_data.get("material")
         if segment_id and material:
             materials_dict[segment_id] = material
@@ -279,6 +283,7 @@ class ImageData:
         layer_dict: dict[str, list[Any]],
         active_list: list[int],
         materials_dict: dict[str, str],
+        segment_ids: list[str | None],
     ) -> None:
         """Process a single MapLayer object."""
         layer_type = json_obj.get("type")
@@ -294,7 +299,9 @@ class ImageData:
 
         if layer_type == "segment":
             meta_data = json_obj.get("metaData") or {}
-            ImageData._extract_segment_metadata(meta_data, active_list, materials_dict)
+            ImageData._extract_segment_metadata(
+                meta_data, active_list, materials_dict, segment_ids
+            )
 
     @staticmethod
     def find_layers(
@@ -302,6 +309,7 @@ class ImageData:
         layer_dict: dict[str, list[Any]] | None,
         active_list: list[int] | None,
         materials_dict: dict[str, str] | None = None,
+        segment_ids: list[str | None] | None = None,
     ) -> tuple[dict[str, list[Any]], list[int], dict[str, str]]:
         """
         Recursively traverse a JSON-like structure to find MapLayer entries.
@@ -311,6 +319,8 @@ class ImageData:
             layer_dict: Optional mapping of layer_type to a list of compressed pixel data.
             active_list: Optional list of active segment flags.
             materials_dict: Optional mapping of segment_id to material type.
+            segment_ids: Optional list filled with the segment ID of each segment
+                layer, in the order the layers are found (the draw order).
 
         Returns:
             A tuple:
@@ -325,19 +335,25 @@ class ImageData:
 
         if materials_dict is None:
             materials_dict = {}
+        if segment_ids is None:
+            segment_ids = []
 
         if isinstance(json_obj, dict):
             if json_obj.get("__class") == "MapLayer":
                 ImageData._process_map_layer(
-                    json_obj, layer_dict, active_list, materials_dict
+                    json_obj, layer_dict, active_list, materials_dict, segment_ids
                 )
 
             for _, value in json_obj.items():
-                ImageData.find_layers(value, layer_dict, active_list, materials_dict)
+                ImageData.find_layers(
+                    value, layer_dict, active_list, materials_dict, segment_ids
+                )
 
         elif isinstance(json_obj, list):
             for item in json_obj:
-                ImageData.find_layers(item, layer_dict, active_list, materials_dict)
+                ImageData.find_layers(
+                    item, layer_dict, active_list, materials_dict, segment_ids
+                )
 
         return layer_dict, active_list, materials_dict
 
@@ -819,6 +835,7 @@ class HyperMapData:
     active_zones: list[int] = field(default_factory=list)
     virtual_walls: list[list[tuple[float, float]]] = field(default_factory=list)
     materials: dict[str, str] = field(default_factory=dict)
+    segment_ids: list[str | None] = field(default_factory=list)
 
     @classmethod
     async def async_from_valetudo_json(cls, json_data: Any) -> "HyperMapData":
@@ -835,6 +852,7 @@ class HyperMapData:
         layers = {}
         active_zones = []
         materials = {}
+        segment_ids = []
         # Hypothetical obstacles finder, if you have one
         obstacles = getattr(ImageData, "find_obstacles_entities", lambda *_: {})(
             json_data
@@ -842,7 +860,7 @@ class HyperMapData:
         virtual_walls = ImageData.find_virtual_walls(json_data)
         pixel_size = int(json_data.get("pixelSize", 5))
         layers, active_zones, materials = ImageData.find_layers(
-            json_data.get("layers", []), layers, active_zones, materials
+            json_data.get("layers", []), layers, active_zones, materials, segment_ids
         )
         entity_dict = ImageData.find_points_entities(json_data)
 
@@ -859,6 +877,7 @@ class HyperMapData:
             layers=layers,
             active_zones=active_zones,
             materials=materials,
+            segment_ids=segment_ids,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -883,6 +902,7 @@ class HyperMapData:
             active_zones=data.get("active_zones", []),
             virtual_walls=data.get("virtual_walls", []),
             materials=data.get("materials", {}),
+            segment_ids=data.get("segment_ids", []),
         )
 
     def update_from_dict(self, updates: dict[str, Any]) -> None:
@@ -903,6 +923,7 @@ class HyperMapData:
             "layers",
             "active_zones",
             "virtual_walls",
+            "segment_ids",
         }
         for key, value in updates.items():
             if key not in allowed:
